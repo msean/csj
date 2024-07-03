@@ -1,0 +1,11 @@
+From alpine:latest
+
+COPY app_bin /usr/local/bin/
+
+WORKDIR /
+
+ENV ORCH_CONF=/etc/caishuji/conf.yaml
+
+STOPSIGNAL SIGRTMIN+3
+
+ENTRYPOINT server -c $ORCH_CONF

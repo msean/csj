@@ -1,0 +1,8 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2024-06-22 23:05:56.202	[34minfo[0m	/Users/msean/project/personal/caishuji/backend/server/initialize/gorm.go:61	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2024-06-22 23:05:56.231	[34minfo[0m	/Users/msean/project/personal/caishuji/backend/server/initialize/router.go:60	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2024-06-22 23:05:56.234	[34minfo[0m	/Users/msean/project/personal/caishuji/backend/server/initialize/router.go:99	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2024-06-22 23:05:56.235	[34minfo[0m	/Users/msean/project/personal/caishuji/backend/server/core/server.go:37	server run success on 	{"address": ":8888"}
+[github.com/flipped-aurora/gin-vue-admin/server]2024-06-22 23:13:48.965	[34minfo[0m	/Users/msean/project/personal/caishuji/backend/server/initialize/gorm.go:61	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2024-06-22 23:13:48.999	[34minfo[0m	/Users/msean/project/personal/caishuji/backend/server/initialize/router.go:60	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2024-06-22 23:13:49.002	[34minfo[0m	/Users/msean/project/personal/caishuji/backend/server/initialize/router.go:99	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2024-06-22 23:13:49.002	[34minfo[0m	/Users/msean/project/personal/caishuji/backend/server/core/server.go:37	server run success on 	{"address": ":8091"}
