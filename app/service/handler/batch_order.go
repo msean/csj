@@ -13,6 +13,9 @@ import (
 func batchOrderRouter(g *gin.RouterGroup) {
 	batchOrderGroup := g.Group("/batch_order", middleware.AuthMiddleware())
 	{
+		// 码单
+		batchOrderGroup.POST("/temp/create", BatchOrderTempCreate)
+		// 下单
 		batchOrderGroup.POST("/create", BatchOrderCreate)
 		batchOrderGroup.POST("/update", BatchOrderUpdate)
 		batchOrderGroup.POST("/update_status", BatchOrderUpdateStatus)
@@ -23,13 +26,37 @@ func batchOrderRouter(g *gin.RouterGroup) {
 	}
 }
 
-func BatchOrderCreate(c *gin.Context) {
+// 码单
+func BatchOrderTempCreate(c *gin.Context) {
 	order := logic.NewBatchOrderLogic(c)
 	if err := c.ShouldBind(&order); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
+	if err := order.TempCreate(); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	go order.Record(false, model.HistoryStepOrder, model.PayFeild{})
+	common.Response(c, nil, order)
+}
+
+func BatchOrderCreate(c *gin.Context) {
+	type Form struct {
+		model.BatchOrder
+		PayAmount float32 `json:"pay_amount"`
+		PayType   float32 `json:"pay_type"`
+	}
+	var form Form
+	// order := logic.NewBatchOrderLogic(c)
+	if err := c.ShouldBind(&form); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+
+	order := logic.NewBatchOrderLogic(c)
+	order.BatchOrder = form.BatchOrder
 	if err := order.Create(); err != nil {
 		common.Response(c, err, nil)
 		return

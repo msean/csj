@@ -24,3 +24,12 @@ func (c *Customer) Update(db *gorm.DB) (err error) {
 		Addr:   c.Addr,
 	}).Error
 }
+
+func NewTempCustomer(ownerUser string, db *gorm.DB) (err error) {
+	c := Customer{
+		Name:      "临时客户",
+		Remark:    "临时客户",
+		OwnerUser: ownerUser,
+	}
+	return CreateObj(db, &c)
+}

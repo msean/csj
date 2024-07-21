@@ -49,9 +49,34 @@ func NewBatchOrderGoodsLogic(context *gin.Context) *BatchOrderGoodsLogic {
 	return logic
 }
 
+// 码单
+func (logic *BatchOrderLogic) TempCreate() (err error) {
+	logic.BatchOrder.DefaultSet()
+
+	if logic.BatchUUID == "" {
+		return common.BatchUUIDRequireErr
+	}
+	if len(logic.GoodsListRelated) == 0 {
+		return common.BatchOrderGoodsRequireErr
+	}
+
+	for _, goods := range logic.GoodsListRelated {
+		goods.OwnerUser = logic.OwnerUser
+		goods.BatchUUID = logic.BatchUUID
+		goods.UserUUID = logic.UserUUID
+	}
+
+	if err = model.CreateObj(logic.runtime.DB, &logic.BatchOrder); err != nil {
+		return
+	}
+	logic.SetFeilds()
+	return
+}
+
+// 下单
 func (logic *BatchOrderLogic) Create() (err error) {
 	tx := logic.runtime.DB.Begin()
-	logic.BatchOrder.DefaultSet()
+	logic.BatchOrder.Shared = model.BatchOrderUnshare
 
 	if logic.BatchUUID == "" {
 		return common.BatchUUIDRequireErr

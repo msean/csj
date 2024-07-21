@@ -1,2 +1,4 @@
 *bin
 *tar
+deploy/*yaml
+.DS_Store

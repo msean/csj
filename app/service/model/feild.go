@@ -1,15 +1,24 @@
 package model
 
-import "gorm.io/gorm"
+import (
+	"fmt"
+
+	"gorm.io/gorm"
+)
 
 type (
+	SurplusFeild struct {
+		Weight  float32 `gorm:"-" json:"-"`
+		Mount   int32   `gorm:"-" json:"-"`
+		Surplus string  `gorm:"-" json:"surplus"`
+	}
 	CustomerFeild struct {
 		CustomerName  string `gorm:"-"  json:"customerName"`
 		CustomerPhone string `gorm:"-"  json:"customerPhone"`
 	}
 	GoodsFeild struct {
-		GoodsName string `gorm:"-" json:"Name"`
-		GoodsTyp  int32  `gorm:"-" json:"Typ"`
+		GoodsName string `gorm:"-" json:"name"`
+		GoodsTyp  int32  `gorm:"-" json:"type"`
 	}
 	PayFeild struct {
 		PayFee  float32 `gorm:"-"  json:"payFee"`
@@ -67,5 +76,45 @@ func BatchGoodsFeildSet(db *gorm.DB, uuidList []string, ownerUser string) (goods
 			GoodsTyp:  c.Typ,
 		}
 	}
+	return
+}
+
+// goodsM key goods uuid
+func SetSurplusByBatch(db *gorm.DB, batchUUID string) (goodsM map[string]*SurplusFeild, err error) {
+	goodsM = make(map[string]*SurplusFeild)
+	var _bgs []BatchGoods
+	if err = Find(db, &_bgs, NewWhereCond("batch_uuid", batchUUID)); err != nil {
+		return
+	}
+	for _, _bg := range _bgs {
+		goodsM[_bg.GoodsUUID] = &SurplusFeild{
+			Weight: _bg.Weight,
+			Mount:  _bg.Mount,
+		}
+	}
+	var _bos []BatchOrderGoods
+	if err = Find(db, &_bos, NewWhereCond("batch_uuid", batchUUID)); err != nil {
+		return
+	}
+	for _, _bo := range _bos {
+		if _, ok := goodsM[_bo.GoodsUUID]; ok {
+			goodsM[_bo.GoodsUUID] = &SurplusFeild{
+				Weight: goodsM[_bo.GoodsUUID].Weight - _bo.Weight,
+				Mount:  goodsM[_bo.GoodsUUID].Mount - _bo.Mount,
+			}
+		}
+	}
+	for _, surplus := range goodsM {
+		surplus.Set()
+	}
+	return
+}
+
+func (s *SurplusFeild) Set() {
+	if s.Mount != 0 {
+		s.Surplus = fmt.Sprintf("%d", s.Mount)
+		return
+	}
+	s.Surplus = fmt.Sprintf("%.2f", s.Weight)
 	return
 }

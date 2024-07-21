@@ -33,6 +33,7 @@ type (
 		Weight    float32 `gorm:"column:weight;type:decimal(10,2);comment:重量" json:"weight"`
 		Mount     int32   `gorm:"column:mount;comment:数量" json:"mount"`
 		GoodsFeild
+		SurplusFeild
 	}
 )
 
@@ -57,12 +58,12 @@ func SerioalNo(dt time.Time) string {
 	return fmt.Sprintf("%d-%d-%d", dt.Year(), dt.Month(), dt.Day())
 }
 
-func (b *Batch) Df() {
+func (b *Batch) Default() {
 	b.Status = BatchStatusOnSellering
 	b.SerialNo = SerioalNo(time.Time{})
 }
 
-func (b *BatchOrder) Df() {
+func (b *BatchOrder) DefaultSet() {
 	b.Status = BatchOrderTemp
 	b.Shared = BatchOrderUnshare
 }

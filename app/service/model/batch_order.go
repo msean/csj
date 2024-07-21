@@ -31,6 +31,8 @@ type (
 		Shared           int32              `gorm:"column:shared;comment:是否分享单" json:"shared"`
 		SharedTime       int32              `gorm:"column:share_time;comment:分享时间" json:"sharedTime"`
 		Status           int32              `gorm:"column:status;comment:状态" json:"status"`
+		Amount           float32            `gorm:"column:amount;comment:金额" json:"amount"`
+		CreditAmount     float32            `gorm:"column:credit_amount;comment:赊欠金额" json:"credit_amount"`
 		GoodsListRelated []*BatchOrderGoods `gorm:"foreignKey:BatchOrderUID;references:UID" json:"goodsList"`
 		CustomerFeild
 	}

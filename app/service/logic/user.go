@@ -52,7 +52,16 @@ func (logic *UserLogic) Register() (err error) {
 	user := model.User{
 		Phone: logic.Phone,
 	}
-	err = model.CreateObj(logic.runTime.DB, &user)
+	tx := logic.runTime.DB.Begin()
+	if err = model.CreateObj(tx, &user); err != nil {
+		tx.Rollback()
+		return
+	}
+	if err = model.NewTempCustomer(user.UID, logic.runTime.DB); err != nil {
+		tx.Rollback()
+		return
+	}
+	tx.Commit()
 	logic.User = user
 	return
 }
@@ -103,6 +112,5 @@ func (logic *UserLogic) Update() (err error) {
 			return
 		}
 	}
-	err = logic.User.Update(logic.runTime.DB)
-	return
+	return logic.User.Update(logic.runTime.DB)
 }

@@ -20,7 +20,6 @@ type (
 		model.BatchGoods
 		context *gin.Context
 		runtime *global.RunTime
-		Surplus float64 `json:"surplus"` // 剩余库存
 	}
 )
 
@@ -60,7 +59,7 @@ func (logic *BatchLogic) CalSurplus(ownerUser string) (surplusGoodsList []BatchG
 	}
 
 	var preBatchGoodsList []model.BatchGoods
-	if err = model.Find(db, &preBatchGoodsList, model.WhereOwnerUserCond(ownerUser), model.NewWhereCond("serial_no", preBatch.SerialNo)); err != nil {
+	if err = model.Find(db, &preBatchGoodsList, model.WhereOwnerUserCond(ownerUser), model.NewWhereCond("batch_uuid", preBatch.UID)); err != nil {
 		return
 	}
 	// key 是goodsUUID
@@ -75,12 +74,18 @@ func (logic *BatchLogic) CalSurplus(ownerUser string) (surplusGoodsList []BatchG
 
 	// 上一批开单的
 	var batchOrderedGoodsList []model.BatchOrderGoods
-	if err = model.Find(db, &batchOrderedGoodsList, model.WhereSerialNoCond(preBatch.SerialNo)); err != nil {
+	if err = model.Find(db, &batchOrderedGoodsList, model.NewWhereCond("batch_uuid", preBatch.UID)); err != nil {
 		return
 	}
 	for _, batchOrdered := range batchOrderedGoodsList {
 		if _, InpreCountM := preCountM[batchOrdered.GoodsUUID]; InpreCountM {
 			preCountM[batchOrdered.GoodsUUID].Mount -= batchOrdered.Mount
+			preCountM[batchOrdered.GoodsUUID].Weight -= batchOrdered.Weight
+			preCountM[batchOrdered.GoodsUUID].SurplusFeild = model.SurplusFeild{
+				Mount:  preCountM[batchOrdered.GoodsUUID].Mount,
+				Weight: preCountM[batchOrdered.GoodsUUID].Weight,
+			}
+			preCountM[batchOrdered.GoodsUUID].SurplusFeild.Set()
 		}
 	}
 
@@ -155,6 +160,15 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 		if _, ok := goodsM[goods.GoodsUUID]; ok {
 
 		}
+	}
+
+	surplusM, e := model.SetSurplusByBatch(logic.runtime.DB, logic.UID)
+	if e != nil {
+		err = e
+		return
+	}
+	for _, goods := range logic.GoodsListRelated {
+		goods.Surplus = surplusM[goods.GoodsUUID].Surplus
 	}
 	return
 }
