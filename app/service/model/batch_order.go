@@ -1,6 +1,8 @@
 package model
 
 import (
+	"math"
+
 	"gorm.io/gorm"
 )
 
@@ -31,7 +33,7 @@ type (
 		Shared           int32              `gorm:"column:shared;comment:是否分享单" json:"shared"`
 		SharedTime       int32              `gorm:"column:share_time;comment:分享时间" json:"sharedTime"`
 		Status           int32              `gorm:"column:status;comment:状态" json:"status"`
-		Amount           float32            `gorm:"column:amount;comment:金额" json:"amount"`
+		TotalAmount      float32            `gorm:"column:amount;comment:金额" json:"total_amount"`
 		CreditAmount     float32            `gorm:"column:credit_amount;comment:赊欠金额" json:"credit_amount"`
 		GoodsListRelated []*BatchOrderGoods `gorm:"foreignKey:BatchOrderUID;references:UID" json:"goodsList"`
 		CustomerFeild
@@ -106,4 +108,16 @@ func (b *BatchOrderGoods) Amount() float32 {
 		return b.Price * float32(b.Mount)
 	}
 	return b.Price * b.Weight
+}
+
+func (b *BatchOrder) SetTotalAmount() float32 {
+	var t float32
+	for _, batchGoods := range b.GoodsListRelated {
+		t += batchGoods.Amount()
+	}
+	return float32(math.Round(float64(t)))
+}
+
+func (b *BatchOrder) SetCreditAmount(pay float32) {
+	b.CreditAmount -= pay
 }

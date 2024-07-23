@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"app/global"
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
@@ -42,11 +43,13 @@ func BatchOrderTempCreate(c *gin.Context) {
 	common.Response(c, nil, order)
 }
 
+// 下单
 func BatchOrderCreate(c *gin.Context) {
 	type Form struct {
 		model.BatchOrder
-		PayAmount float32 `json:"pay_amount"`
-		PayType   float32 `json:"pay_type"`
+		FPayAmount    float32 `json:"payAmount"`    // 总计
+		FCreditAmount float32 `json:"creditAmount"` // 赊欠
+		PayType       int32   `json:"payType"`      // 支付方式
 	}
 	var form Form
 	// order := logic.NewBatchOrderLogic(c)
@@ -56,12 +59,34 @@ func BatchOrderCreate(c *gin.Context) {
 	}
 
 	order := logic.NewBatchOrderLogic(c)
+	order.TotalAmount = order.BatchOrder.SetTotalAmount()
+	order.CreditAmount = form.FCreditAmount
 	order.BatchOrder = form.BatchOrder
-	if err := order.Create(); err != nil {
+	tx := global.GlobalRunTime.DB.Begin()
+	if err := order.Create(tx); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	go order.Record(false, model.HistoryStepOrder, model.PayFeild{})
+	orderPay := logic.NewBatchOrderPayLogic(c)
+	if err := orderPay.Create(tx); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	tx.Commit()
+	if common.FloatGreat(0.0, form.FCreditAmount) {
+		go order.Record(false, model.HistoryStepCash, model.PayFeild{
+			PayFee:  form.TotalAmount - form.CreditAmount,
+			PayType: form.PayType,
+			PaidFee: form.TotalAmount - form.CreditAmount,
+		})
+	} else {
+		go order.Record(false, model.HistoryStepCredit, model.PayFeild{
+			PayFee:  form.TotalAmount - form.CreditAmount,
+			PayType: form.PayType,
+			PaidFee: form.TotalAmount - form.CreditAmount,
+		})
+	}
+
 	common.Response(c, nil, order)
 }
 

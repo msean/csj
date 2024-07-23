@@ -74,8 +74,11 @@ func (logic *BatchOrderLogic) TempCreate() (err error) {
 }
 
 // 下单
-func (logic *BatchOrderLogic) Create() (err error) {
-	tx := logic.runtime.DB.Begin()
+func (logic *BatchOrderLogic) Create(tx *gorm.DB) (err error) {
+	if tx == nil {
+		tx = logic.runtime.DB.Begin()
+		defer tx.Commit()
+	}
 	logic.BatchOrder.Shared = model.BatchOrderUnshare
 
 	if logic.BatchUUID == "" {
@@ -95,7 +98,6 @@ func (logic *BatchOrderLogic) Create() (err error) {
 		tx.Rollback()
 		return
 	}
-	tx.Commit()
 	logic.SetFeilds()
 	return
 }

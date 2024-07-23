@@ -2,6 +2,7 @@ package model
 
 import (
 	"app/service/common"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -61,7 +62,6 @@ func (bo *BatchOrder) NewHistoryStep(stepType int32, pay PayFeild) (step Step) {
 		StepType:      stepType,
 		OprTime:       time.Now(),
 	}
-	var _orderAmount float32
 	for _, goods := range bo.GoodsListRelated {
 		s.GoodsList = append(s.GoodsList, &StepGoods{
 			Price:      goods.Price,
@@ -70,11 +70,12 @@ func (bo *BatchOrder) NewHistoryStep(stepType int32, pay PayFeild) (step Step) {
 			GoodsFeild: goods.GoodsFeild,
 			Amount:     common.Float32Preserve(goods.Amount(), 2),
 		})
-		_orderAmount += goods.Amount()
 	}
-	if !common.Float32IsZero(pay.PaidFee) && pay.PaidFee > 0.0 {
-		s.CreditAmount = common.Float32Preserve((_orderAmount - pay.PaidFee), 32)
-	}
+	s.CreditAmount = fmt.Sprintf("%.f", bo.CreditAmount)
+	s.PayFeild = pay
+	// if !common.Float32IsZero(pay.PaidFee) && pay.PaidFee > 0.0 {
+	// 	s.CreditAmount = common.Float32Preserve((_orderAmount - pay.PaidFee), 32)
+	// }
 	step = s
 	return
 }
