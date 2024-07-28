@@ -43,7 +43,6 @@ func BatchOrderTempCreate(c *gin.Context) {
 	common.Response(c, nil, order)
 }
 
-// 下单
 func BatchOrderCreate(c *gin.Context) {
 	type Form struct {
 		model.BatchOrder
@@ -52,23 +51,24 @@ func BatchOrderCreate(c *gin.Context) {
 		PayType       int32   `json:"payType"`      // 支付方式
 	}
 	var form Form
-	// order := logic.NewBatchOrderLogic(c)
 	if err := c.ShouldBind(&form); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
 	order := logic.NewBatchOrderLogic(c)
+	order.BatchOrder = form.BatchOrder
 	order.TotalAmount = order.BatchOrder.SetTotalAmount()
 	order.CreditAmount = form.FCreditAmount
-	order.BatchOrder = form.BatchOrder
 	tx := global.GlobalRunTime.DB.Begin()
 	if err := order.Create(tx); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 	orderPay := logic.NewBatchOrderPayLogic(c)
-	if err := orderPay.Create(tx); err != nil {
+	orderPay.BatchOrderUUID = order.UID
+	orderPay.Amount = order.TotalAmount - order.CreditAmount
+	if err := orderPay.Create(tx, false); err != nil {
 		common.Response(c, err, nil)
 		return
 	}

@@ -26,7 +26,7 @@ func NewBatchOrderPayLogic(context *gin.Context) *BatchOrderPayLogic {
 	return logic
 }
 
-func (logic *BatchOrderPayLogic) Create(tx *gorm.DB) (err error) {
+func (logic *BatchOrderPayLogic) Create(tx *gorm.DB, toUpdateOrder bool) (err error) {
 	useTxOut := true
 	if logic.BatchOrderUUID == "" {
 		return common.BatchOrderUUIDRequireErr
@@ -41,9 +41,11 @@ func (logic *BatchOrderPayLogic) Create(tx *gorm.DB) (err error) {
 		return
 	}
 
-	if err = UpdateOrderPay(tx, logic.Amount, logic.PayType, logic.BatchOrderUUID, logic.context); err != nil {
-		tx.Rollback()
-		return
+	if toUpdateOrder {
+		if err = UpdateOrderPay(tx, logic.Amount, logic.PayType, logic.BatchOrderUUID, logic.context); err != nil {
+			tx.Rollback()
+			return
+		}
 	}
 
 	if !useTxOut {
@@ -74,7 +76,7 @@ func UpdateOrderPay(db *gorm.DB, payFee float32, payType int32, batchOrderUUID s
 	if err = model.Find(db, &order, model.WhereUIDCond(batchOrderUUID)); err != nil {
 		return
 	}
-	order.CreditAmount = order.TotalAmount - order.CreditAmount - payFee
+	order.CreditAmount = order.CreditAmount - payFee
 	if common.FloatGreat(0.0, order.CreditAmount) {
 		order.Status = model.BatchOrderFinish
 	}
@@ -85,37 +87,6 @@ func UpdateOrderPay(db *gorm.DB, payFee float32, payType int32, batchOrderUUID s
 		return
 	}
 	global.GlobalRunTime.Logger.Info(fmt.Sprintf("[BatchOrderPayLogic] [UpdateOrderPay] batch_order_uuid:%s, paidTotal: %f", batchOrderUUID, order.TotalAmount))
-
-	// var toPayTotal float32
-	// var paidTotal float32
-	// var batchOrderGoodsList []model.BatchOrderGoods
-	// if err = model.Find(db, &batchOrderGoodsList, model.NewWhereCond("batch_order_uuid", batchOrderUUID)); err != nil {
-	// 	return
-	// }
-	// for _, _batchOrderGoods := range batchOrderGoodsList {
-	// 	toPayTotal += _batchOrderGoods.Amount()
-	// }
-	// global.GlobalRunTime.Logger.Info(fmt.Sprintf("[BatchOrderPayLogic] [UpdateOrderPay] batch_order_uuid:%s, toPayTotal: %f", batchOrderUUID, toPayTotal))
-
-	// var pays []model.BatchOrderPay
-	// if err = model.Find(db, &pays, model.NewWhereCond("batch_order_uuid", batchOrderUUID)); err != nil {
-	// 	return
-
-	// }
-	// for _, pay := range pays {
-	// 	paidTotal += pay.Amount
-	// }
-
-	// b := NewBatchOrderLogic(ctx)
-	// b.UID = batchOrderUUID
-	// b.Record(true, model.HistoryStepPay, model.PayFeild{PayFee: payFee, PaidFee: paidTotal, PayType: payType})
-	// if common.FloatGreat(paidTotal, toPayTotal) {
-	// 	b.UID = batchOrderUUID
-	// 	if err = b.BatchOrder.UpdateStatus(db, model.BatchOrderFinish); err != nil {
-	// 		return
-	// 	}
-	// 	return
-	// }
 	return
 }
 

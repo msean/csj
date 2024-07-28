@@ -24,7 +24,7 @@ func BatchOrderPayCreate(c *gin.Context) {
 		return
 	}
 
-	if err := orderPay.Create(nil); err != nil {
+	if err := orderPay.Create(nil, true); err != nil {
 		common.Response(c, err, nil)
 		return
 	}

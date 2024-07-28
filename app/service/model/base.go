@@ -30,7 +30,6 @@ func CreateObj(db *gorm.DB, object interface{}) (err error) {
 	return db.Create(object).Error
 }
 
-// dst若是primarykey有的话，不需要多余的cond
 func Find(db *gorm.DB, dst interface{}, conds ...Cond) (err error) {
 	for _, cond := range conds {
 		db = cond.Cond(db)

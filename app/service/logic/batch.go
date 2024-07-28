@@ -204,7 +204,7 @@ func (logic *BatchLogic) FromUUID() (err error) {
 func (logic *BatchLogic) FromLatest() (err error) {
 	db := logic.runtime.DB
 	var batch model.Batch
-	if err = model.First(db.Preload("GoodsListRelated"), &batch, model.CreatedOrderDescCond()); err != nil {
+	if err = model.First(db.Preload("GoodsListRelated"), &batch, model.CreatedOrderDescCond(), model.NewWhereCond("owner_user", logic.OwnerUser)); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			err = nil
 		}

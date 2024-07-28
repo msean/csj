@@ -23,7 +23,7 @@ type (
 	BatchOrderGoodsLogic struct {
 		context *gin.Context
 		runtime *global.RunTime
-		model.BatchOrderGoods
+		*model.BatchOrderGoods
 	}
 	BatchOrderGoodsOrder struct {
 		GoodsUUID string  `json:"goodsUUID"`
