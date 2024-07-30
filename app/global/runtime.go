@@ -1,7 +1,9 @@
 package global
 
 import (
+	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"time"
 
@@ -24,6 +26,7 @@ type RunTime struct {
 	DB     *gorm.DB
 	Viper  *viper.Viper
 	Engine *gin.Engine
+	server *http.Server
 	Logger *logrus.Logger
 }
 
@@ -127,9 +130,18 @@ func (r *RunTime) LogRotate() time.Duration {
 	return time.Hour * time.Duration(r.Viper.GetInt("logs.rotate"))
 }
 
-func (r *RunTime) Run() {
-	r.Engine.Run(r.Viper.GetString("env.addr"))
+func (r *RunTime) Run(router http.Handler) {
+	r.server = &http.Server{
+		Addr:    r.Viper.GetString("env.addr"),
+		Handler: router,
+	}
+	if err := r.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		r.Logger.Fatalf("Server Error: %s", err)
+	}
 }
 
 func (r *RunTime) Close() {
+	if err := r.server.Shutdown(context.Background()); err != nil {
+		r.Logger.Fatal("Server Shutdown Error:", err)
+	}
 }

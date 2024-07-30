@@ -4,6 +4,9 @@ import (
 	"app/global"
 	"app/service/handler"
 	"app/service/model"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func Run(cfgFilepath string) {
@@ -14,6 +17,10 @@ func Run(cfgFilepath string) {
 	handler.InitEngine(global.GlobalRunTime.Engine)
 	model.Migrate()
 	defer global.GlobalRunTime.Close()
-
-	global.GlobalRunTime.Run()
+	// 注册关闭处理函数
+	go func() { global.GlobalRunTime.Run(global.GlobalRunTime.Engine) }()
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	global.GlobalRunTime.Close()
 }
