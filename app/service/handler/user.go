@@ -33,7 +33,7 @@ func UserInfo(c *gin.Context) {
 	common.Response(c, nil, map[string]any{
 		"name":          u.Name,
 		"phone":         u.Phone,
-		"customerDebt":  creditAmount,
+		"customerDebt":  common.Float32Preserve(creditAmount, 2),
 		"monthSales":    common.Float32Preserve(amount, 2),
 		"vipRemainDays": 0,
 	})

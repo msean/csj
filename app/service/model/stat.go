@@ -24,7 +24,6 @@ func MonthFinance(db *gorm.DB, ownerUser string) (amount, creditAmount float32, 
 		creditAmount += bo.CreditAmount
 	}
 	return
-
 }
 
 func BillingCondByOwnerUser(db *gorm.DB, owneruser string, customers []Customer) (billingLatestDate map[string]int, err error) {
