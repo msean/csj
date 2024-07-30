@@ -52,7 +52,7 @@ func (b *Batch) Update(db *gorm.DB) (err error) {
 }
 
 func SerioalNo(dt time.Time) string {
-	if (dt == time.Time{}) {
+	if dt.IsZero() {
 		dt = time.Now()
 	}
 	return fmt.Sprintf("%d-%d-%d", dt.Year(), dt.Month(), dt.Day())
