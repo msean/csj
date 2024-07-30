@@ -29,11 +29,11 @@ func UserInfo(c *gin.Context) {
 		return
 	}
 
-	amount, _ := model.MonthAmountByOwnerUser(global.GlobalRunTime.DB, common.GetUserUUID(c))
+	amount, creditAmount, _ := model.MonthFinance(global.GlobalRunTime.DB, common.GetUserUUID(c))
 	common.Response(c, nil, map[string]any{
 		"name":          u.Name,
 		"phone":         u.Phone,
-		"customerDebt":  0,
+		"customerDebt":  creditAmount,
 		"monthSales":    common.Float32Preserve(amount, 2),
 		"vipRemainDays": 0,
 	})

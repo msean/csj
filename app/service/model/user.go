@@ -11,7 +11,6 @@ type User struct {
 	Name               string     `gorm:"column:name;size:100;not null;comment:用户名" json:"name"`
 	Phone              string     `gorm:"column:phone;unique;comment:手机号码" json:"phone"`
 	ExperienceDeadline *time.Time `gorm:"column:vip_expire_time;comment:体验截止时间" json:"vipRemainDays"`
-	// Customers          []Customer `gorm:"foreignkey:OwnerUser; references:UID"`
 }
 
 func (u *User) Update(db *gorm.DB) (err error) {

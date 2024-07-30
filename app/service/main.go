@@ -16,8 +16,8 @@ func Run(cfgFilepath string) {
 	}
 	handler.InitEngine(global.GlobalRunTime.Engine)
 	model.Migrate()
+
 	defer global.GlobalRunTime.Close()
-	// 注册关闭处理函数
 	go func() { global.GlobalRunTime.Run(global.GlobalRunTime.Engine) }()
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

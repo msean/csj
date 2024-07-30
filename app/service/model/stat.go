@@ -1,47 +1,30 @@
 package model
 
 import (
+	"app/global"
 	"app/service/common"
 	"time"
 
 	"gorm.io/gorm"
 )
 
-func MonthAmountByOwnerUser(db *gorm.DB, ownerUser string) (amount float32, err error) {
-	type OrderGoods struct {
-		Price  float32
-		Weight float32
-		Mount  int32
-	}
-
+func MonthFinance(db *gorm.DB, ownerUser string) (amount, creditAmount float32, err error) {
 	now := time.Now()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-	var orderList []string
-	if err = db.Model(&BatchOrder{}).
+	var bos []BatchOrder
+	if err = db.
 		Where("owner_user=?", ownerUser).
 		Where("created_at>=?", monthStart).
 		Where("status not in (?)", []int32{BatchOrderReTurn, BatchOrderCancel, BatchOrderRefund}).
-		Select("uid").
-		Pluck("uid", &orderList).Error; err != nil {
-		return
+		Find(&bos).Error; err != nil {
+		global.GlobalRunTime.Logger.Error("[MonthFinance] %s %s", ownerUser, err)
 	}
-	var orderGoods []BatchGoods
-	if err = db.Model(&BatchOrderGoods{}).Where("batch_order_uuid in (?)", orderList).Scan(&orderGoods).Error; err != nil {
-		return
+	for _, bo := range bos {
+		amount += bo.TotalAmount
+		creditAmount += bo.CreditAmount
 	}
-	if len(orderGoods) == 0 {
-		return
-	}
-
-	for _, order := range orderGoods {
-		if order.Weight == 0 {
-			amount += order.Price * float32(order.Mount)
-		} else {
-			amount += order.Price * order.Weight
-		}
-	}
-
 	return
+
 }
 
 func BillingCondByOwnerUser(db *gorm.DB, owneruser string, customers []Customer) (billingLatestDate map[string]int, err error) {
