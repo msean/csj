@@ -1,6 +1,7 @@
 package global
 
 import (
+	"app/pkg"
 	"context"
 	"errors"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
@@ -28,6 +30,8 @@ type RunTime struct {
 	Engine *gin.Engine
 	server *http.Server
 	Logger *logrus.Logger
+	Redis  redis.UniversalClient
+	Sms    pkg.SmsSender
 }
 
 func WatchConfig() {
@@ -72,6 +76,7 @@ func InitRunTime(configfile string) (err error) {
 	} else {
 		GlobalRunTime.Logger = logrus.New()
 	}
+	// mysql 初始化
 	dbconf := DBConf{
 		User:     GlobalRunTime.Viper.GetString("database.username"),
 		Password: GlobalRunTime.Viper.GetString("database.password"),
@@ -83,6 +88,20 @@ func InitRunTime(configfile string) (err error) {
 		Debug:    GlobalRunTime.Viper.GetBool("database.debug"),
 	}
 	GlobalRunTime.DB, err = NewDB(dbconf)
+
+	// redis 初始化
+	// GlobalRunTime.Redis = NewRedis(RedisConf{
+	// 	Addr:     GlobalRunTime.Viper.GetString("redis.addr"),
+	// 	Password: GlobalRunTime.Viper.GetString("redis.password"), // 密码
+	// 	DB:       1,
+	// })
+
+	// sms 初始化
+	GlobalRunTime.Sms = &pkg.AliPlatfrom{
+		Password: GlobalRunTime.Viper.GetString("sms.password"),
+		Uid:      GlobalRunTime.Viper.GetString("sms.uid"),
+		Secret:   GlobalRunTime.Viper.GetString("sms.secret"),
+	}
 	return
 }
 
@@ -120,6 +139,14 @@ func (r *RunTime) LogFilepath() string {
 
 func (r *RunTime) LogFileName() string {
 	return r.Viper.GetString("logs.filename")
+}
+
+func (r *RunTime) SmsRegisterTemp() string {
+	return r.Viper.GetString("sms.registerTemplateCode")
+}
+
+func (r *RunTime) SmsLoginTemp() string {
+	return r.Viper.GetString("sms.loginTemplateCode")
 }
 
 func (r *RunTime) LogMaxAge() time.Duration {

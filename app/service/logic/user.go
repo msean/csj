@@ -23,11 +23,16 @@ func NewUser(context *gin.Context) UserLogic {
 	}
 }
 
-func (logic *UserLogic) CheckVerifyCode() bool {
-	if logic.runTime.Env() == "test" || logic.runTime.Env() == "debug" {
-		return logic.VerfifyCode == logic.runTime.VerifyCode()
+func (logic *UserLogic) CheckVerifyCode() (right bool, err error) {
+	if logic.VerfifyCode == "" {
+		return false, nil
 	}
-	return false
+	if logic.runTime.Env() == "test" || logic.runTime.Env() == "debug" {
+		return logic.VerfifyCode == logic.runTime.VerifyCode(), nil
+	} else {
+		right, err = SmsVerifyCodeCheck(logic.runTime.DB, logic.Phone, logic.VerfifyCode)
+		return
+	}
 }
 
 func (logic *UserLogic) Register() (err error) {
@@ -35,9 +40,12 @@ func (logic *UserLogic) Register() (err error) {
 		err = common.PhoneCannotBeBlankErr
 		return
 	}
-	if !logic.CheckVerifyCode() {
-		err = common.VerifyCodeErr
+	var right bool
+	if right, err = logic.CheckVerifyCode(); err != nil {
 		return
+	}
+	if !right {
+		return common.VerifyCodeErr
 	}
 
 	err = model.Find(logic.runTime.DB, &logic.User, logic.WherePhoneCond())
@@ -61,8 +69,8 @@ func (logic *UserLogic) Register() (err error) {
 		tx.Rollback()
 		return
 	}
-	tx.Commit()
 	logic.User = user
+	tx.Commit()
 	return
 }
 
@@ -71,9 +79,12 @@ func (logic *UserLogic) Login() (err error) {
 		err = common.PhoneCannotBeBlankErr
 		return
 	}
-	if !logic.CheckVerifyCode() {
-		err = common.VerifyCodeErr
+	var right bool
+	if right, err = logic.CheckVerifyCode(); err != nil {
 		return
+	}
+	if !right {
+		return common.VerifyCodeErr
 	}
 
 	err = model.Find(logic.runTime.DB, &logic.User, logic.WherePhoneCond())
@@ -83,6 +94,7 @@ func (logic *UserLogic) Login() (err error) {
 	if logic.UID == "" {
 		logic.runTime.Logger.Error(fmt.Sprintf("[UserLogic] [Login] phone: %s", logic.Phone))
 		err = common.PhoneUnRegisterErr
+		return
 	}
 	return
 }

@@ -108,6 +108,7 @@ func (logic *BatchLogic) Create() (err error) {
 	if err = model.Find(logic.runtime.DB, &_b, model.WhereSerialNoCond(logic.SerialNo)); err != nil {
 		return
 	}
+	// 当天只能创建一个批次
 	if _b.UID != "" {
 		err = common.BatchDuplicateErr
 		return
@@ -122,26 +123,33 @@ func (logic *BatchLogic) Create() (err error) {
 	return model.CreateObj(logic.runtime.DB, &logic.Batch)
 }
 
+// withBatchGoods 是否更新批次下的物品信息
 func (logic *BatchLogic) Update(withBatchGoods bool) (err error) {
+	switch withBatchGoods {
+	case true:
+		tx := logic.runtime.DB.Begin()
+		if err = tx.Delete(&model.BatchGoods{}, "batch_uuid=?", logic.UID).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+		for _, goods := range logic.GoodsListRelated {
+			goods.SerialNo = logic.SerialNo
+			goods.OwnerUser = logic.OwnerUser
+		}
+		if err = tx.Save(&logic.Batch).Error; err != nil {
+			tx.Rollback()
+			return
+		}
+		tx.Commit()
+		logic.SetGoodsFeild()
 
-	tx := logic.runtime.DB.Begin()
-	if err = tx.Delete(&model.BatchGoods{}, "batch_uuid=?", logic.UID).Error; err != nil {
-		tx.Rollback()
-		return err
+	case false:
+		logic.Batch.Update(logic.runtime.DB)
 	}
-	for _, goods := range logic.GoodsListRelated {
-		goods.SerialNo = logic.SerialNo
-		goods.OwnerUser = logic.OwnerUser
-	}
-	if err = tx.Save(&logic.Batch).Error; err != nil {
-		tx.Rollback()
-		return
-	}
-	tx.Commit()
-	logic.SetGoodsFeild()
 	return
 }
 
+// SetGoodsFeild 设置批次下货品的名称、类型以及剩余信息
 func (logic *BatchLogic) SetGoodsFeild() (err error) {
 	var goodsUUIDList []string
 	for _, goods := range logic.GoodsListRelated {
@@ -157,9 +165,6 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 	for _, goods := range logic.GoodsListRelated {
 		goods.GoodsName = goodsM[goods.GoodsUUID].GoodsName
 		goods.GoodsTyp = goodsM[goods.GoodsUUID].GoodsTyp
-		if _, ok := goodsM[goods.GoodsUUID]; ok {
-
-		}
 	}
 
 	surplusM, e := model.SetSurplusByBatch(logic.runtime.DB, logic.UID)
@@ -180,8 +185,7 @@ func (logic *BatchLogic) FromDate() (err error) {
 		return
 	}
 	if batch.UID == "" {
-		err = common.ObjectNotExistErr
-		return
+		return common.ObjectNotExistErr
 	}
 	logic.Batch = batch
 	return logic.SetGoodsFeild()
@@ -194,8 +198,7 @@ func (logic *BatchLogic) FromUUID() (err error) {
 		return
 	}
 	if batch.UID == "" {
-		err = common.ObjectNotExistErr
-		return
+		return common.ObjectNotExistErr
 	}
 	logic.Batch = batch
 	return logic.SetGoodsFeild()
@@ -207,8 +210,9 @@ func (logic *BatchLogic) FromLatest() (err error) {
 	if err = model.First(db.Preload("GoodsListRelated"), &batch, model.CreatedOrderDescCond(), model.NewWhereCond("owner_user", logic.OwnerUser)); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			err = nil
+		} else {
+			return
 		}
-		return
 	}
 
 	logic.Batch = batch
