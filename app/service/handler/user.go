@@ -95,12 +95,18 @@ func SenderVerifyCode(c *gin.Context) {
 	if payload.Typ == 2 {
 		tempCode = global.GlobalRunTime.SmsLoginTemp()
 	}
+
+	// 设置验证码并存储
 	var code string
 	if code, err = logic.SmsVerifyCodeSet(global.GlobalRunTime.DB, payload.Phone); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	logic.SmsLoginAndRegister(global.GlobalRunTime.Sms, payload.Phone, code, tempCode)
+	// 发送验证码
+	if err = logic.SmsLoginAndRegister(global.GlobalRunTime.Sms, payload.Phone, code, tempCode); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
 	common.Response(c, nil, nil)
 }
 

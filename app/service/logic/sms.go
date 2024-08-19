@@ -54,7 +54,7 @@ func SmsTodayCountCheck(db *gorm.DB, phone string) (over bool, err error) {
 	return
 }
 
-func SmsLoginAndRegister(sender pkg.SmsSender, phone, code, templateCode string) {
+func SmsLoginAndRegister(sender pkg.SmsSender, phone, code, templateCode string) error {
 	msg := pkg.SmsMsg{
 		TemplateCode: templateCode,
 		Mobile:       phone,
@@ -62,5 +62,5 @@ func SmsLoginAndRegister(sender pkg.SmsSender, phone, code, templateCode string)
 			"code": code,
 		},
 	}
-	sender.Send(msg)
+	return sender.Send(msg)
 }
