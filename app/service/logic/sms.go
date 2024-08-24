@@ -28,7 +28,7 @@ func SmsKey(phone string) string {
 func SmsVerifyCodeSet(db *gorm.DB, phone string) (code string, err error) {
 	rand.Seed(time.Now().UnixNano())
 	code = fmt.Sprintf("%d", rand.Intn(900000)+100000)
-	err = model.CreateObj(db, model.Sms{
+	err = model.CreateObj(db, &model.Sms{
 		Phone: phone,
 		Code:  code,
 	})
@@ -47,10 +47,10 @@ func SmsVerifyCodeCheck(db *gorm.DB, phone, input string) (right bool, err error
 func SmsTodayCountCheck(db *gorm.DB, phone string) (over bool, err error) {
 	var count int64
 	todayStart := time.Now().Truncate(24 * time.Hour)
-	if err = db.Model(&model.Sms{}).Where("phone=? andcreated_at >= ?", phone, todayStart).Count(&count).Error; err != nil {
+	if err = db.Model(&model.Sms{}).Where("phone=? and created_at >= ?", phone, todayStart).Count(&count).Error; err != nil {
 		return
 	}
-	over = count <= 5
+	over = count >= 5
 	return
 }
 
@@ -62,5 +62,8 @@ func SmsLoginAndRegister(sender pkg.SmsSender, phone, code, templateCode string)
 			"code": code,
 		},
 	}
+
 	return sender.Send(msg)
+	// fmt.Println(">>>>>>>>>>>here")
+	// return nil
 }

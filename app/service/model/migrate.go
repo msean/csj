@@ -17,6 +17,7 @@ func Migrate() {
 			&BatchOrderGoods{},
 			&BatchOrderPay{},
 			&BatchOrderHistory{},
+			&Sms{},
 		)
 	}
 }
