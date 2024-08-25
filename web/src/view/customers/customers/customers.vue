@@ -20,7 +20,9 @@
           <el-date-picker v-model="searchInfo.endCreatedAt" type="datetime" placeholder="结束日期"
             :disabled-date="time => searchInfo.startCreatedAt ? time.getTime() < searchInfo.startCreatedAt.getTime() : false"></el-date-picker>
         </el-form-item>
-
+        <el-form-item>
+          <el-input :maxlength="60" v-model="searchInfo.value"  placeholder="所属用户"></el-input>
+        </el-form-item>
 
         <template v-if="showAllQuery">
           <!-- 将需要控制显示状态的查询条件添加到此范围内 -->

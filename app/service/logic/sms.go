@@ -64,6 +64,4 @@ func SmsLoginAndRegister(sender pkg.SmsSender, phone, code, templateCode string)
 	}
 
 	return sender.Send(msg)
-	// fmt.Println(">>>>>>>>>>>here")
-	// return nil
 }

@@ -55,6 +55,9 @@ func (customersService *CustomersService) GetCustomersInfoList(info csj_customer
 	if info.StartCreatedAt != nil && info.EndCreatedAt != nil {
 		db = db.Where("created_at BETWEEN ? AND ?", info.StartCreatedAt, info.EndCreatedAt)
 	}
+	if info.Value != "" {
+		db = db.Where("owner_user = ?", info.Value)
+	}
 	err = db.Count(&total).Error
 	if err != nil {
 		return
