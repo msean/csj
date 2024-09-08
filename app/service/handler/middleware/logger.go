@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type responseWriter struct {
@@ -24,13 +24,14 @@ func LoggerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		_st := time.Now()
 		b, _ := c.GetRawData()
-		global.GlobalRunTime.Logger.Info(logrus.Fields{
-			"method":    c.Request.Method,
-			"uri":       c.Request.RequestURI,
-			"client_ip": c.ClientIP(),
-			"content":   string(b),
-			"token":     c.Request.Header.Get("Authorization"),
-		})
+		global.Global.Logger.Info(
+			"[request] info",
+			zap.String("method", c.Request.Method),
+			zap.String("uri", c.Request.RequestURI),
+			zap.String("client_ip", c.ClientIP()),
+			zap.String("content", string(b)),
+			zap.String("token", c.Request.Header.Get("Authorization")),
+		)
 
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(b))
 
@@ -42,10 +43,10 @@ func LoggerMiddleware() gin.HandlerFunc {
 		c.Next()
 
 		statusCode := c.Writer.Status()
-		global.GlobalRunTime.Logger.Info(logrus.Fields{
-			"status_code": statusCode,
-			// "response":    writer.b.String(),
-			"duration": time.Now().Sub(_st).Seconds(),
-		})
+		global.Global.Logger.Info(
+			"[response] info",
+			zap.Int("status_code", statusCode),
+			zap.Float64("duration", time.Now().Sub(_st).Seconds()),
+		)
 	}
 }

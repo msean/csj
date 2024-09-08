@@ -5,8 +5,8 @@ import (
 )
 
 func Migrate() {
-	if global.GlobalRunTime.Migrate() {
-		global.GlobalRunTime.DB.AutoMigrate(
+	if global.Global.Migrate() {
+		global.Global.DB.AutoMigrate(
 			&User{},
 			&Customer{},
 			&GoodsCategory{},

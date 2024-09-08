@@ -2,11 +2,14 @@ package global
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"time"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"moul.io/zapgorm2"
 )
 
 // DBConf 数据库配置信息.
@@ -21,34 +24,36 @@ type DBConf struct {
 	Debug    bool   `json:"debug"`    // 调试开关
 }
 
-func NewDB(dbconf DBConf) (*gorm.DB, error) {
+func NewMysql(dbconf DBConf) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
-		"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true&checkConnLiveness=true&loc=Local",
-		dbconf.User, dbconf.Password, dbconf.Host, dbconf.Port, dbconf.DB,
+		"%s:%s@tcp(%s:%s)/%s?charset=%s&parseTime=true&checkConnLiveness=true&loc=Local",
+		dbconf.User, dbconf.Password, dbconf.Host, dbconf.Port, dbconf.DB, dbconf.Charset,
 	)
 	logLevel := logger.Silent
 	if dbconf.Debug {
 		logLevel = logger.Info
 	}
 
-	var _logger logger.Writer
-	_logger = GlobalRunTime.Logger
+	var option gorm.Option
+	if Global.IsDebugMode() {
+		option = &gorm.Config{
+			Logger: logger.New(
+				log.New(os.Stdout, "\r\n", log.LstdFlags),
+				logger.Config{
+					SlowThreshold:             time.Second, // Slow SQL threshold
+					LogLevel:                  logLevel,    // Log level
+					IgnoreRecordNotFoundError: true,        // Ignore ErrRecordNotFound error for logger
+					Colorful:                  true,        // Disable color
+				},
+			),
+		}
+	} else {
+		l := zapgorm2.New(Global.Logger)
+		l.SetAsDefault()
+		option = &gorm.Config{Logger: l}
+	}
 
-	// if GlobalRunTime.IsDebugMode() {
-	// 	_logger = log.New(os.Stdout, "\r\n", log.LstdFlags)
-	// }
-
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.New(
-			_logger,
-			logger.Config{
-				SlowThreshold:             time.Second, // Slow SQL threshold
-				LogLevel:                  logLevel,    // Log level
-				IgnoreRecordNotFoundError: true,        // Ignore ErrRecordNotFound error for logger
-				Colorful:                  true,        // Disable color
-			},
-		),
-	})
+	db, err := gorm.Open(mysql.Open(dsn), option)
 	if err != nil {
 		return nil, err
 	}

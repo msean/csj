@@ -1,5 +1,6 @@
 *bin
 *tar
-.DS_Store
 deploy/*yaml
-
+*.DS_Store
+*logs/*
+*sessions

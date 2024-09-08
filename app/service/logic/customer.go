@@ -19,7 +19,7 @@ type CustomerLogic struct {
 func NewCustomerLogic(context *gin.Context) *CustomerLogic {
 	logic := &CustomerLogic{
 		context: context,
-		runtime: global.GlobalRunTime,
+		runtime: global.Global,
 	}
 	logic.OwnerUser = common.GetUserUUID(context)
 	return logic

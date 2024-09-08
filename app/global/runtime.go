@@ -4,6 +4,7 @@ import (
 	"app/pkg"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -11,8 +12,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -21,15 +22,14 @@ const (
 	EnvTestMode  = "test"
 )
 
-var Conf *viper.Viper
-var GlobalRunTime *RunTime
+var Global *RunTime
 
 type RunTime struct {
 	DB     *gorm.DB
 	Viper  *viper.Viper
 	Engine *gin.Engine
 	server *http.Server
-	Logger *logrus.Logger
+	Logger *zap.Logger
 	Redis  redis.UniversalClient
 	Sms    pkg.SmsSender
 }
@@ -66,28 +66,28 @@ func InitRunTime(configfile string) (err error) {
 	if err != nil {
 		return e
 	}
-	GlobalRunTime = &RunTime{
+	Global = &RunTime{
 		Viper:  v,
 		Engine: gin.Default(),
 	}
-	if !GlobalRunTime.IsDebugMode() {
-		GlobalRunTime.Logger = setLogger(GlobalRunTime.Viper.GetString("logs.level"),
-			GlobalRunTime.LogFilepath(), GlobalRunTime.LogFileName(), GlobalRunTime.LogMaxAge(), GlobalRunTime.LogRotate())
-	} else {
-		GlobalRunTime.Logger = logrus.New()
+	// logger 初始化
+	var zapConf ZapConf
+	if err = Global.applyConf("zap", &zapConf); err != nil {
+		return
 	}
+	Global.Logger = NewZapLogger(zapConf)
 	// mysql 初始化
 	dbconf := DBConf{
-		User:     GlobalRunTime.Viper.GetString("database.username"),
-		Password: GlobalRunTime.Viper.GetString("database.password"),
-		Host:     GlobalRunTime.Viper.GetString("database.host"),
-		Port:     GlobalRunTime.Viper.GetString("database.port"),
-		DB:       GlobalRunTime.Viper.GetString("database.db"),     // 链接数据库
-		Driver:   GlobalRunTime.Viper.GetString("database.driver"), // 链接数据库,
-		Charset:  GlobalRunTime.Viper.GetString("database.charset"),
-		Debug:    GlobalRunTime.Viper.GetBool("database.debug"),
+		User:     Global.Viper.GetString("database.username"),
+		Password: Global.Viper.GetString("database.password"),
+		Host:     Global.Viper.GetString("database.host"),
+		Port:     Global.Viper.GetString("database.port"),
+		DB:       Global.Viper.GetString("database.db"),     // 链接数据库
+		Driver:   Global.Viper.GetString("database.driver"), // 链接数据库,
+		Charset:  Global.Viper.GetString("database.charset"),
+		Debug:    Global.Viper.GetBool("database.debug"),
 	}
-	GlobalRunTime.DB, err = NewDB(dbconf)
+	Global.DB, err = NewMysql(dbconf)
 
 	// redis 初始化
 	// GlobalRunTime.Redis = NewRedis(RedisConf{
@@ -97,10 +97,10 @@ func InitRunTime(configfile string) (err error) {
 	// })
 
 	// sms 初始化
-	GlobalRunTime.Sms = &pkg.AliPlatfrom{
-		Password: GlobalRunTime.Viper.GetString("sms.password"),
-		Uid:      GlobalRunTime.Viper.GetString("sms.uid"),
-		Secret:   GlobalRunTime.Viper.GetString("sms.secret"),
+	Global.Sms = &pkg.AliPlatfrom{
+		Password: Global.Viper.GetString("sms.password"),
+		Uid:      Global.Viper.GetString("sms.uid"),
+		Secret:   Global.Viper.GetString("sms.secret"),
 	}
 	return
 }
@@ -163,12 +163,16 @@ func (r *RunTime) Run(router http.Handler) {
 		Handler: router,
 	}
 	if err := r.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		r.Logger.Fatalf("Server Error: %s", err)
+		r.Logger.DPanic(fmt.Sprintf("Server Run err: %s", err))
 	}
 }
 
 func (r *RunTime) Close() {
 	if err := r.server.Shutdown(context.Background()); err != nil {
-		r.Logger.Fatal("Server Shutdown Error:", err)
+		r.Logger.DPanic(fmt.Sprintf("Server Run err: %s", err))
 	}
+}
+
+func (r *RunTime) applyConf(sub string, conf interface{}) (err error) {
+	return r.Viper.Sub(sub).Unmarshal(&conf)
 }

@@ -34,7 +34,7 @@ type (
 func NewBatchOrderLogic(context *gin.Context) *BatchOrderLogic {
 	logic := &BatchOrderLogic{
 		context: context,
-		runtime: global.GlobalRunTime,
+		runtime: global.Global,
 	}
 	logic.OwnerUser = common.GetUserUUID(context)
 	return logic
@@ -43,7 +43,7 @@ func NewBatchOrderLogic(context *gin.Context) *BatchOrderLogic {
 func NewBatchOrderGoodsLogic(context *gin.Context) *BatchOrderGoodsLogic {
 	logic := &BatchOrderGoodsLogic{
 		context: context,
-		runtime: global.GlobalRunTime,
+		runtime: global.Global,
 	}
 	logic.OwnerUser = common.GetUserUUID(context)
 	return logic
@@ -293,7 +293,7 @@ func (logic *BatchOrderLogic) Record(loadself bool, stepType int32, pay model.Pa
 	go func() {
 		if loadself {
 			if err := model.Find(logic.runtime.DB.Preload("GoodsListRelated"), &logic.BatchOrder); err != nil {
-				logic.runtime.Logger.Error("BatchOrderLogic Record: %s", err)
+				logic.runtime.Logger.Error(fmt.Sprintf("BatchOrderLogic Record: %s", err))
 				return
 			}
 			logic.SetFeilds()
@@ -306,7 +306,7 @@ func (logic *BatchOrderLogic) Record(loadself bool, stepType int32, pay model.Pa
 func (logic *BatchOrderLogic) LoadHistory() (err error) {
 	var history model.BatchOrderHistory
 	if err = model.First(logic.runtime.DB, &history, model.NewWhereCond("batch_order_uuid", logic.UID)); err != nil {
-		global.GlobalRunTime.Logger.Error("BatchOrderLogic LoadHistory err", err)
+		global.Global.Logger.Error(fmt.Sprintf("BatchOrderLogic LoadHistory err", err))
 		return
 	}
 	if history.UID != "" {

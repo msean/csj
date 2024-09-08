@@ -31,7 +31,7 @@ func UserInfo(c *gin.Context) {
 		return
 	}
 
-	amount, creditAmount, _ := model.MonthFinance(global.GlobalRunTime.DB, common.GetUserUUID(c))
+	amount, creditAmount, _ := model.MonthFinance(global.Global.DB, common.GetUserUUID(c))
 	common.Response(c, nil, map[string]any{
 		"name":          u.Name,
 		"phone":         u.Phone,
@@ -77,7 +77,7 @@ func SenderVerifyCode(c *gin.Context) {
 	}
 	// over 判断是否超限
 	var over bool
-	over, err = logic.SmsTodayCountCheck(global.GlobalRunTime.DB, payload.Phone)
+	over, err = logic.SmsTodayCountCheck(global.Global.DB, payload.Phone)
 	if err != nil {
 		common.Response(c, err, nil)
 		return
@@ -89,21 +89,21 @@ func SenderVerifyCode(c *gin.Context) {
 	var tempCode string
 	// 注册
 	if payload.Typ == 1 {
-		tempCode = global.GlobalRunTime.SmsRegisterTemp()
+		tempCode = global.Global.SmsRegisterTemp()
 	}
 	// 登陆
 	if payload.Typ == 2 {
-		tempCode = global.GlobalRunTime.SmsLoginTemp()
+		tempCode = global.Global.SmsLoginTemp()
 	}
 
 	// 设置验证码并存储
 	var code string
-	if code, err = logic.SmsVerifyCodeSet(global.GlobalRunTime.DB, payload.Phone); err != nil {
+	if code, err = logic.SmsVerifyCodeSet(global.Global.DB, payload.Phone); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 	// 发送验证码
-	if err = logic.SmsLoginAndRegister(global.GlobalRunTime.Sms, payload.Phone, code, tempCode); err != nil {
+	if err = logic.SmsLoginAndRegister(global.Global.Sms, payload.Phone, code, tempCode); err != nil {
 		common.Response(c, err, nil)
 		return
 	}

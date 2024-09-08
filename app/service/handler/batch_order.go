@@ -60,7 +60,7 @@ func BatchOrderCreate(c *gin.Context) {
 	order.BatchOrder = form.BatchOrder
 	order.TotalAmount = order.BatchOrder.SetTotalAmount()
 	order.CreditAmount = form.FCreditAmount
-	tx := global.GlobalRunTime.DB.Begin()
+	tx := global.Global.DB.Begin()
 	if err := order.Create(tx); err != nil {
 		common.Response(c, err, nil)
 		return

@@ -18,7 +18,7 @@ type UserLogic struct {
 
 func NewUser(context *gin.Context) UserLogic {
 	return UserLogic{
-		runTime: global.GlobalRunTime,
+		runTime: global.Global,
 		context: context,
 	}
 }

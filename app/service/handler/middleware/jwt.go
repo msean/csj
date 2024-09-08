@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
 )
 
 type MyClaims struct {
@@ -22,24 +23,24 @@ func SetToken(phone, uuid string) (token string, err error) {
 		Phone: phone,
 		UUID:  uuid,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(global.GlobalRunTime.TokenEx())), //有效时间
-			IssuedAt:  jwt.NewNumericDate(time.Now()),                                     //签发时间
-			NotBefore: jwt.NewNumericDate(time.Now()),                                     //生效时间
-			Issuer:    os.Getenv("JWT_ISSUER"),                                            //签发人
-			Subject:   "caishuji",                                                         //主题
-			ID:        "1",                                                                //JWT ID用于标识该JWT
-			Audience:  []string{"caishuji"},                                               //用户
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(global.Global.TokenEx())), //有效时间
+			IssuedAt:  jwt.NewNumericDate(time.Now()),                              //签发时间
+			NotBefore: jwt.NewNumericDate(time.Now()),                              //生效时间
+			Issuer:    os.Getenv("JWT_ISSUER"),                                     //签发人
+			Subject:   "caishuji",                                                  //主题
+			ID:        "1",                                                         //JWT ID用于标识该JWT
+			Audience:  []string{"caishuji"},                                        //用户
 		},
 	}
 
 	tokenStruct := jwt.NewWithClaims(jwt.SigningMethodHS256, SetClaims)
-	token, err = tokenStruct.SignedString([]byte(global.GlobalRunTime.Signkey()))
+	token, err = tokenStruct.SignedString([]byte(global.Global.Signkey()))
 	return
 }
 
 func GetTokenClaims(token string) (claims *MyClaims, err error) {
 	tokenObj, err := jwt.ParseWithClaims(token, &MyClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(global.GlobalRunTime.Signkey()), nil
+		return []byte(global.Global.Signkey()), nil
 	})
 
 	if err != nil && !errors.Is(err, jwt.ErrTokenExpired) {
@@ -61,7 +62,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		claims, err := GetTokenClaims(tokenHeader)
-		global.GlobalRunTime.Logger.Debug("expiresat:", claims.ExpiresAt)
+		global.Global.Logger.Debug("[AuthMiddleware]", zap.Any("expiresat", claims.ExpiresAt))
 		if err != nil {
 			c.Abort()
 			common.Response(c, common.TokenUnValidErr, nil)
@@ -69,7 +70,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		if time.Now().Unix() > claims.ExpiresAt.Unix() {
-			if t := claims.ExpiresAt.Time.Add(global.GlobalRunTime.TokenExRefresh()); t.After(time.Now()) {
+			if t := claims.ExpiresAt.Time.Add(global.Global.TokenExRefresh()); t.After(time.Now()) {
 				newToken, e := SetToken(claims.Phone, claims.UUID)
 				if e != nil {
 					c.Abort()

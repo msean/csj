@@ -20,7 +20,7 @@ type BatchOrderPayLogic struct {
 func NewBatchOrderPayLogic(context *gin.Context) *BatchOrderPayLogic {
 	logic := &BatchOrderPayLogic{
 		context: context,
-		runtime: global.GlobalRunTime,
+		runtime: global.Global,
 	}
 	logic.OwnerUser = common.GetUserUUID(context)
 	return logic
@@ -86,7 +86,7 @@ func UpdateOrderPay(db *gorm.DB, payFee float32, payType int32, batchOrderUUID s
 	}).Error; err != nil {
 		return
 	}
-	global.GlobalRunTime.Logger.Info(fmt.Sprintf("[BatchOrderPayLogic] [UpdateOrderPay] batch_order_uuid:%s, paidTotal: %f", batchOrderUUID, order.TotalAmount))
+	global.Global.Logger.Info(fmt.Sprintf("[BatchOrderPayLogic] [UpdateOrderPay] batch_order_uuid:%s, paidTotal: %f", batchOrderUUID, order.TotalAmount))
 	return
 }
 

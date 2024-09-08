@@ -26,7 +26,7 @@ type (
 func NewBatchLogic(context *gin.Context) *BatchLogic {
 	logic := &BatchLogic{
 		context: context,
-		runtime: global.GlobalRunTime,
+		runtime: global.Global,
 	}
 	logic.OwnerUser = common.GetUserUUID(context)
 	return logic
@@ -35,7 +35,7 @@ func NewBatchLogic(context *gin.Context) *BatchLogic {
 func NewBatchGoodsLogic(context *gin.Context) *BatchGoodsLogic {
 	logic := &BatchGoodsLogic{
 		context: context,
-		runtime: global.GlobalRunTime,
+		runtime: global.Global,
 	}
 	logic.OwnerUser = common.GetUserUUID(context)
 	return logic

@@ -26,7 +26,7 @@ type (
 func NewGoodsLogic(context *gin.Context) *GoodsLogic {
 	logic := &GoodsLogic{
 		context: context,
-		runtime: global.GlobalRunTime,
+		runtime: global.Global,
 	}
 	logic.OwnerUser = common.GetUserUUID(context)
 	return logic
@@ -35,7 +35,7 @@ func NewGoodsLogic(context *gin.Context) *GoodsLogic {
 func NewGoodsCategoryLogic(context *gin.Context) *GoodsCategoryLogic {
 	logic := &GoodsCategoryLogic{
 		context: context,
-		runtime: global.GlobalRunTime,
+		runtime: global.Global,
 	}
 	logic.OwnerUser = common.GetUserUUID(context)
 	return logic

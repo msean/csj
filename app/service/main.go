@@ -14,13 +14,13 @@ func Run(cfgFilepath string) {
 	if err != nil {
 		panic(err)
 	}
-	handler.InitEngine(global.GlobalRunTime.Engine)
+	handler.InitEngine(global.Global.Engine)
 	model.Migrate()
 
-	defer global.GlobalRunTime.Close()
-	go func() { global.GlobalRunTime.Run(global.GlobalRunTime.Engine) }()
+	defer global.Global.Close()
+	go func() { global.Global.Run(global.Global.Engine) }()
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	global.GlobalRunTime.Close()
+	global.Global.Close()
 }

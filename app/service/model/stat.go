@@ -18,7 +18,7 @@ func MonthFinance(db *gorm.DB, ownerUser string) (amount, creditAmount float32, 
 		Where("created_at>=?", monthStart).
 		Where("status not in (?)", []int32{BatchOrderReTurn, BatchOrderCancel, BatchOrderRefund}).
 		Find(&bos).Error; err != nil {
-		global.GlobalRunTime.Logger.Error(fmt.Sprintf("[MonthFinance] %s %s", ownerUser, err))
+		global.Global.Logger.Error(fmt.Sprintf("[MonthFinance] %s %s", ownerUser, err))
 	}
 	for _, bo := range bos {
 		amount += bo.TotalAmount
@@ -43,7 +43,7 @@ func BillingCondByOwnerUser(db *gorm.DB, owneruser string, customers []Customer)
 		Select("user_uuid, MAX(created_at) as latest_order_at").
 		Group("user_uuid").
 		Scan(&results).Error; err != nil {
-		global.GlobalRunTime.Logger.Error(fmt.Sprintf("[BillingCondByOwnerUser] %s %s", owneruser, err))
+		global.Global.Logger.Error(fmt.Sprintf("[BillingCondByOwnerUser] %s %s", owneruser, err))
 		return
 	}
 
