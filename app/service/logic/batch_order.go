@@ -204,7 +204,7 @@ func (logic *BatchOrderLogic) SetCustomerFeild() (err error) {
 	return
 }
 
-func (logic *BatchOrderLogic) List(userUUID string, startTime, endTime time.Time, status int32, limitCond model.LimitCond) (orderList []*model.BatchOrder, err error) {
+func (logic *BatchOrderLogic) List(userUUID string, startTime, endTime int64, status int32, limitCond model.LimitCond) (orderList []*model.BatchOrder, err error) {
 
 	conds := []model.Cond{
 		limitCond,
@@ -213,8 +213,12 @@ func (logic *BatchOrderLogic) List(userUUID string, startTime, endTime time.Time
 	if userUUID != "" {
 		conds = append(conds, model.NewWhereCond("user_uuid", userUUID))
 	}
-	if !startTime.IsZero() {
-		conds = append(conds, model.NewBaseCond(fmt.Sprintf("created_at >= ? and created_at <= ?", startTime, endTime)))
+
+	if startTime != 0 {
+		conds = append(conds, model.NewCmpCond("created_at", ">=", time.Unix(startTime, 0)))
+	}
+	if endTime != 0 {
+		conds = append(conds, model.NewCmpCond("created_at", "<=", time.Unix(endTime, 0)))
 	}
 	if status != 0 {
 		conds = append(conds, model.NewWhereCond("status", status))

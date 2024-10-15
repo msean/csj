@@ -4,3 +4,5 @@ deploy/*yaml
 *.DS_Store
 *logs/*
 *sessions
+*log
+*DS_Store

@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	GoodsTypePack   = 1
-	GoodsTypeWeight = 2
+	GoodsTypePack   = 1 // 定装
+	GoodsTypeWeight = 2 // 散装
 )
 
 type GoodsCategory struct {

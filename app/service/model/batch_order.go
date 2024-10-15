@@ -50,7 +50,7 @@ type (
 		SerialNo  string  `gorm:"column:serial_no;comment:批次序号" json:"serialNo"`
 		Price     float32 `gorm:"column:price;type:decimal(10,2);comment:单价" json:"price"`
 		Weight    float32 `gorm:"column:weight;type:decimal(10,2);comment:重量" json:"weight"`
-		Mount     int32   `gorm:"column:mount;comment:数量" json:"mount"`
+		Mount     int32   `gorm:"column:mount;comment:数量" json:"mount"` // 件数
 		CustomerFeild
 		GoodsFeild
 	}
@@ -104,10 +104,11 @@ func (b *BatchOrderPay) Update(db *gorm.DB) error {
 }
 
 func (b *BatchOrderGoods) Amount() float32 {
-	if b.Weight == 0 {
-		return b.Price * float32(b.Mount)
+	// 件数量为0 则是散装
+	if b.Mount == 0 {
+		return b.Price * float32(b.Weight)
 	}
-	return b.Price * b.Weight
+	return b.Price * float32(b.Mount)
 }
 
 func (b *BatchOrder) SetTotalAmount() float32 {

@@ -35,6 +35,11 @@ type (
 		key   string
 		value any
 	}
+	CmpCond struct {
+		key    string
+		symbol string
+		val    any
+	}
 	OrderCond struct {
 		orders []string
 	}
@@ -83,10 +88,11 @@ func (o OrderCond) Cond(db *gorm.DB) *gorm.DB {
 }
 
 func DefaultSetLimitCond(in LimitCond) (out LimitCond) {
-	if in.Page == 0 {
+	out = in
+	if out.Page == 0 {
 		out.Page = 1
 	}
-	if in.PageCount == 0 {
+	if out.PageCount == 0 {
 		out.PageCount = 10
 	}
 	return
@@ -195,4 +201,17 @@ func NewOrLikeCond(value string, likeType int, keys ...string) Cond {
 		}
 	}
 	return BaseCond{cond}
+}
+
+func NewCmpCond(key, symbol string, val any) Cond {
+	return CmpCond{
+		key:    key,
+		symbol: symbol,
+		val:    val,
+	}
+}
+
+func (cond CmpCond) Cond(db *gorm.DB) *gorm.DB {
+	db = db.Where(fmt.Sprintf("%s %s '%v'", cond.key, cond.symbol, cond.val))
+	return db
 }

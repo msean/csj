@@ -36,7 +36,7 @@ func (ap *AliPlatfrom) Send(msg SmsMsg) (err error) {
 	pwd := md5.Sum([]byte(ap.Password + ap.Uid))
 	params.Set("pwd", hex.EncodeToString(pwd[:]))
 	params.Set("template", msg.TemplateCode)
-	params.Set("mobile", msg.Mobile)
+	params.Set("mobile", msg.Mobile)0
 
 	var data []byte
 	data, err = json.Marshal(msg.TemplateJson)
@@ -50,8 +50,4 @@ func (ap *AliPlatfrom) Send(msg SmsMsg) (err error) {
 
 	_, err = http.Get(apiURL)
 	return
-}
-
-func Md5() {
-
 }

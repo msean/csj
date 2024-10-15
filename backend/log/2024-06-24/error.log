@@ -1,3 +1,0 @@
-[github.com/flipped-aurora/gin-vue-admin/server]2024-06-24 09:15:45.788	[31merror[0m	/Users/msean/project/personal/caishuji/backend/core/server.go:53	accept tcp [::]:8091: use of closed network connection
-[github.com/flipped-aurora/gin-vue-admin/server]2024-06-24 13:52:01.589	[31merror[0m	/Users/msean/project/personal/caishuji/backend/core/server.go:53	accept tcp [::]:8091: use of closed network connection
-[github.com/flipped-aurora/gin-vue-admin/server]2024-06-24 13:53:24.508	[31merror[0m	/Users/msean/project/personal/caishuji/backend/core/server.go:53	accept tcp [::]:8091: use of closed network connection

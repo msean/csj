@@ -6,7 +6,6 @@ import (
 	"app/service/handler/middleware"
 	"app/service/logic"
 	"app/service/model"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -169,10 +168,10 @@ func BatchOrderGoodsLatest(c *gin.Context) {
 func BatchOrderGoodsList(c *gin.Context) {
 	type PayLoad struct {
 		model.LimitCond
-		Status    int32     `json:"status"`
-		UserUUID  string    `json:"userUUID"`
-		StartTime time.Time `json:"startTime"`
-		EndTime   time.Time `json:"endTime"`
+		Status    int32  `json:"status"`
+		UserUUID  string `json:"userUUID"`
+		StartTime int64  `json:"startTime"`
+		EndTime   int64  `json:"endTime"`
 	}
 	var payload PayLoad
 
