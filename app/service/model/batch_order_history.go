@@ -14,7 +14,7 @@ const (
 	HistoryStepOrderShare = 3 // 取码单
 	HistoryStepCredit     = 4 // 赊欠
 	HistoryStepPay        = 5 // 还款
-	HistoryStepCash       = 6 // 收银
+	HistoryStepCash       = 6 // 收银 刚下订单的时候
 	HistoryStepCrash      = 7 // 作废 退款和作废
 )
 

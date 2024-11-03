@@ -56,9 +56,15 @@ func BatchOrderCreate(c *gin.Context) {
 	}
 
 	order := logic.NewBatchOrderLogic(c)
-	order.BatchOrder = form.BatchOrder
+	order.BatchOrder = form.BatchOrder // owner_user重置成了空字符串
+	order.OwnerUser = common.GetUserUUID(c)
 	order.TotalAmount = order.BatchOrder.SetTotalAmount()
 	order.CreditAmount = form.FCreditAmount
+	if common.FloatEqual(order.TotalAmount, order.CreditAmount) || common.FloatGreat(order.CreditAmount, order.TotalAmount) {
+		order.Status = model.BatchOrderFinish
+	} else {
+		order.Status = model.BatchOrderedCredit
+	}
 	tx := global.Global.DB.Begin()
 	if err := order.Create(tx); err != nil {
 		common.Response(c, err, nil)
@@ -74,15 +80,15 @@ func BatchOrderCreate(c *gin.Context) {
 	tx.Commit()
 	if common.FloatGreat(0.0, form.FCreditAmount) {
 		go order.Record(false, model.HistoryStepCash, model.PayFeild{
-			PayFee:  form.TotalAmount - form.CreditAmount,
+			PayFee:  order.TotalAmount - order.CreditAmount,
 			PayType: form.PayType,
-			PaidFee: form.TotalAmount - form.CreditAmount,
+			PaidFee: order.TotalAmount - order.CreditAmount,
 		})
 	} else {
 		go order.Record(false, model.HistoryStepCredit, model.PayFeild{
-			PayFee:  form.TotalAmount - form.CreditAmount,
+			PayFee:  order.TotalAmount - order.CreditAmount,
 			PayType: form.PayType,
-			PaidFee: form.TotalAmount - form.CreditAmount,
+			PaidFee: order.TotalAmount - order.CreditAmount,
 		})
 	}
 

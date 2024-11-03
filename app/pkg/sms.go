@@ -36,7 +36,7 @@ func (ap *AliPlatfrom) Send(msg SmsMsg) (err error) {
 	pwd := md5.Sum([]byte(ap.Password + ap.Uid))
 	params.Set("pwd", hex.EncodeToString(pwd[:]))
 	params.Set("template", msg.TemplateCode)
-	params.Set("mobile", msg.Mobile)0
+	params.Set("mobile", msg.Mobile)
 
 	var data []byte
 	data, err = json.Marshal(msg.TemplateJson)

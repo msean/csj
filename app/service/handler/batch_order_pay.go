@@ -28,6 +28,7 @@ func BatchOrderPayCreate(c *gin.Context) {
 		common.Response(c, err, nil)
 		return
 	}
+	// todo记录
 	common.Response(c, nil, orderPay)
 }
 
