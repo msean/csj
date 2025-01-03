@@ -11,8 +11,9 @@ const (
 
 type GoodsCategory struct {
 	BaseModel
-	OwnerUser string `gorm:"column:owner_user;comment:所属用户" json:"ownerUser"`
-	Name      string `gorm:"column:name;comment:客户名字" json:"name"`
+	OwnerUser string  `gorm:"column:owner_user;comment:所属用户" json:"ownerUser"`
+	Name      string  `gorm:"column:name;comment:客户名字" json:"name"`
+	Goods     []Goods `gorm:"-" json:"goodsList"`
 }
 
 type Goods struct {

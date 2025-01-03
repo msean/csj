@@ -5,6 +5,7 @@ import (
 	"app/service/handler/middleware"
 	"app/service/logic"
 	"app/service/model"
+	"app/service/model/request"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,18 +25,21 @@ func goodsRouter(g *gin.RouterGroup) {
 }
 
 func GoodsCategorySave(c *gin.Context) {
-	goodsCategoryLogic := logic.NewGoodsCategoryLogic(c)
-	if err := c.ShouldBind(&goodsCategoryLogic); err != nil {
+	var param request.GoodsCategorySaveParam
+	if err := c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if goodsCategoryLogic.UID == "" {
-		if err := goodsCategoryLogic.Check(); err != nil {
+	goodsCategoryLogic := logic.NewGoodsCategoryLogic(c)
+	var goodsCategory model.GoodsCategory
+	var err error
+	if param.UID == "" {
+		if err := goodsCategoryLogic.Check(param); err != nil {
 			common.Response(c, err, nil)
 			return
 		}
-		if err := goodsCategoryLogic.Create(); err != nil {
+		if goodsCategory, err = goodsCategoryLogic.Create(param); err != nil {
 			common.Response(c, err, nil)
 			return
 		}
@@ -43,11 +47,11 @@ func GoodsCategorySave(c *gin.Context) {
 		return
 	}
 
-	if err := goodsCategoryLogic.Update(); err != nil {
+	if goodsCategory, err = goodsCategoryLogic.Update(param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, goodsCategoryLogic)
+	common.Response(c, nil, goodsCategory)
 }
 
 func GoodsCategoryList(c *gin.Context) {
@@ -60,7 +64,7 @@ func GoodsCategoryList(c *gin.Context) {
 		common.Response(c, err, nil)
 		return
 	}
-	var gclist []*logic.GoodsCategoryLogic
+	var gclist []*model.GoodsCategory
 	var err error
 	gclist, err = logic.NewGoodsCategoryLogic(c).ListGoodsCategoryByUser(body.Brief, body.LimitCond)
 	if err != nil {
@@ -92,12 +96,7 @@ func GoodsCategoryDelete(c *gin.Context) {
 }
 
 func GoodsList(c *gin.Context) {
-
-	type Form struct {
-		SearchKey string `json:"searchName"`
-		model.LimitCond
-	}
-	var form Form
+	var form request.ListGoodsParam
 	if err := c.ShouldBind(&form); err != nil {
 		common.Response(c, err, nil)
 		return
@@ -114,19 +113,22 @@ func GoodsList(c *gin.Context) {
 }
 
 func GoodsSave(c *gin.Context) {
+	var param request.GoodsSaveParam
 
-	goodLogic := logic.NewGoodsLogic(c)
-	if err := c.ShouldBind(&goodLogic); err != nil {
+	if err := c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if goodLogic.UID == "" {
-		if err := goodLogic.Check(); err != nil {
+	goodLogic := logic.NewGoodsLogic(c)
+	var goods model.Goods
+	var err error
+	if param.UID == "" {
+		if err := goodLogic.Check(param); err != nil {
 			common.Response(c, err, nil)
 			return
 		}
-		if err := goodLogic.Create(); err != nil {
+		if goods, err = goodLogic.Create(param); err != nil {
 			common.Response(c, err, nil)
 			return
 		}
@@ -134,9 +136,9 @@ func GoodsSave(c *gin.Context) {
 		return
 	}
 
-	if err := goodLogic.Update(); err != nil {
+	if goods, err = goodLogic.Update(param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, goodLogic)
+	common.Response(c, nil, goods)
 }

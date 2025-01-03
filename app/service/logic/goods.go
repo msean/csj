@@ -4,6 +4,7 @@ import (
 	"app/global"
 	"app/service/common"
 	"app/service/model"
+	"app/service/model/request"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -17,9 +18,8 @@ type (
 	}
 	GoodsCategoryLogic struct {
 		model.GoodsCategory
-		GoodsList []GoodsLogic `json:"goodsList"`
-		runtime   *global.RunTime
-		context   *gin.Context
+		runtime *global.RunTime
+		context *gin.Context
 	}
 )
 
@@ -42,8 +42,8 @@ func NewGoodsCategoryLogic(context *gin.Context) *GoodsCategoryLogic {
 }
 
 // brief 不需要货品详情
-func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...model.Cond) (gcList []*GoodsCategoryLogic, err error) {
-	gcList = make([]*GoodsCategoryLogic, 0)
+func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...model.Cond) (gcList []*model.GoodsCategory, err error) {
+	gcList = make([]*model.GoodsCategory, 0)
 
 	conds = append(conds, model.WhereOwnerUserCond(logic.OwnerUser))
 	var _goodCategories []model.GoodsCategory
@@ -53,9 +53,10 @@ func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...mo
 
 	if brief {
 		for _, gc := range _goodCategories {
-			gcList = append(gcList, &GoodsCategoryLogic{
-				GoodsCategory: gc,
-				GoodsList:     []GoodsLogic{},
+			gcList = append(gcList, &model.GoodsCategory{
+				Name:      gc.Name,
+				OwnerUser: gc.OwnerUser,
+				Goods:     []model.Goods{},
 			})
 		}
 		return
@@ -66,26 +67,23 @@ func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...mo
 		return
 	}
 
-	goodsCategoriesM := map[string]*GoodsCategoryLogic{}
-	goodsCategoriesM[""] = &GoodsCategoryLogic{
-		GoodsCategory: model.GoodsCategory{
-			Name: "未分类",
-		},
-		GoodsList: []GoodsLogic{},
+	goodsCategoriesM := map[string]*model.GoodsCategory{}
+	goodsCategoriesM[""] = &model.GoodsCategory{
+		Name:  "未分类",
+		Goods: []model.Goods{},
 	}
 
 	for _, _goodCategory := range _goodCategories {
-		goodsCategoriesM[_goodCategory.UID] = &GoodsCategoryLogic{
-			GoodsCategory: _goodCategory,
-			GoodsList:     []GoodsLogic{},
+		goodsCategoriesM[_goodCategory.UID] = &model.GoodsCategory{
+			Name:      _goodCategory.Name,
+			OwnerUser: _goodCategory.OwnerUser,
+			Goods:     []model.Goods{},
 		}
 	}
 
 	for _, goods := range _goodsList {
 		if _goodsList, ok := goodsCategoriesM[goods.CategoryID]; ok {
-			_goodsList.GoodsList = append(_goodsList.GoodsList, GoodsLogic{
-				Goods: goods,
-			})
+			_goodsList.Goods = append(_goodsList.Goods, goods)
 		}
 	}
 
@@ -95,9 +93,9 @@ func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...mo
 	return
 }
 
-func (logic *GoodsCategoryLogic) Check() (err error) {
+func (logic *GoodsCategoryLogic) Check(param request.GoodsCategorySaveParam) (err error) {
 	var gc model.GoodsCategory
-	if err = model.Find(logic.runtime.DB, &gc, model.WhereOwnerUserCond(logic.OwnerUser), model.WhereNameCond(logic.Name)); err != nil {
+	if err = model.Find(logic.runtime.DB, &gc, model.WhereOwnerUserCond(logic.OwnerUser), model.WhereNameCond(param.Name)); err != nil {
 		return
 	}
 	if gc.UID != "" {
@@ -106,12 +104,25 @@ func (logic *GoodsCategoryLogic) Check() (err error) {
 	return nil
 }
 
-func (logic *GoodsCategoryLogic) Create() (err error) {
-	return model.CreateObj(logic.runtime.DB, &logic.GoodsCategory)
+func (logic *GoodsCategoryLogic) Create(param request.GoodsCategorySaveParam) (_g model.GoodsCategory, err error) {
+	_g = model.GoodsCategory{
+		Name:      param.Name,
+		OwnerUser: logic.OwnerUser,
+	}
+	err = model.CreateObj(logic.runtime.DB, &logic.GoodsCategory)
+	return
 }
 
-func (logic *GoodsCategoryLogic) Update() (err error) {
-	return logic.GoodsCategory.Update(logic.runtime.DB)
+func (logic *GoodsCategoryLogic) Update(param request.GoodsCategorySaveParam) (_g model.GoodsCategory, err error) {
+	_g = model.GoodsCategory{
+		Name:      param.Name,
+		OwnerUser: logic.OwnerUser,
+		BaseModel: model.BaseModel{
+			UID: param.UID,
+		},
+	}
+	err = logic.GoodsCategory.Update(logic.runtime.DB)
+	return
 }
 
 func (logic *GoodsCategoryLogic) Delete() (err error) {
@@ -131,10 +142,10 @@ func (logic *GoodsCategoryLogic) Delete() (err error) {
 	return
 }
 
-func (logic *GoodsLogic) Check() (err error) {
+func (logic *GoodsLogic) Check(param request.GoodsSaveParam) (err error) {
 	var _goods model.Goods
 	db := logic.runtime.DB
-	err = model.Find(db, &_goods, model.WhereOwnerUserCond(logic.OwnerUser), model.WhereNameCond(logic.Name))
+	err = model.Find(db, &_goods, model.WhereOwnerUserCond(logic.OwnerUser), model.WhereNameCond(param.Name))
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return
 	}
@@ -144,12 +155,32 @@ func (logic *GoodsLogic) Check() (err error) {
 	return nil
 }
 
-func (logic *GoodsLogic) Create() (err error) {
-	return model.CreateObj(logic.runtime.DB, &logic.Goods)
+func (logic *GoodsLogic) Create(param request.GoodsSaveParam) (_goods model.Goods, err error) {
+	_goods = model.Goods{
+		CategoryID: param.CategoryID,
+		Name:       param.Name,
+		Typ:        param.Type,
+		Price:      param.Price,
+		Weight:     param.Weight,
+		OwnerUser:  logic.OwnerUser,
+	}
+	err = model.CreateObj(logic.runtime.DB, &_goods)
+	return
 }
 
-func (logic *GoodsLogic) Update() (err error) {
-	return logic.Goods.Update(logic.runtime.DB)
+func (logic *GoodsLogic) Update(param request.GoodsSaveParam) (_goods model.Goods, err error) {
+	_goods = model.Goods{
+		CategoryID: param.CategoryID,
+		Name:       param.Name,
+		Typ:        param.Type,
+		Price:      param.Price,
+		Weight:     param.Weight,
+		BaseModel: model.BaseModel{
+			UID: param.UID,
+		},
+	}
+	err = _goods.Update(logic.runtime.DB)
+	return
 }
 
 func (logic *GoodsLogic) LoadGoods(ownerUser, searchKey string, limitCond model.LimitCond) (goodsList []model.Goods, err error) {
