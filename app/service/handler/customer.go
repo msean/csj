@@ -4,7 +4,7 @@ import (
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
-	"app/service/model"
+	"app/service/model/request"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,14 +18,15 @@ func customerRouter(g *gin.RouterGroup) {
 }
 
 func CustomerSave(c *gin.Context) {
-	customerLogic := logic.NewCustomerLogic(c)
-	if err := c.ShouldBind(&customerLogic); err != nil {
+	var param request.CustomerParam
+	if err := c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 	// 增加客户
-	if customerLogic.UID == "" {
-		dup, err := customerLogic.Check()
+	customerLogic := logic.NewCustomerLogic(c)
+	if param.UID == "" {
+		dup, err := customerLogic.Check(param)
 		if err != nil {
 			common.Response(c, err, nil)
 			return
@@ -34,7 +35,7 @@ func CustomerSave(c *gin.Context) {
 			common.Response(c, common.CustomerDuplicateErr, nil)
 			return
 		}
-		if err := customerLogic.Create(); err != nil {
+		if err := customerLogic.Create(param); err != nil {
 			common.Response(c, err, nil)
 			return
 		}
@@ -43,7 +44,7 @@ func CustomerSave(c *gin.Context) {
 	}
 
 	// 修改客户
-	if err := customerLogic.Update(); err != nil {
+	if err := customerLogic.Update(param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
@@ -52,22 +53,16 @@ func CustomerSave(c *gin.Context) {
 
 func CustomerList(c *gin.Context) {
 
-	type Form struct {
-		model.LimitCond
-		SearchKey string `json:"searchName"`
-	}
-	var form Form
+	var form request.ListCustomerParam
 	if err := c.ShouldBind(&form); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	var _customers []logic.CustomerLogic
-	var err error
-	_customers, err = logic.NewCustomerLogic(c).ListCustomersByOwnerUser(form.SearchKey, form.LimitCond)
+	rsp, err := logic.NewCustomerLogic(c).ListCustomersByOwnerUser(form.SearchKey, form.LimitCond)
 	if err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, _customers)
+	common.Response(c, nil, rsp)
 }
