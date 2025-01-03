@@ -6,6 +6,7 @@ import (
 	"app/service/handler/middleware"
 	"app/service/logic"
 	"app/service/model"
+	"app/service/model/request"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -42,17 +43,20 @@ func UserInfo(c *gin.Context) {
 }
 
 func Register(c *gin.Context) {
-	userlogic := logic.NewUser(c)
-	if err := c.ShouldBind(&userlogic); err != nil {
+
+	var params request.RegisterParam
+	if err := c.ShouldBind(&params); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	e := userlogic.Register()
+
+	userlogic := logic.NewUser(c)
+	registerUser, e := userlogic.Register(params)
 	if e != nil {
 		common.Response(c, e, nil)
 		return
 	}
-	token, e := middleware.SetToken(userlogic.Phone, userlogic.UID)
+	token, e := middleware.SetToken(params.Phone, registerUser.UID)
 	if e != nil {
 		common.Response(c, e, nil)
 		return
@@ -60,16 +64,12 @@ func Register(c *gin.Context) {
 
 	common.Response(c, e, map[string]any{
 		"token": token,
-		"uuid":  userlogic.UID,
+		"uuid":  registerUser.UID,
 	})
 }
 
 func SenderVerifyCode(c *gin.Context) {
-	type Payload struct {
-		Phone string `json:"phone"`
-		Typ   int    `json:"type"`
-	}
-	var payload Payload
+	var payload request.VerfifyCodeParam
 	var err error
 	if err = c.ShouldBind(&payload); err != nil {
 		common.Response(c, err, nil)
@@ -111,38 +111,41 @@ func SenderVerifyCode(c *gin.Context) {
 }
 
 func Login(c *gin.Context) {
-	userlogic := logic.NewUser(c)
-	if err := c.ShouldBind(&userlogic); err != nil {
+	var param request.LoginParam
+	if err := c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	e := userlogic.Login()
+	userlogic := logic.NewUser(c)
+	loginUser, e := userlogic.Login(param)
 	if e != nil {
 		common.Response(c, e, nil)
 		return
 	}
-	token, e := middleware.SetToken(userlogic.Phone, userlogic.UID)
+	token, e := middleware.SetToken(loginUser.Phone, loginUser.UID)
 	if e != nil {
 		common.Response(c, e, nil)
 		return
 	}
 	common.Response(c, e, map[string]any{
 		"token": token,
-		"uuid":  userlogic.UID,
+		"uuid":  loginUser.UID,
 	})
 }
 
 func UserUpdate(c *gin.Context) {
-	userlogic := logic.NewUser(c)
-	if err := c.ShouldBind(&userlogic); err != nil {
+	var update request.UserUpdateParam
+	if err := c.ShouldBind(&update); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	userlogic.UID = common.GetUserUUID(c)
-	e := userlogic.Update()
+
+	userlogic := logic.NewUser(c)
+	update.UID = common.GetUserUUID(c)
+	e := userlogic.Update(update)
 	if e != nil {
 		common.Response(c, e, nil)
 		return
 	}
-	common.Response(c, nil, userlogic.User)
+	common.Response(c, nil, nil)
 }

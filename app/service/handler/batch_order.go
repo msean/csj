@@ -45,9 +45,8 @@ func BatchOrderTempCreate(c *gin.Context) {
 func BatchOrderCreate(c *gin.Context) {
 	type Form struct {
 		model.BatchOrder
-		FPayAmount    float32 `json:"payAmount"`    // 总计
-		FCreditAmount float32 `json:"creditAmount"` // 赊欠
-		PayType       int32   `json:"payType"`      // 支付方式
+		FPayAmount float32 `json:"payAmount"` // 总计
+		PayType    int32   `json:"payType"`   // 支付方式
 	}
 	var form Form
 	if err := c.ShouldBind(&form); err != nil {
@@ -59,8 +58,8 @@ func BatchOrderCreate(c *gin.Context) {
 	order.BatchOrder = form.BatchOrder // owner_user重置成了空字符串
 	order.OwnerUser = common.GetUserUUID(c)
 	order.TotalAmount = order.BatchOrder.SetTotalAmount()
-	order.CreditAmount = form.FCreditAmount
-	if common.FloatEqual(order.TotalAmount, order.CreditAmount) || common.FloatGreat(order.CreditAmount, order.TotalAmount) {
+	order.CreditAmount = order.TotalAmount - form.FPayAmount
+	if common.FloatEqual(order.TotalAmount, form.FPayAmount) || common.FloatGreat(form.FPayAmount, order.TotalAmount) {
 		order.Status = model.BatchOrderFinish
 	} else {
 		order.Status = model.BatchOrderedCredit
@@ -78,14 +77,14 @@ func BatchOrderCreate(c *gin.Context) {
 		return
 	}
 	tx.Commit()
-	if common.FloatGreat(0.0, form.FCreditAmount) {
-		go order.Record(false, model.HistoryStepCash, model.PayFeild{
-			PayFee:  order.TotalAmount - order.CreditAmount,
+	if !common.FloatGreat(0.0, order.CreditAmount) {
+		go order.Record(false, model.HistoryStepCredit, model.PayFeild{
+			PayFee:  form.FPayAmount,
 			PayType: form.PayType,
-			PaidFee: order.TotalAmount - order.CreditAmount,
+			PaidFee: form.FPayAmount,
 		})
 	} else {
-		go order.Record(false, model.HistoryStepCredit, model.PayFeild{
+		go order.Record(false, model.HistoryStepCash, model.PayFeild{
 			PayFee:  order.TotalAmount - order.CreditAmount,
 			PayType: form.PayType,
 			PaidFee: order.TotalAmount - order.CreditAmount,
