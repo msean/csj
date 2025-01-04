@@ -8,7 +8,7 @@ import (
 
 type (
 	SurplusFeild struct {
-		Weight  float32 `gorm:"-" json:"-"`
+		Weight  float64 `gorm:"-" json:"-"`
 		Mount   int32   `gorm:"-" json:"-"`
 		Surplus string  `gorm:"-" json:"surplus"`
 	}
@@ -21,9 +21,9 @@ type (
 		GoodsTyp  int32  `gorm:"-" json:"type"`
 	}
 	PayFeild struct {
-		PayFee  float32 `gorm:"-"  json:"payFee"`
+		PayFee  float64 `gorm:"-"  json:"payFee"`
 		PayType int32   `gorm:"-"  json:"payType"`
-		PaidFee float32 `gorm:"-"  json:"paidFee"`
+		PaidFee float64 `gorm:"-"  json:"paidFee"`
 	}
 )
 

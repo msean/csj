@@ -6,6 +6,7 @@ import (
 	"app/service/handler/middleware"
 	"app/service/logic"
 	"app/service/model"
+	"app/service/model/request"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,98 +29,97 @@ func batchOrderRouter(g *gin.RouterGroup) {
 
 // 码单
 func BatchOrderTempCreate(c *gin.Context) {
-	order := logic.NewBatchOrderLogic(c)
-	if err := c.ShouldBind(&order); err != nil {
+	var param request.CreateTempBatchOrderParam
+	var err error
+	if err = c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if err := order.TempCreate(); err != nil {
+	logic := logic.NewBatchOrderLogic(c)
+	var batchOrder model.BatchOrder
+	if batchOrder, err = logic.TempCreate(param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	go order.Record(false, model.HistoryStepOrder, model.PayFeild{})
-	common.Response(c, nil, order)
+	go logic.Record(batchOrder, false, model.HistoryStepOrder, model.PayFeild{})
+	common.Response(c, nil, batchOrder)
 }
 
 func BatchOrderCreate(c *gin.Context) {
-	type Form struct {
-		model.BatchOrder
-		FPayAmount float32 `json:"payAmount"` // 总计
-		PayType    int32   `json:"payType"`   // 支付方式
-	}
-	var form Form
-	if err := c.ShouldBind(&form); err != nil {
+	var param request.CreateBatchOrderParam
+	var err error
+	if err := c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	order := logic.NewBatchOrderLogic(c)
-	order.BatchOrder = form.BatchOrder // owner_user重置成了空字符串
-	order.OwnerUser = common.GetUserUUID(c)
-	order.TotalAmount = order.BatchOrder.SetTotalAmount()
-	order.CreditAmount = order.TotalAmount - form.FPayAmount
-	if common.FloatEqual(order.TotalAmount, form.FPayAmount) || common.FloatGreat(form.FPayAmount, order.TotalAmount) {
-		order.Status = model.BatchOrderFinish
-	} else {
-		order.Status = model.BatchOrderedCredit
-	}
+	batchOrderLogic := logic.NewBatchOrderLogic(c)
+	var batchOrder model.BatchOrder
 	tx := global.Global.DB.Begin()
-	if err := order.Create(tx); err != nil {
+	if batchOrder, err = batchOrderLogic.Create(tx, param); err != nil {
+		tx.Rollback()
 		common.Response(c, err, nil)
 		return
 	}
-	orderPay := logic.NewBatchOrderPayLogic(c)
-	orderPay.BatchOrderUUID = order.UID
-	orderPay.Amount = order.TotalAmount - order.CreditAmount
-	if err := orderPay.Create(tx, false); err != nil {
+
+	orderPayLogic := logic.NewBatchOrderPayLogic(c)
+	orderPayLogic.BatchOrderUUID = batchOrder.UID
+	orderPayLogic.Amount = batchOrder.TotalAmount - batchOrder.CreditAmount
+	if err := orderPayLogic.Create(tx, false); err != nil {
+		tx.Rollback()
 		common.Response(c, err, nil)
 		return
 	}
 	tx.Commit()
-	if !common.FloatGreat(0.0, order.CreditAmount) {
-		go order.Record(false, model.HistoryStepCredit, model.PayFeild{
-			PayFee:  form.FPayAmount,
-			PayType: form.PayType,
-			PaidFee: form.FPayAmount,
+	if !common.FloatGreat(0.0, batchOrder.CreditAmount) {
+		go batchOrderLogic.Record(batchOrder, false, model.HistoryStepCredit, model.PayFeild{
+			PayFee:  param.FPayAmount,
+			PayType: param.PayType,
+			PaidFee: param.FPayAmount,
 		})
 	} else {
-		go order.Record(false, model.HistoryStepCash, model.PayFeild{
-			PayFee:  order.TotalAmount - order.CreditAmount,
-			PayType: form.PayType,
-			PaidFee: order.TotalAmount - order.CreditAmount,
+		go batchOrderLogic.Record(batchOrder, false, model.HistoryStepCash, model.PayFeild{
+			PayFee:  batchOrder.TotalAmount - batchOrder.CreditAmount,
+			PayType: param.PayType,
+			PaidFee: batchOrder.TotalAmount - batchOrder.CreditAmount,
 		})
 	}
 
-	common.Response(c, nil, order)
+	common.Response(c, nil, batchOrder)
 }
 
 func BatchOrderUpdate(c *gin.Context) {
-	order := logic.NewBatchOrderLogic(c)
-	if err := c.ShouldBind(&order); err != nil {
+	var param request.UpdateBatchOrderParam
+	var err error
+	if err = c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if err := order.Update(); err != nil {
+	logic := logic.NewBatchOrderLogic(c)
+	var batchOrder model.BatchOrder
+	if batchOrder, err = logic.Update(param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, order)
+	common.Response(c, nil, batchOrder)
 }
 
 func BatchOrderUpdateStatus(c *gin.Context) {
-	order := logic.NewBatchOrderLogic(c)
-	if err := c.ShouldBind(&order); err != nil {
+	var param request.UpdateBatchOrderStatusParam
+	var err error
+	if err = c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if err := order.UpdateStatus(); err != nil {
+	var batchOrder model.BatchOrder
+	if batchOrder, err = logic.NewBatchOrderLogic(c).UpdateStatus(param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, order)
+	common.Response(c, nil, batchOrder)
 }
 
 func BatchOrderShared(c *gin.Context) {
@@ -137,32 +137,33 @@ func BatchOrderShared(c *gin.Context) {
 }
 
 func BatchOrderDetail(c *gin.Context) {
-	order := logic.NewBatchOrderLogic(c)
-	if err := c.ShouldBind(&order); err != nil {
+	var param request.BatchOrderDetailParam
+	var err error
+	if err = c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if err := order.FromUUID(); err != nil {
+	logic := logic.NewBatchOrderLogic(c)
+	var batchOrder model.BatchOrder
+	if batchOrder, err = logic.FromUUID(param.UUID); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, order)
+	common.Response(c, nil, batchOrder)
 }
 
 func BatchOrderGoodsLatest(c *gin.Context) {
-	type Body struct {
-		GoodsUUIDList []string `json:"goodsUUIDList"`
-	}
-	var body Body
 
-	order := logic.NewBatchOrderLogic(c)
-	if err := c.ShouldBind(&body); err != nil {
+	var param request.GoodsLatestOrderParam
+	var err error
+
+	if err := c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	goodPriceObjs, err := order.FindLatestGoods(body.GoodsUUIDList)
+	goodPriceObjs, err := logic.NewBatchOrderLogic(c).FindLatestGoods(param.GoodsUUIDList)
 	if err != nil {
 		common.Response(c, err, nil)
 		return

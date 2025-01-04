@@ -33,8 +33,8 @@ type (
 		Shared           int32              `gorm:"column:shared;comment:是否分享单" json:"shared"`
 		SharedTime       int32              `gorm:"column:share_time;comment:分享时间" json:"sharedTime"`
 		Status           int32              `gorm:"column:status;comment:状态" json:"status"`
-		TotalAmount      float32            `gorm:"column:amount;comment:金额" json:"totalAmount"`
-		CreditAmount     float32            `gorm:"column:credit_amount;comment:赊欠金额" json:"creditAmount"`
+		TotalAmount      float64            `gorm:"column:amount;comment:金额" json:"totalAmount"`
+		CreditAmount     float64            `gorm:"column:credit_amount;comment:赊欠金额" json:"creditAmount"`
 		GoodsListRelated []*BatchOrderGoods `gorm:"foreignKey:BatchOrderUID;references:UID" json:"goodsList"`
 		CustomerFeild
 	}
@@ -48,8 +48,8 @@ type (
 		OwnerUser string  `gorm:"column:owner_user;comment:所属用户;index" json:"ownerUser"`
 		UserUUID  string  `gorm:"column:user_uuid;comment:开单uuid" json:"customerUUID"`
 		SerialNo  string  `gorm:"column:serial_no;comment:批次序号" json:"serialNo"`
-		Price     float32 `gorm:"column:price;type:decimal(10,2);comment:单价" json:"price"`
-		Weight    float32 `gorm:"column:weight;type:decimal(10,2);comment:重量" json:"weight"`
+		Price     float64 `gorm:"column:price;type:decimal(10,2);comment:单价" json:"price"`
+		Weight    float64 `gorm:"column:weight;type:decimal(10,2);comment:重量" json:"weight"`
 		Mount     int32   `gorm:"column:mount;comment:数量" json:"mount"` // 件数
 		CustomerFeild
 		GoodsFeild
@@ -67,7 +67,7 @@ type (
 		CustomerUUID   string  `gorm:"column:customer_uuid;comment:" json:"customerUUID"`
 		OwnerUser      string  `gorm:"column:owner_user;comment:所属用户" json:"ownerUser"`
 		BatchOrderUUID string  `gorm:"column:batch_order_uuid;comment:批次uuid'" json:"batchOrderUUID"`
-		Amount         float32 `gorm:"column:amount;type:decimal(10,2);comment:支付金额" json:"amount"`
+		Amount         float64 `gorm:"column:amount;type:decimal(10,2);comment:支付金额" json:"amount"`
 		PayType        int32   `gorm:"column:pay_type;comment:付款方式" json:"payType"`
 	}
 )
@@ -103,22 +103,22 @@ func (b *BatchOrderPay) Update(db *gorm.DB) error {
 	}).Error
 }
 
-func (b *BatchOrderGoods) Amount() float32 {
+func (b *BatchOrderGoods) Amount() float64 {
 	// 件数量为0 则是散装
 	if b.Mount == 0 {
-		return b.Price * float32(b.Weight)
+		return b.Price * float64(b.Weight)
 	}
-	return b.Price * float32(b.Mount)
+	return b.Price * float64(b.Mount)
 }
 
-func (b *BatchOrder) SetTotalAmount() float32 {
-	var t float32
+func (b *BatchOrder) SetTotalAmount() float64 {
+	var t float64
 	for _, batchGoods := range b.GoodsListRelated {
 		t += batchGoods.Amount()
 	}
-	return float32(math.Round(float64(t)))
+	return math.Round(float64(t))
 }
 
-func (b *BatchOrder) SetCreditAmount(pay float32) {
+func (b *BatchOrder) SetCreditAmount(pay float64) {
 	b.CreditAmount -= pay
 }

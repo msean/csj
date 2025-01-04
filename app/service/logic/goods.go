@@ -7,19 +7,20 @@ import (
 	"app/service/model/request"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 type (
 	GoodsLogic struct {
-		model.Goods
-		runtime *global.RunTime
-		context *gin.Context
+		OwnerUser string
+		runtime   *global.RunTime
+		context   *gin.Context
 	}
 	GoodsCategoryLogic struct {
-		model.GoodsCategory
-		runtime *global.RunTime
-		context *gin.Context
+		runtime   *global.RunTime
+		context   *gin.Context
+		OwnerUser string
 	}
 )
 
@@ -43,11 +44,15 @@ func NewGoodsCategoryLogic(context *gin.Context) *GoodsCategoryLogic {
 
 // brief 不需要货品详情
 func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...model.Cond) (gcList []*model.GoodsCategory, err error) {
+
 	gcList = make([]*model.GoodsCategory, 0)
 
 	conds = append(conds, model.WhereOwnerUserCond(logic.OwnerUser))
 	var _goodCategories []model.GoodsCategory
 	if err = model.Find(logic.runtime.DB, &_goodCategories, conds...); err != nil {
+		logic.runtime.Logger.Error("ListGoodsCategoryByUser",
+			zap.String("uuid", logic.OwnerUser),
+			zap.Error(err))
 		return
 	}
 
@@ -63,7 +68,10 @@ func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...mo
 	}
 
 	var _goodsList []model.Goods
-	if err = model.Find(logic.runtime.DB, &_goodsList, model.WhereOwnerUserCond(logic.OwnerUser), model.UpdateOrderDescCond()); err != nil {
+	if err = model.Find(logic.runtime.DB, &_goodsList,
+		model.WhereOwnerUserCond(logic.OwnerUser),
+		model.UpdateOrderDescCond(),
+	); err != nil {
 		return
 	}
 
@@ -109,7 +117,7 @@ func (logic *GoodsCategoryLogic) Create(param request.GoodsCategorySaveParam) (_
 		Name:      param.Name,
 		OwnerUser: logic.OwnerUser,
 	}
-	err = model.CreateObj(logic.runtime.DB, &logic.GoodsCategory)
+	err = model.CreateObj(logic.runtime.DB, &_g)
 	return
 }
 
@@ -121,23 +129,16 @@ func (logic *GoodsCategoryLogic) Update(param request.GoodsCategorySaveParam) (_
 			UID: param.UID,
 		},
 	}
-	err = logic.GoodsCategory.Update(logic.runtime.DB)
+	err = _g.Update(logic.runtime.DB)
 	return
 }
 
-func (logic *GoodsCategoryLogic) Delete() (err error) {
+func (logic *GoodsCategoryLogic) Delete(uuid string) (err error) {
 	tx := logic.runtime.DB.Begin()
-
-	if err = logic.GoodsCategory.Delete(tx); err != nil {
+	if err = model.DeleteGoodsCategory(tx, uuid); err != nil {
 		tx.Rollback()
 		return
 	}
-
-	if err = model.UpdateGoodsCategory(tx, logic.UID); err != nil {
-		tx.Rollback()
-		return
-	}
-
 	tx.Commit()
 	return
 }
@@ -183,9 +184,9 @@ func (logic *GoodsLogic) Update(param request.GoodsSaveParam) (_goods model.Good
 	return
 }
 
-func (logic *GoodsLogic) LoadGoods(ownerUser, searchKey string, limitCond model.LimitCond) (goodsList []model.Goods, err error) {
+func (logic *GoodsLogic) LoadGoods(searchKey string, limitCond model.LimitCond) (goodsList []model.Goods, err error) {
 	conds := []model.Cond{
-		model.WhereOwnerUserCond(ownerUser),
+		model.WhereOwnerUserCond(logic.OwnerUser),
 		limitCond,
 	}
 	if searchKey != "" {
@@ -193,6 +194,10 @@ func (logic *GoodsLogic) LoadGoods(ownerUser, searchKey string, limitCond model.
 	}
 
 	if err = model.Find(logic.runtime.DB, &goodsList, conds...); err != nil {
+		logic.runtime.Logger.Error("LoadGoods",
+			zap.String("uuid", logic.OwnerUser),
+			zap.Any("conditions", conds),
+			zap.Error(err))
 		return
 	}
 	return

@@ -55,19 +55,14 @@ func GoodsCategorySave(c *gin.Context) {
 }
 
 func GoodsCategoryList(c *gin.Context) {
-	type Body struct {
-		Brief bool `json:"brief"`
-		model.LimitCond
-	}
-	var body Body
-	if err := c.ShouldBind(&body); err != nil {
+	var params request.ListGoodsCategoryParam
+	if err := c.ShouldBind(&params); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 	var gclist []*model.GoodsCategory
 	var err error
-	gclist, err = logic.NewGoodsCategoryLogic(c).ListGoodsCategoryByUser(body.Brief, body.LimitCond)
-	if err != nil {
+	if gclist, err = logic.NewGoodsCategoryLogic(c).ListGoodsCategoryByUser(params.Brief, params.LimitCond); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
@@ -75,19 +70,19 @@ func GoodsCategoryList(c *gin.Context) {
 }
 
 func GoodsCategoryDelete(c *gin.Context) {
-
-	goodCategoryLogic := logic.NewGoodsCategoryLogic(c)
-	if err := c.ShouldBind(&goodCategoryLogic); err != nil {
+	var param request.DeleteGoodsCategoryParam
+	if err := c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if goodCategoryLogic.UID == "" {
+	goodCategoryLogic := logic.NewGoodsCategoryLogic(c)
+	if param.UUID == "" {
 		common.Response(c, common.RequestUIDMustErr, nil)
 		return
 	}
 
-	if err := goodCategoryLogic.Delete(); err != nil {
+	if err := goodCategoryLogic.Delete(param.UUID); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
@@ -102,7 +97,7 @@ func GoodsList(c *gin.Context) {
 		return
 	}
 
-	goods, err := logic.NewGoodsLogic(c).LoadGoods(common.GetUserUUID(c), form.SearchKey, form.LimitCond)
+	goods, err := logic.NewGoodsLogic(c).LoadGoods(form.SearchKey, form.LimitCond)
 
 	if err != nil {
 		common.Response(c, err, nil)

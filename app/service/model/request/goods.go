@@ -19,4 +19,11 @@ type (
 		SearchKey string `json:"searchName"`
 		model.LimitCond
 	}
+	ListGoodsCategoryParam struct {
+		Brief bool `json:"brief"`
+		model.LimitCond
+	}
+	DeleteGoodsCategoryParam struct {
+		UUID string `json:"uuid"`
+	}
 )

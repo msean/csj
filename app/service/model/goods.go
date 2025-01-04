@@ -47,12 +47,16 @@ func (g *GoodsCategory) Update(db *gorm.DB) error {
 	}).Error
 }
 
-func (gc *GoodsCategory) Delete(db *gorm.DB) error {
-	return WhereUIDCond(gc.UID).Cond(db).Delete(gc).Error
-}
-
-func UpdateGoodsCategory(db *gorm.DB, categoryUUID string) error {
-	return NewWhereCond("category_id", categoryUUID).Cond(db.Model(&Goods{})).Updates(
+func DeleteGoodsCategory(db *gorm.DB, goodCategoryUUID string) (err error) {
+	if goodCategoryUUID == "" {
+		return
+	}
+	var object GoodsCategory
+	object.UID = goodCategoryUUID
+	if err = WhereUIDCond(object.UID).Cond(db).Delete(&object).Error; err != nil {
+		return
+	}
+	return NewWhereCond("category_id", object.UID).Cond(db.Model(&Goods{})).Updates(
 		map[string]any{
 			"category_id": "",
 		}).Error

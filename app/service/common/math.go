@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-func FloatGreat(a, b float32) bool {
+func FloatGreat(a, b float64) bool {
 	if math.Abs(float64(a-b)) < 0.0001 {
 		return true
 	}
