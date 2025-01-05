@@ -34,8 +34,8 @@ type (
 		GoodsList []*StepGoods `json:"goods_list"`
 	}
 	StepGoods struct {
-		Price  float32 `json:"price"`
-		Weight float32 `json:"weight"`
+		Price  float64 `json:"price"`
+		Weight float64 `json:"weight"`
 		Mount  int32   `json:"mount"`
 		GoodsFeild
 		Amount string `json:"amount"` //货款

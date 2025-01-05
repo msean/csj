@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func MonthFinance(db *gorm.DB, ownerUser string) (amount, creditAmount float32, err error) {
+func MonthFinance(db *gorm.DB, ownerUser string) (amount, creditAmount float64, err error) {
 	now := time.Now()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	var bos []BatchOrder

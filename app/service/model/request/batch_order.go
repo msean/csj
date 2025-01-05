@@ -1,5 +1,7 @@
 package request
 
+import "app/service/model"
+
 type (
 	BatchOrderGoodsParam struct {
 		GoodsUUID string  `json:"goodsUUID"`
@@ -34,5 +36,15 @@ type (
 	}
 	GoodsLatestOrderParam struct {
 		GoodsUUIDList []string `json:"goodsUUIDList"`
+	}
+	ListBatchOrderParam struct {
+		model.LimitCond
+		Status    int32  `json:"status"`
+		UserUUID  string `json:"userUUID"`
+		StartTime int64  `json:"startTime"`
+		EndTime   int64  `json:"endTime"`
+	}
+	ShareBatchOrderrParam struct {
+		UUID string `json:"uuid"`
 	}
 )

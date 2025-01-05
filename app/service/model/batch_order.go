@@ -37,6 +37,7 @@ type (
 		CreditAmount     float64            `gorm:"column:credit_amount;comment:赊欠金额" json:"creditAmount"`
 		GoodsListRelated []*BatchOrderGoods `gorm:"foreignKey:BatchOrderUID;references:UID" json:"goodsList"`
 		CustomerFeild
+		History BatchOrderHistory `gorm:"-" json:"history"`
 	}
 
 	BatchOrderGoods struct {

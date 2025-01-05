@@ -13,7 +13,7 @@ func FloatGreat(a, b float64) bool {
 	return a > b
 }
 
-func FloatEqual(a, b float32) bool {
+func FloatEqual(a, b float64) bool {
 	if math.Abs(float64(a-b)) < 0.0001 {
 		return true
 	}
@@ -25,7 +25,7 @@ func Float32IsZero(value float32) bool {
 	return math.Abs(float64(value)) < epsilon
 }
 
-func Float32Preserve(f float32, places int) string {
+func Float32Preserve(f float64, places int) string {
 	return strconv.FormatFloat(float64(f), 'f', places, 32)
 }
 

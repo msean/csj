@@ -64,9 +64,14 @@ func BatchOrderCreate(c *gin.Context) {
 	}
 
 	orderPayLogic := logic.NewBatchOrderPayLogic(c)
-	orderPayLogic.BatchOrderUUID = batchOrder.UID
-	orderPayLogic.Amount = batchOrder.TotalAmount - batchOrder.CreditAmount
-	if err := orderPayLogic.Create(tx, false); err != nil {
+	// orderPayLogic.BatchOrderUUID = batchOrder.UID
+	batchOrderPayParam := request.CreateBatchOrderPayParam{
+		BatchOrderUUID: batchOrder.UID,
+		Amount:         batchOrder.TotalAmount - batchOrder.CreditAmount,
+		PayType:        param.PayType,
+		CustomerUUID:   batchOrder.UserUUID,
+	}
+	if _, err = orderPayLogic.Create(tx, batchOrderPayParam, false); err != nil {
 		tx.Rollback()
 		common.Response(c, err, nil)
 		return
@@ -123,17 +128,19 @@ func BatchOrderUpdateStatus(c *gin.Context) {
 }
 
 func BatchOrderShared(c *gin.Context) {
-	order := logic.NewBatchOrderLogic(c)
-	if err := c.ShouldBind(&order); err != nil {
+	var param request.ShareBatchOrderrParam
+	var err error
+	if err = c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if err := order.Shared(); err != nil {
+	var batchOrder model.BatchOrder
+	if batchOrder, err = logic.NewBatchOrderLogic(c).Shared(param.UUID); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, order)
+	common.Response(c, nil, batchOrder)
 }
 
 func BatchOrderDetail(c *gin.Context) {
@@ -172,22 +179,15 @@ func BatchOrderGoodsLatest(c *gin.Context) {
 }
 
 func BatchOrderGoodsList(c *gin.Context) {
-	type PayLoad struct {
-		model.LimitCond
-		Status    int32  `json:"status"`
-		UserUUID  string `json:"userUUID"`
-		StartTime int64  `json:"startTime"`
-		EndTime   int64  `json:"endTime"`
-	}
-	var payload PayLoad
 
-	order := logic.NewBatchOrderLogic(c)
-	if err := c.ShouldBind(&payload); err != nil {
+	var param request.ListBatchOrderParam
+	var err error
+	if err = c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	goodPriceObjs, err := order.List(payload.UserUUID, payload.StartTime, payload.EndTime, payload.Status, model.DefaultSetLimitCond(payload.LimitCond))
+	goodPriceObjs, err := logic.NewBatchOrderLogic(c).List(param)
 	if err != nil {
 		common.Response(c, err, nil)
 		return

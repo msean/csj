@@ -6,6 +6,7 @@ import (
 	"app/global"
 	"app/service/common"
 	"app/service/model"
+	"app/service/model/request"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -14,7 +15,8 @@ import (
 type BatchOrderPayLogic struct {
 	context *gin.Context
 	runtime *global.RunTime
-	model.BatchOrderPay
+	// model.BatchOrderPay
+	OwnerUser string
 }
 
 func NewBatchOrderPayLogic(context *gin.Context) *BatchOrderPayLogic {
@@ -26,23 +28,31 @@ func NewBatchOrderPayLogic(context *gin.Context) *BatchOrderPayLogic {
 	return logic
 }
 
-func (logic *BatchOrderPayLogic) Create(tx *gorm.DB, toUpdateOrder bool) (err error) {
+func (logic *BatchOrderPayLogic) Create(tx *gorm.DB, param request.CreateBatchOrderPayParam, toUpdateOrder bool) (batchOrderPay model.BatchOrderPay, err error) {
 	useTxOut := true
-	if logic.BatchOrderUUID == "" {
-		return common.BatchOrderUUIDRequireErr
+	if param.BatchOrderUUID == "" {
+		err = common.BatchOrderUUIDRequireErr
+		return
 	}
 
+	batchOrderPay = model.BatchOrderPay{
+		CustomerUUID:   param.CustomerUUID,
+		OwnerUser:      logic.OwnerUser,
+		BatchOrderUUID: param.BatchOrderUUID,
+		Amount:         param.Amount,
+		PayType:        param.PayType,
+	}
 	if tx == nil {
 		tx = logic.runtime.DB.Begin()
 		useTxOut = false
 	}
-	if err = model.CreateObj(tx, &logic.BatchOrderPay); err != nil {
+	if err = model.CreateObj(tx, &batchOrderPay); err != nil {
 		tx.Rollback()
 		return
 	}
 
 	if toUpdateOrder {
-		if err = UpdateOrderPay(tx, logic.Amount, logic.PayType, logic.BatchOrderUUID, logic.context); err != nil {
+		if err = UpdateOrderPay(tx, batchOrderPay.Amount, batchOrderPay.PayType, batchOrderPay.BatchOrderUUID, logic.context); err != nil {
 			tx.Rollback()
 			return
 		}
@@ -55,13 +65,18 @@ func (logic *BatchOrderPayLogic) Create(tx *gorm.DB, toUpdateOrder bool) (err er
 	return
 }
 
-func (logic *BatchOrderPayLogic) Update() (err error) {
+func (logic *BatchOrderPayLogic) Update(param request.UpdateBatchOrderPayParam) (storage model.BatchOrderPay, err error) {
+	if storage, err = logic.FromUUID(param.BatchOrderPayUUID); err != nil {
+		return
+	}
+	storage.Amount = param.Amount
+	storage.PayType = param.PayType
 	tx := logic.runtime.DB.Begin()
-	if err = logic.BatchOrderPay.Update(tx); err != nil {
+	if err = storage.Update(tx); err != nil {
 		tx.Rollback()
 		return
 	}
-	if err = UpdateOrderPay(tx, logic.Amount, logic.PayType, logic.BatchOrderUUID, logic.context); err != nil {
+	if err = UpdateOrderPay(tx, storage.Amount, storage.PayType, storage.BatchOrderUUID, logic.context); err != nil {
 		tx.Rollback()
 		return
 	}
@@ -71,7 +86,7 @@ func (logic *BatchOrderPayLogic) Update() (err error) {
 }
 
 // 查询该批次的单次是否结算完成，若完成，则需修改单次的状态
-func UpdateOrderPay(db *gorm.DB, payFee float32, payType int32, batchOrderUUID string, ctx *gin.Context) (err error) {
+func UpdateOrderPay(db *gorm.DB, payFee float64, payType int32, batchOrderUUID string, ctx *gin.Context) (err error) {
 	var order model.BatchOrder
 	if err = model.Find(db, &order, model.WhereUIDCond(batchOrderUUID)); err != nil {
 		return
@@ -91,6 +106,7 @@ func UpdateOrderPay(db *gorm.DB, payFee float32, payType int32, batchOrderUUID s
 	return
 }
 
-func (logic *BatchOrderPayLogic) FromUUID() (err error) {
-	return model.Find(logic.runtime.DB, &logic.BatchOrderPay)
+func (logic *BatchOrderPayLogic) FromUUID(uuid string) (object model.BatchOrderPay, err error) {
+	err = model.Find(logic.runtime.DB, &object, model.WhereUIDCond(uuid))
+	return
 }

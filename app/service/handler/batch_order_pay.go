@@ -4,6 +4,8 @@ import (
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
+	"app/service/model"
+	"app/service/model/request"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,44 +20,51 @@ func batchOrderPayRouter(g *gin.RouterGroup) {
 }
 
 func BatchOrderPayCreate(c *gin.Context) {
-	orderPay := logic.NewBatchOrderPayLogic(c)
-	if err := c.ShouldBind(&orderPay); err != nil {
+	var param request.CreateBatchOrderPayParam
+	var err error
+
+	if err = c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if err := orderPay.Create(nil, true); err != nil {
+	var batchOrderPay model.BatchOrderPay
+	if batchOrderPay, err = logic.NewBatchOrderPayLogic(c).Create(nil, param, true); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 	// todo记录
-	common.Response(c, nil, orderPay)
+	common.Response(c, nil, batchOrderPay)
 }
 
 func BatchOrderPayUpdate(c *gin.Context) {
-	orderPay := logic.NewBatchOrderPayLogic(c)
-	if err := c.ShouldBind(&orderPay); err != nil {
+	var param request.UpdateBatchOrderPayParam
+	var err error
+	if err = c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if err := orderPay.Update(); err != nil {
+	var batchOrderPay model.BatchOrderPay
+	if batchOrderPay, err = logic.NewBatchOrderPayLogic(c).Update(param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, orderPay)
+	common.Response(c, nil, batchOrderPay)
 }
 
 func BatchOrderPayDetail(c *gin.Context) {
-	orderPay := logic.NewBatchOrderPayLogic(c)
-	if err := c.ShouldBind(&orderPay); err != nil {
+	var param request.GetBatchOrderPayParam
+	var err error
+	if err = c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if err := orderPay.FromUUID(); err != nil {
+	var batchOrderPay model.BatchOrderPay
+	if batchOrderPay, err = logic.NewBatchOrderPayLogic(c).FromUUID(param.BatchOrderPayUUID); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, orderPay)
+	common.Response(c, nil, batchOrderPay)
 }
