@@ -1,6 +1,9 @@
-package model
+package utils
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -214,4 +217,79 @@ func NewCmpCond(key, symbol string, val any) Cond {
 func (cond CmpCond) Cond(db *gorm.DB) *gorm.DB {
 	db = db.Where(fmt.Sprintf("%s %s '%v'", cond.key, cond.symbol, cond.val))
 	return db
+}
+
+// object must be an pointer type
+func GormCreateObj(db *gorm.DB, object interface{}) (err error) {
+	return db.Create(object).Error
+}
+
+func GormFind(db *gorm.DB, dst interface{}, conds ...Cond) (err error) {
+	for _, cond := range conds {
+		db = cond.Cond(db)
+	}
+	err = db.Find(dst).Error
+	return
+}
+
+func GormFirst(db *gorm.DB, dst interface{}, conds ...Cond) (err error) {
+	for _, cond := range conds {
+		db = cond.Cond(db)
+	}
+	err = db.First(dst).Error
+	return
+}
+
+type GormArray []interface{}
+
+func (a GormArray) Value() (driver.Value, error) {
+	bytes, err := json.Marshal(a)
+	return string(bytes), err
+}
+
+func (a *GormArray) Scan(src interface{}) error {
+	switch value := src.(type) {
+	case string:
+		return json.Unmarshal([]byte(value), a)
+	case []byte:
+		return json.Unmarshal(value, a)
+	default:
+		return fmt.Errorf("Array not support")
+	}
+}
+
+type GormMap map[string]string
+
+func (m GormMap) Value() (driver.Value, error) {
+	bytes, err := json.Marshal(m)
+	return string(bytes), err
+}
+
+func (m *GormMap) Scan(src interface{}) error {
+	switch value := src.(type) {
+	case string:
+		return json.Unmarshal([]byte(value), m)
+	case []byte:
+		return json.Unmarshal(value, m)
+	default:
+		return errors.New("Map not supported")
+	}
+}
+
+type GormInts []int
+
+func (a GormInts) Value() (driver.Value, error) {
+	bytes, err := json.Marshal(a)
+	return string(bytes), err
+}
+
+func (a *GormInts) Scan(src interface{}) error {
+	switch value := src.(type) {
+	case string:
+		return json.Unmarshal([]byte(value), a)
+	case []byte:
+		return json.Unmarshal(value, a)
+	default:
+		return fmt.Errorf("not support")
+	}
 }

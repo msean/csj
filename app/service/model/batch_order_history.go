@@ -2,6 +2,7 @@ package model
 
 import (
 	"app/service/common"
+	"app/utils"
 	"fmt"
 	"time"
 
@@ -21,44 +22,44 @@ const (
 type (
 	BatchOrderHistory struct {
 		BaseModel
-		BatchOrderUID string `gorm:"column:batch_order_uuid;comment:批次uuid" json:"batchOrderUUID"`
-		History       Array  `gorm:"column:history;comment:操作记录" json:"steps"`
+		BatchOrderUID string          `gorm:"column:batch_order_uuid;comment:批次uuid" json:"batchOrderUUID"`
+		History       utils.GormArray `gorm:"column:history;comment:操作记录" json:"steps"`
 	}
 	Step struct {
 		OprTime  time.Time `json:"operate_time"`
 		StepType int32     `json:"step_type"`
-		CustomerFeild
+		CustomerField
 		OrderAmount  string `json:"orderAmount"`
 		CreditAmount string `json:"creditAmount"`
-		PayFeild
+		PayField
 		GoodsList []*StepGoods `json:"goods_list"`
 	}
 	StepGoods struct {
 		Price  float64 `json:"price"`
 		Weight float64 `json:"weight"`
 		Mount  int32   `json:"mount"`
-		GoodsFeild
+		GoodsField
 		Amount string `json:"amount"` //货款
 	}
 )
 
-func (bo *BatchOrder) Record(db *gorm.DB, stepType int32, pay PayFeild) (err error) {
+func (bo *BatchOrder) Record(db *gorm.DB, stepType int32, pay PayField) (err error) {
 	var boh BatchOrderHistory
-	if err = Find(db, &boh, NewWhereCond("batch_order_uuid", bo.UID)); err != nil {
+	if err = utils.GormFind(db, &boh, utils.NewWhereCond("batch_order_uuid", bo.UID)); err != nil {
 		return
 	}
 	step := bo.NewHistoryStep(stepType, pay)
 	boh.History = append(boh.History, step)
 	boh.BatchOrderUID = bo.UID
 	if boh.UID == "" {
-		return CreateObj(db, &boh)
+		return utils.GormCreateObj(db, &boh)
 	}
 	return db.Save(&boh).Error
 }
 
-func (bo *BatchOrder) NewHistoryStep(stepType int32, pay PayFeild) (step Step) {
+func (bo *BatchOrder) NewHistoryStep(stepType int32, pay PayField) (step Step) {
 	s := Step{
-		CustomerFeild: bo.CustomerFeild,
+		CustomerField: bo.CustomerField,
 		StepType:      stepType,
 		OprTime:       time.Now(),
 	}
@@ -67,12 +68,12 @@ func (bo *BatchOrder) NewHistoryStep(stepType int32, pay PayFeild) (step Step) {
 			Price:      goods.Price,
 			Weight:     goods.Weight,
 			Mount:      goods.Mount,
-			GoodsFeild: goods.GoodsFeild,
+			GoodsField: goods.GoodsField,
 			Amount:     common.Float32Preserve(goods.Amount(), 2),
 		})
 	}
 	s.CreditAmount = fmt.Sprintf("%.f", bo.CreditAmount)
-	s.PayFeild = pay
+	s.PayField = pay
 	// if !common.Float32IsZero(pay.PaidFee) && pay.PaidFee > 0.0 {
 	// 	s.CreditAmount = common.Float32Preserve((_orderAmount - pay.PaidFee), 32)
 	// }

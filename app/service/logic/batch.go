@@ -3,8 +3,10 @@ package logic
 import (
 	"app/global"
 	"app/service/common"
+	"app/service/dao"
 	"app/service/model"
 	"app/service/model/request"
+	"app/utils"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -49,11 +51,11 @@ func (logic *BatchLogic) CalSurplus() (surplusGoodsList []model.BatchGoods, err 
 	db := logic.runtime.DB
 
 	var preBatch model.Batch
-	conds := []model.Cond{
-		model.NewOrderCond("serial_no desc"),
-		model.NewWhereCond("owner_user", logic.OwnerUser),
+	conds := []utils.Cond{
+		utils.NewOrderCond("serial_no desc"),
+		utils.NewWhereCond("owner_user", logic.OwnerUser),
 	}
-	err = model.Find(db, &preBatch, conds...)
+	err = utils.GormFind(db, &preBatch, conds...)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return
 	}
@@ -63,7 +65,7 @@ func (logic *BatchLogic) CalSurplus() (surplusGoodsList []model.BatchGoods, err 
 	}
 
 	var preBatchGoodsList []model.BatchGoods
-	if err = model.Find(db, &preBatchGoodsList, model.WhereOwnerUserCond(logic.OwnerUser), model.NewWhereCond("batch_uuid", preBatch.UID)); err != nil {
+	if err = utils.GormFind(db, &preBatchGoodsList, utils.WhereOwnerUserCond(logic.OwnerUser), utils.NewWhereCond("batch_uuid", preBatch.UID)); err != nil {
 		return
 	}
 
@@ -76,18 +78,18 @@ func (logic *BatchLogic) CalSurplus() (surplusGoodsList []model.BatchGoods, err 
 
 	// 上一批开单的
 	var batchOrderedGoodsList []model.BatchOrderGoods
-	if err = model.Find(db, &batchOrderedGoodsList, model.NewWhereCond("batch_uuid", preBatch.UID)); err != nil {
+	if err = utils.GormFind(db, &batchOrderedGoodsList, utils.NewWhereCond("batch_uuid", preBatch.UID)); err != nil {
 		return
 	}
 	for _, batchOrdered := range batchOrderedGoodsList {
 		if _, InpreCountM := preCountM[batchOrdered.GoodsUUID]; InpreCountM {
 			preCountM[batchOrdered.GoodsUUID].Mount -= batchOrdered.Mount
 			preCountM[batchOrdered.GoodsUUID].Weight -= batchOrdered.Weight
-			preCountM[batchOrdered.GoodsUUID].SurplusFeild = model.SurplusFeild{
+			preCountM[batchOrdered.GoodsUUID].SurplusField = model.SurplusField{
 				Mount:  preCountM[batchOrdered.GoodsUUID].Mount,
 				Weight: preCountM[batchOrdered.GoodsUUID].Weight,
 			}
-			preCountM[batchOrdered.GoodsUUID].SurplusFeild.Set()
+			preCountM[batchOrdered.GoodsUUID].SurplusField.Set()
 		}
 	}
 
@@ -108,7 +110,7 @@ func (logic *BatchLogic) CalSurplus() (surplusGoodsList []model.BatchGoods, err 
 func (logic *BatchLogic) Create(param request.CreateBatchParam) (batch model.Batch, err error) {
 	var checkBatch model.Batch
 	serialNo := model.SerioalNo(time.Now())
-	if err = model.Find(logic.runtime.DB, &checkBatch, model.WhereSerialNoCond(serialNo)); err != nil {
+	if err = utils.GormFind(logic.runtime.DB, &checkBatch, utils.WhereSerialNoCond(serialNo)); err != nil {
 		return
 	}
 	// 当天只能创建一个批次
@@ -135,7 +137,7 @@ func (logic *BatchLogic) Create(param request.CreateBatchParam) (batch model.Bat
 		batch.GoodsListRelated = append(batch.GoodsListRelated, &goods)
 	}
 
-	err = model.CreateObj(logic.runtime.DB, &batch)
+	err = utils.GormCreateObj(logic.runtime.DB, &batch)
 	return
 }
 
@@ -171,7 +173,7 @@ func (logic *BatchLogic) UpdateStatus(param request.UpdateBatchStatusParam) (err
 	if batch, err = logic.FromUUID(param.UUID, false); err != nil {
 		return
 	}
-	if err = model.WhereUIDCond(batch.UID).Cond(logic.runtime.DB).Model(&model.Batch{}).Updates(map[string]any{
+	if err = utils.WhereUIDCond(batch.UID).Cond(logic.runtime.DB).Model(&model.Batch{}).Updates(map[string]any{
 		"status": param.Status,
 	}).Error; err != nil {
 		return
@@ -211,7 +213,7 @@ func (logic *BatchLogic) SetGoodsFeild(batch model.Batch) (err error) {
 
 func (logic *BatchLogic) FromDate(date string) (batch model.Batch, err error) {
 	db := logic.runtime.DB
-	if err = model.Find(db.Preload("GoodsListRelated"), &batch, model.WhereSerialNoCond(date), model.WhereOwnerUserCond(logic.OwnerUser)); err != nil {
+	if err = utils.GormFind(db.Preload("GoodsListRelated"), &batch, utils.WhereSerialNoCond(date), utils.WhereOwnerUserCond(logic.OwnerUser)); err != nil {
 		return
 	}
 	if batch.UID == "" {
@@ -227,9 +229,9 @@ func (logic *BatchLogic) FromUUID(uuid string, withGoods bool) (batch model.Batc
 	if withGoods {
 		db = db.Preload("GoodsListRelated")
 	}
-	if err = model.Find(db, &batch,
-		model.WhereUIDCond(uuid),
-		model.WhereOwnerUserCond(logic.OwnerUser),
+	if err = utils.GormFind(db, &batch,
+		utils.WhereUIDCond(uuid),
+		utils.WhereOwnerUserCond(logic.OwnerUser),
 	); err != nil {
 		return
 	}
@@ -243,7 +245,7 @@ func (logic *BatchLogic) FromUUID(uuid string, withGoods bool) (batch model.Batc
 
 func (logic *BatchLogic) FromLatest() (batch model.Batch, err error) {
 	db := logic.runtime.DB
-	if err = model.First(db.Preload("GoodsListRelated"), &batch, model.CreatedOrderDescCond(), model.NewWhereCond("owner_user", logic.OwnerUser)); err != nil {
+	if err = utils.GormFirst(db.Preload("GoodsListRelated"), &batch, utils.CreatedOrderDescCond(), utils.NewWhereCond("owner_user", logic.OwnerUser)); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			err = nil
 		} else {
@@ -256,7 +258,7 @@ func (logic *BatchLogic) FromLatest() (batch model.Batch, err error) {
 }
 
 func (logic *BatchGoodsLogic) FromUUID(uuid string) (batchGoods model.BatchGoods, err error) {
-	if err = model.Find(logic.runtime.DB, &batchGoods, model.WhereUIDCond(uuid), model.WhereOwnerUserCond(logic.OwnerUser)); err != nil {
+	if err = utils.GormFind(logic.runtime.DB, &batchGoods, utils.WhereUIDCond(uuid), utils.WhereOwnerUserCond(logic.OwnerUser)); err != nil {
 		return
 	}
 	if batchGoods.UID == "" {
@@ -264,7 +266,7 @@ func (logic *BatchGoodsLogic) FromUUID(uuid string) (batchGoods model.BatchGoods
 		return
 	}
 	var goods []model.Goods
-	if err = model.Find(logic.runtime.DB, &goods, model.WhereUIDCond(batchGoods.GoodsUUID)); err != nil {
+	if err = utils.GormFind(logic.runtime.DB, &goods, utils.WhereUIDCond(batchGoods.GoodsUUID)); err != nil {
 		return
 	}
 
@@ -281,6 +283,6 @@ func (logic *BatchGoodsLogic) Update(param request.UpdateBatchGoodsParam) (batch
 	batchGoods.Price = param.Price
 	batchGoods.Mount = param.Mount
 	batchGoods.Weight = param.Weight
-	err = batchGoods.Update(logic.runtime.DB)
+	err = dao.BatchGoods.Update(logic.runtime.DB, batchGoods)
 	return
 }

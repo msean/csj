@@ -1,6 +1,6 @@
 package request
 
-import "app/service/model"
+import "app/utils"
 
 type (
 	GoodsCategorySaveParam struct {
@@ -17,11 +17,11 @@ type (
 	}
 	ListGoodsParam struct {
 		SearchKey string `json:"searchName"`
-		model.LimitCond
+		utils.LimitCond
 	}
 	ListGoodsCategoryParam struct {
 		Brief bool `json:"brief"`
-		model.LimitCond
+		utils.LimitCond
 	}
 	DeleteGoodsCategoryParam struct {
 		UUID string `json:"uuid"`

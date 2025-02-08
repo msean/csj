@@ -1,9 +1,8 @@
 package model
 
 import (
+	"app/utils"
 	"math"
-
-	"gorm.io/gorm"
 )
 
 const (
@@ -36,7 +35,7 @@ type (
 		TotalAmount      float64            `gorm:"column:amount;comment:金额" json:"totalAmount"`
 		CreditAmount     float64            `gorm:"column:credit_amount;comment:赊欠金额" json:"creditAmount"`
 		GoodsListRelated []*BatchOrderGoods `gorm:"foreignKey:BatchOrderUID;references:UID" json:"goodsList"`
-		CustomerFeild
+		CustomerField
 		History BatchOrderHistory `gorm:"-" json:"history"`
 	}
 
@@ -52,16 +51,16 @@ type (
 		Price     float64 `gorm:"column:price;type:decimal(10,2);comment:单价" json:"price"`
 		Weight    float64 `gorm:"column:weight;type:decimal(10,2);comment:重量" json:"weight"`
 		Mount     int32   `gorm:"column:mount;comment:数量" json:"mount"` // 件数
-		CustomerFeild
-		GoodsFeild
+		CustomerField
+		GoodsField
 	}
 	// 订单操作记录
 	BatchOrderOpr struct {
 		BaseModel
-		BatchOrderUID string `gorm:"column:batch_order_uuid;comment:批次uuid" json:"batchOrderUUID"`
-		OwnerUser     string `gorm:"column:owner_user;comment:所属用户" json:"ownerUser"`
-		UserUUID      string `gorm:"column:user_uuid;comment:开单uuid" json:"customerUUID"`
-		History       Array  `gorm:"column:history;comment:历史" json:"History"`
+		BatchOrderUID string          `gorm:"column:batch_order_uuid;comment:批次uuid" json:"batchOrderUUID"`
+		OwnerUser     string          `gorm:"column:owner_user;comment:所属用户" json:"ownerUser"`
+		UserUUID      string          `gorm:"column:user_uuid;comment:开单uuid" json:"customerUUID"`
+		History       utils.GormArray `gorm:"column:history;comment:历史" json:"History"`
 	}
 	BatchOrderPay struct {
 		BaseModel
@@ -72,37 +71,6 @@ type (
 		PayType        int32   `gorm:"column:pay_type;comment:付款方式" json:"payType"`
 	}
 )
-
-func (bo *BatchOrder) UpdateStatus(db *gorm.DB, status int32) error {
-	return WhereUIDCond(bo.UID).Cond(db).Model(&BatchOrder{}).Update("status", status).Error
-}
-
-func (bo *BatchOrder) UpdateShare(db *gorm.DB) error {
-	return WhereUIDCond(bo.UID).Cond(db).Updates(&BatchOrder{
-		Shared: BatchOrderShared,
-	}).Error
-}
-
-func (bo *BatchOrder) Update(db *gorm.DB) error {
-	return WhereUIDCond(bo.UID).Cond(db).Updates(&BatchOrder{
-		Shared: BatchOrderShared,
-	}).Error
-}
-
-func (b *BatchOrderGoods) Update(db *gorm.DB) error {
-	return WhereUIDCond(b.UID).Cond(db).Updates(&BatchOrderGoods{
-		Price:  b.Price,
-		Mount:  b.Mount,
-		Weight: b.Weight,
-	}).Error
-}
-
-func (b *BatchOrderPay) Update(db *gorm.DB) error {
-	return WhereUIDCond(b.UID).Cond(db).Updates(&BatchOrderPay{
-		PayType: b.PayType,
-		Amount:  b.Amount,
-	}).Error
-}
 
 func (b *BatchOrderGoods) Amount() float64 {
 	// 件数量为0 则是散装

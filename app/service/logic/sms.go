@@ -3,6 +3,7 @@ package logic
 import (
 	"app/pkg"
 	"app/service/model"
+	"app/utils"
 	"fmt"
 	"math/rand"
 	"time"
@@ -28,7 +29,7 @@ func SmsKey(phone string) string {
 func SmsVerifyCodeSet(db *gorm.DB, phone string) (code string, err error) {
 	rand.Seed(time.Now().UnixNano())
 	code = fmt.Sprintf("%d", rand.Intn(900000)+100000)
-	err = model.CreateObj(db, &model.Sms{
+	err = utils.GormCreateObj(db, &model.Sms{
 		Phone: phone,
 		Code:  code,
 	})
@@ -37,7 +38,7 @@ func SmsVerifyCodeSet(db *gorm.DB, phone string) (code string, err error) {
 
 func SmsVerifyCodeCheck(db *gorm.DB, phone, input string) (right bool, err error) {
 	var sms model.Sms
-	if err = model.Find(db, &sms, model.NewWhereCond("phone", phone), model.NewOrderCond("created_at desc")); err != nil {
+	if err = utils.GormFind(db, &sms, utils.NewWhereCond("phone", phone), utils.NewOrderCond("created_at desc")); err != nil {
 		return
 	}
 	right = (sms.Code == input)

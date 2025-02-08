@@ -3,8 +3,10 @@ package logic
 import (
 	"app/global"
 	"app/service/common"
+	"app/service/dao"
 	"app/service/model"
 	"app/service/model/request"
+	"app/utils"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -43,13 +45,13 @@ func NewGoodsCategoryLogic(context *gin.Context) *GoodsCategoryLogic {
 }
 
 // brief 不需要货品详情
-func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...model.Cond) (gcList []*model.GoodsCategory, err error) {
+func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...utils.Cond) (gcList []*model.GoodsCategory, err error) {
 
 	gcList = make([]*model.GoodsCategory, 0)
 
-	conds = append(conds, model.WhereOwnerUserCond(logic.OwnerUser))
+	conds = append(conds, utils.WhereOwnerUserCond(logic.OwnerUser))
 	var _goodCategories []model.GoodsCategory
-	if err = model.Find(logic.runtime.DB, &_goodCategories, conds...); err != nil {
+	if err = utils.GormFind(logic.runtime.DB, &_goodCategories, conds...); err != nil {
 		logic.runtime.Logger.Error("ListGoodsCategoryByUser",
 			zap.String("uuid", logic.OwnerUser),
 			zap.Error(err))
@@ -68,9 +70,9 @@ func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...mo
 	}
 
 	var _goodsList []model.Goods
-	if err = model.Find(logic.runtime.DB, &_goodsList,
-		model.WhereOwnerUserCond(logic.OwnerUser),
-		model.UpdateOrderDescCond(),
+	if err = utils.GormFind(logic.runtime.DB, &_goodsList,
+		utils.WhereOwnerUserCond(logic.OwnerUser),
+		utils.UpdateOrderDescCond(),
 	); err != nil {
 		return
 	}
@@ -103,7 +105,7 @@ func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...mo
 
 func (logic *GoodsCategoryLogic) Check(param request.GoodsCategorySaveParam) (err error) {
 	var gc model.GoodsCategory
-	if err = model.Find(logic.runtime.DB, &gc, model.WhereOwnerUserCond(logic.OwnerUser), model.WhereNameCond(param.Name)); err != nil {
+	if err = utils.GormFind(logic.runtime.DB, &gc, utils.WhereOwnerUserCond(logic.OwnerUser), utils.WhereNameCond(param.Name)); err != nil {
 		return
 	}
 	if gc.UID != "" {
@@ -117,7 +119,7 @@ func (logic *GoodsCategoryLogic) Create(param request.GoodsCategorySaveParam) (_
 		Name:      param.Name,
 		OwnerUser: logic.OwnerUser,
 	}
-	err = model.CreateObj(logic.runtime.DB, &_g)
+	err = utils.GormCreateObj(logic.runtime.DB, &_g)
 	return
 }
 
@@ -129,13 +131,13 @@ func (logic *GoodsCategoryLogic) Update(param request.GoodsCategorySaveParam) (_
 			UID: param.UID,
 		},
 	}
-	err = _g.Update(logic.runtime.DB)
+	err = dao.GoodsCategory.Update(logic.runtime.DB, _g)
 	return
 }
 
 func (logic *GoodsCategoryLogic) Delete(uuid string) (err error) {
 	tx := logic.runtime.DB.Begin()
-	if err = model.DeleteGoodsCategory(tx, uuid); err != nil {
+	if err = dao.GoodsCategory.DeleteGoodsCategory(tx, uuid); err != nil {
 		tx.Rollback()
 		return
 	}
@@ -146,7 +148,7 @@ func (logic *GoodsCategoryLogic) Delete(uuid string) (err error) {
 func (logic *GoodsLogic) Check(param request.GoodsSaveParam) (err error) {
 	var _goods model.Goods
 	db := logic.runtime.DB
-	err = model.Find(db, &_goods, model.WhereOwnerUserCond(logic.OwnerUser), model.WhereNameCond(param.Name))
+	err = utils.GormFind(db, &_goods, utils.WhereOwnerUserCond(logic.OwnerUser), utils.WhereNameCond(param.Name))
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return
 	}
@@ -165,7 +167,7 @@ func (logic *GoodsLogic) Create(param request.GoodsSaveParam) (_goods model.Good
 		Weight:     param.Weight,
 		OwnerUser:  logic.OwnerUser,
 	}
-	err = model.CreateObj(logic.runtime.DB, &_goods)
+	err = utils.GormCreateObj(logic.runtime.DB, &_goods)
 	return
 }
 
@@ -180,20 +182,20 @@ func (logic *GoodsLogic) Update(param request.GoodsSaveParam) (_goods model.Good
 			UID: param.UID,
 		},
 	}
-	err = _goods.Update(logic.runtime.DB)
+	err = dao.Goods.Update(logic.runtime.DB, _goods)
 	return
 }
 
-func (logic *GoodsLogic) LoadGoods(searchKey string, limitCond model.LimitCond) (goodsList []model.Goods, err error) {
-	conds := []model.Cond{
-		model.WhereOwnerUserCond(logic.OwnerUser),
+func (logic *GoodsLogic) LoadGoods(searchKey string, limitCond utils.LimitCond) (goodsList []model.Goods, err error) {
+	conds := []utils.Cond{
+		utils.WhereOwnerUserCond(logic.OwnerUser),
 		limitCond,
 	}
 	if searchKey != "" {
-		conds = append(conds, new(model.Goods).NameLike(logic.runtime.DB, searchKey))
+		conds = append(conds, dao.Goods.NameLike(logic.runtime.DB, searchKey))
 	}
 
-	if err = model.Find(logic.runtime.DB, &goodsList, conds...); err != nil {
+	if err = utils.GormFind(logic.runtime.DB, &goodsList, conds...); err != nil {
 		logic.runtime.Logger.Error("LoadGoods",
 			zap.String("uuid", logic.OwnerUser),
 			zap.Any("conditions", conds),

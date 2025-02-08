@@ -42,7 +42,7 @@ func BatchOrderTempCreate(c *gin.Context) {
 		common.Response(c, err, nil)
 		return
 	}
-	go logic.Record(batchOrder, false, model.HistoryStepOrder, model.PayFeild{})
+	go logic.Record(batchOrder, false, model.HistoryStepOrder, model.PayField{})
 	common.Response(c, nil, batchOrder)
 }
 
@@ -78,13 +78,13 @@ func BatchOrderCreate(c *gin.Context) {
 	}
 	tx.Commit()
 	if !common.FloatGreat(0.0, batchOrder.CreditAmount) {
-		go batchOrderLogic.Record(batchOrder, false, model.HistoryStepCredit, model.PayFeild{
+		go batchOrderLogic.Record(batchOrder, false, model.HistoryStepCredit, model.PayField{
 			PayFee:  param.FPayAmount,
 			PayType: param.PayType,
 			PaidFee: param.FPayAmount,
 		})
 	} else {
-		go batchOrderLogic.Record(batchOrder, false, model.HistoryStepCash, model.PayFeild{
+		go batchOrderLogic.Record(batchOrder, false, model.HistoryStepCash, model.PayField{
 			PayFee:  batchOrder.TotalAmount - batchOrder.CreditAmount,
 			PayType: param.PayType,
 			PaidFee: batchOrder.TotalAmount - batchOrder.CreditAmount,

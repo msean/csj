@@ -1,6 +1,6 @@
 package request
 
-import "app/service/model"
+import "app/utils"
 
 type CustomerParam struct {
 	UID   string  `json:"uuid"`
@@ -11,6 +11,6 @@ type CustomerParam struct {
 }
 
 type ListCustomerParam struct {
-	model.LimitCond
+	utils.LimitCond
 	SearchKey string `json:"searchName"`
 }

@@ -3,12 +3,13 @@ package logic
 import (
 	"app/global"
 	"app/service/common"
+	"app/service/dao"
 	"app/service/model"
 	"app/service/model/request"
 	"app/service/model/response"
+	"app/utils"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type CustomerLogic struct {
@@ -26,73 +27,59 @@ func NewCustomerLogic(context *gin.Context) *CustomerLogic {
 	return logic
 }
 
-func (logic *CustomerLogic) Check(customer request.CustomerParam) (duplicate bool, err error) {
+func (logic *CustomerLogic) Check(param request.CustomerParam) (duplicate bool, err error) {
 	var _c model.Customer
-	if err = model.Find(logic.runtime.DB, &_c, model.WhereNameCond(customer.Name), model.WhereOwnerUserCond(logic.OwnerUser)); err != nil {
+	if err = utils.GormFind(logic.runtime.DB, &_c, utils.WhereNameCond(param.Name), utils.WhereUIDCond(param.UID)); err != nil {
 		return
 	}
-	if _c.UID != "" && _c.UID != customer.UID {
+	if _c.UID != "" && _c.UID != param.UID {
 		duplicate = true
 	}
 	return
 }
 
 func (logic *CustomerLogic) Create(param request.CustomerParam) (err error) {
-	_c := model.Customer{
+	customerModel := model.Customer{
 		OwnerUser: logic.OwnerUser,
 		Name:      param.Name,
 		Phone:     param.Phone,
-		Debt:      param.Debt,
 		CarNo:     param.CarNo,
+		Debt:      param.Debt,
 	}
-	return model.CreateObj(logic.runtime.DB, &_c)
+	return utils.GormCreateObj(logic.runtime.DB, &customerModel)
 }
 
 func (logic *CustomerLogic) Update(param request.CustomerParam) (err error) {
-	_c := model.Customer{
+	customerModel := model.Customer{
 		OwnerUser: logic.OwnerUser,
 		Name:      param.Name,
 		Phone:     param.Phone,
-		Debt:      param.Debt,
 		CarNo:     param.CarNo,
-		BaseModel: model.BaseModel{
-			UID: param.UID,
-		},
+		Debt:      param.Debt,
 	}
-	return _c.Update(logic.runtime.DB)
+	customerModel.UID = param.UID
+	return dao.Customer.Update(logic.runtime.DB, customerModel)
 }
 
-func (logic *CustomerLogic) ListCustomersByOwnerUser(searchvalue string, conds ...model.Cond) (rsp []response.ListCustomerRsp, err error) {
+func (logic *CustomerLogic) ListCustomersByOwnerUser(searchvalue string, conds ...utils.Cond) (customers []response.ListCustomerRsp, err error) {
 	var _customers []model.Customer
-	conds = append(conds, []model.Cond{
-		model.NewWhereCond("owner_user", logic.OwnerUser),
-		model.NewOrderCond("Convert(name USING gbk)"),
+	conds = append(conds, []utils.Cond{
+		utils.NewWhereCond("owner_user", logic.OwnerUser),
+		utils.NewOrderCond("Convert(name USING gbk)"),
 	}...)
 	if searchvalue != "" {
-		conds = append(conds, model.NewOrLikeCond(searchvalue, model.LikeTypeBetween, "name", "phone"))
+		conds = append(conds, utils.NewOrLikeCond(searchvalue, utils.LikeTypeBetween, "name", "phone"))
 	}
-	if err = model.Find(logic.runtime.DB, &_customers, conds...); err != nil {
+	if err = utils.GormFind(logic.runtime.DB, &_customers, conds...); err != nil {
 		return
 	}
 
 	bill, _ := model.BillingCondByOwnerUser(logic.runtime.DB, logic.OwnerUser, _customers)
 	for _, _customer := range _customers {
-		rsp = append(rsp, response.ListCustomerRsp{
+		customers = append(customers, response.ListCustomerRsp{
 			Customer:       _customer,
 			LatestBillDate: bill[_customer.UID],
 		})
-	}
-	return
-}
-
-func LoadCustomerByUUIDList(db *gorm.DB, UUIDList []string, ownerUser string) (customerM map[string]model.Customer, err error) {
-	var _customers []model.Customer
-	customerM = make(map[string]model.Customer)
-	if err = model.Find(db, &_customers, model.NewWhereCond("owner_user", ownerUser)); err != nil {
-		return
-	}
-	for _, customer := range _customers {
-		customerM[customer.UID] = customer
 	}
 	return
 }

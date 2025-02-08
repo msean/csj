@@ -1,6 +1,6 @@
 package request
 
-import "app/service/model"
+import "app/utils"
 
 type (
 	BatchOrderGoodsParam struct {
@@ -38,7 +38,7 @@ type (
 		GoodsUUIDList []string `json:"goodsUUIDList"`
 	}
 	ListBatchOrderParam struct {
-		model.LimitCond
+		utils.LimitCond
 		Status    int32  `json:"status"`
 		UserUUID  string `json:"userUUID"`
 		StartTime int64  `json:"startTime"`

@@ -3,8 +3,10 @@ package logic
 import (
 	"app/global"
 	"app/service/common"
+	"app/service/dao"
 	"app/service/model"
 	"app/service/model/request"
+	"app/utils"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -49,7 +51,7 @@ func (logic *UserLogic) Register(params request.RegisterParam) (registerUser mod
 	}
 
 	var user model.User
-	err = model.Find(logic.runTime.DB, &user, model.NewWhereCond("phone", params.Phone))
+	err = utils.GormFind(logic.runTime.DB, &user, utils.NewWhereCond("phone", params.Phone))
 	if err != nil {
 		return
 	}
@@ -65,14 +67,14 @@ func (logic *UserLogic) Register(params request.RegisterParam) (registerUser mod
 		Phone: params.Phone,
 	}
 	tx := logic.runTime.DB.Begin()
-	if err = model.CreateObj(tx, &registerUser); err != nil {
+	if err = utils.GormCreateObj(tx, &registerUser); err != nil {
 		logic.runTime.Logger.Error("[UserLogic] [Register] [CreateObj]",
 			zap.String("phone", user.Phone),
 			zap.Error(err))
 		tx.Rollback()
 		return
 	}
-	if err = model.NewTempCustomer(registerUser.UID, logic.runTime.DB); err != nil {
+	if err = dao.Customer.NewTempCustomer(registerUser.UID, logic.runTime.DB); err != nil {
 		logic.runTime.Logger.Error("[UserLogic] [Register] [NewTempCustomer]",
 			zap.String("phone", registerUser.Phone),
 			zap.String("UUID", registerUser.UID),
@@ -98,7 +100,7 @@ func (logic *UserLogic) Login(params request.LoginParam) (loginUser model.User, 
 		return
 	}
 
-	err = model.Find(logic.runTime.DB, &loginUser, model.NewWhereCond("phone", params.Phone))
+	err = utils.GormFind(logic.runTime.DB, &loginUser, utils.NewWhereCond("phone", params.Phone))
 	if err != nil {
 		logic.runTime.Logger.Error("[UserLogic] [Login]",
 			zap.String("phone", params.Phone),
@@ -115,7 +117,7 @@ func (logic *UserLogic) Login(params request.LoginParam) (loginUser model.User, 
 }
 
 func (logic *UserLogic) FromUUID(userUUID string) (user model.User, err error) {
-	err = model.Find(logic.runTime.DB, &user, model.WhereUIDCond(userUUID))
+	err = utils.GormFind(logic.runTime.DB, &user, utils.WhereUIDCond(userUUID))
 	if err != nil {
 		return
 	}
@@ -130,7 +132,7 @@ func (logic *UserLogic) FromUUID(userUUID string) (user model.User, err error) {
 func (logic *UserLogic) Update(params request.UserUpdateParam) (err error) {
 	var _u model.User
 	if params.Phone != "" {
-		e := model.Find(logic.runTime.DB, &_u, model.NewWhereCond("phone", params.Phone))
+		e := utils.GormFind(logic.runTime.DB, &_u, utils.NewWhereCond("phone", params.Phone))
 		if e != nil {
 			err = e
 			return
@@ -140,5 +142,5 @@ func (logic *UserLogic) Update(params request.UserUpdateParam) (err error) {
 			return
 		}
 	}
-	return _u.Update(logic.runTime.DB)
+	return dao.User.Update(logic.runTime.DB, _u)
 }

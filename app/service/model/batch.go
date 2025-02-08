@@ -3,8 +3,6 @@ package model
 import (
 	"fmt"
 	"time"
-
-	"gorm.io/gorm"
 )
 
 const (
@@ -32,24 +30,10 @@ type (
 		Price     float64 `gorm:"column:price;type:decimal(10,2);comment:单价" json:"price"`
 		Weight    float64 `gorm:"column:weight;type:decimal(10,2);comment:重量" json:"weight"`
 		Mount     int32   `gorm:"column:mount;comment:数量" json:"mount"`
-		GoodsFeild
-		SurplusFeild
+		GoodsField
+		SurplusField
 	}
 )
-
-func (b *Batch) Update(db *gorm.DB) (err error) {
-	toUpdates := make(map[string]any)
-	if b.StorageTime != 0 {
-		toUpdates["storage_time"] = b.StorageTime
-	}
-	if b.Status != 0 {
-		toUpdates["status"] = b.Status
-	}
-	if len(toUpdates) > 0 {
-		return WhereUIDCond(b.UID).Cond(db).Model(&Batch{}).Updates(toUpdates).Error
-	}
-	return
-}
 
 func SerioalNo(dt time.Time) string {
 	if dt.IsZero() {
@@ -66,12 +50,4 @@ func (b *Batch) Default() {
 func (b *BatchOrder) DefaultSet() {
 	b.Status = BatchOrderTemp
 	b.Shared = BatchOrderUnshare
-}
-
-func (bg *BatchGoods) Update(db *gorm.DB) error {
-	return WhereUIDCond(bg.UID).Cond(db).Updates(&BatchGoods{
-		Price:  bg.Price,
-		Weight: bg.Weight,
-		Mount:  bg.Mount,
-	}).Error
 }
