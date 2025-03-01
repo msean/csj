@@ -71,11 +71,12 @@ func InitRunTime(configfile string) (err error) {
 		Engine: gin.Default(),
 	}
 	// logger 初始化
-	var zapConf ZapConf
+	var zapConf LogConfig
 	if err = Global.applyConf("zap", &zapConf); err != nil {
 		return
 	}
-	Global.Logger = NewZapLogger(zapConf)
+	Global.Logger = InitLog(GetLogFilePath(zapConf))
+
 	// mysql 初始化
 	dbconf := DBConf{
 		User:     Global.Viper.GetString("database.username"),

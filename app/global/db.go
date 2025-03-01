@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -35,6 +36,7 @@ func NewMysql(dbconf DBConf) (*gorm.DB, error) {
 	}
 
 	var option gorm.Option
+	Global.Logger.Info("Global.IsDebugMode()", zap.Bool("Global.IsDebugMode()", Global.IsDebugMode()))
 	if Global.IsDebugMode() {
 		option = &gorm.Config{
 			Logger: logger.New(

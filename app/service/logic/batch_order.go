@@ -252,31 +252,31 @@ func (logic *BatchOrderLogic) SetGoodsFeild(batchOrder *model.BatchOrder) (err e
 }
 
 func (logic *BatchOrderLogic) SetCustomerFeild(batchOrder *model.BatchOrder) (err error) {
-	batchOrder.CustomerField, err = model.CustomerFeildSet(logic.runtime.DB, batchOrder.UserUUID, logic.OwnerUser)
+	batchOrder.CustomerField, err = model.CustomerFieldSet(logic.runtime.DB, batchOrder.UserUUID, logic.OwnerUser)
 	return
 }
 
 func (logic *BatchOrderLogic) List(param request.ListBatchOrderParam) (orderList []*model.BatchOrder, err error) {
 
-	conds := []model.Cond{
-		model.DefaultSetLimitCond(param.LimitCond),
-		model.NewWhereCond("owner_user", logic.OwnerUser),
+	conds := []utils.Cond{
+		utils.DefaultSetLimitCond(param.LimitCond),
+		utils.NewWhereCond("owner_user", logic.OwnerUser),
 	}
 	if param.UserUUID != "" {
-		conds = append(conds, model.NewWhereCond("user_uuid", param.UserUUID))
+		conds = append(conds, utils.NewWhereCond("user_uuid", param.UserUUID))
 	}
 
 	if param.StartTime != 0 {
-		conds = append(conds, model.NewCmpCond("created_at", ">=", time.Unix(param.StartTime, 0)))
+		conds = append(conds, utils.NewCmpCond("created_at", ">=", time.Unix(param.StartTime, 0)))
 	}
 	if param.EndTime != 0 {
-		conds = append(conds, model.NewCmpCond("created_at", "<=", time.Unix(param.EndTime, 0)))
+		conds = append(conds, utils.NewCmpCond("created_at", "<=", time.Unix(param.EndTime, 0)))
 	}
 	if param.Status != 0 {
-		conds = append(conds, model.NewWhereCond("status", param.Status))
+		conds = append(conds, utils.NewWhereCond("status", param.Status))
 	}
-	conds = append(conds, model.CreatedOrderDescCond())
-	if err = model.Find(logic.runtime.DB.Preload("GoodsListRelated"), &orderList, conds...); err != nil {
+	conds = append(conds, utils.CreatedOrderDescCond())
+	if err = utils.GormFind(logic.runtime.DB.Preload("GoodsListRelated"), &orderList, conds...); err != nil {
 		return
 	}
 
@@ -292,7 +292,7 @@ func (logic *BatchOrderLogic) BatchFeilds(orderList []*model.BatchOrder) {
 		for _, o := range orderList {
 			_cl = append(_cl, o.UserUUID)
 		}
-		_cm, _ := model.BatchCustomerFeildSet(logic.runtime.DB, _cl, logic.OwnerUser)
+		_cm, _ := model.BatchCustomerFieldSet(logic.runtime.DB, _cl, logic.OwnerUser)
 
 		for _, o := range orderList {
 			o.CustomerField = _cm[o.UserUUID]
@@ -345,10 +345,10 @@ func (logic *BatchOrderLogic) SetFeilds(batchOrder *model.BatchOrder) {
 	wg.Wait()
 }
 
-func (logic *BatchOrderLogic) Record(batchOrder model.BatchOrder, loadself bool, stepType int32, pay model.PayFeild) {
+func (logic *BatchOrderLogic) Record(batchOrder model.BatchOrder, loadself bool, stepType int32, pay model.PayField) {
 	go func() {
 		if loadself {
-			if err := model.Find(logic.runtime.DB.Preload("GoodsListRelated"), &batchOrder); err != nil {
+			if err := utils.GormFind(logic.runtime.DB.Preload("GoodsListRelated"), &batchOrder); err != nil {
 				logic.runtime.Logger.Error(fmt.Sprintf("BatchOrderLogic Record: %s", err))
 				return
 			}
@@ -361,7 +361,7 @@ func (logic *BatchOrderLogic) Record(batchOrder model.BatchOrder, loadself bool,
 
 func (logic *BatchOrderLogic) LoadHistory(batchOrder *model.BatchOrder) (err error) {
 	var history model.BatchOrderHistory
-	if err = model.First(logic.runtime.DB, &history, model.NewWhereCond("batch_order_uuid", batchOrder.UID)); err != nil {
+	if err = utils.GormFirst(logic.runtime.DB, &history, utils.NewWhereCond("batch_order_uuid", batchOrder.UID)); err != nil {
 		global.Global.Logger.Error(fmt.Sprintf("BatchOrderLogic LoadHistory err", err))
 		return
 	}

@@ -33,4 +33,3 @@ deploy_all:
 # 	tar -cvf ${webTar} ./web
 # 	sshpass -p 1qaz@WSX scp $(CURDIR)/${webTar} root@${RemoteHost}:/root/caishuji
 # 	sshpass -p 1qaz@WSX  ssh -o StrictHostKeyChecking=no root@${RemoteHost}  "cd /root/caishuji && tar -xvf web.tar"
-
