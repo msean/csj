@@ -5,7 +5,6 @@ go 1.22.3
 require (
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gin-gonic/gin v1.10.0
-	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/redis/go-redis/v9 v9.6.1

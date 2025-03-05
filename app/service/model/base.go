@@ -1,9 +1,10 @@
 package model
 
 import (
+	"app/global"
+	"fmt"
 	"time"
 
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 	// mysql
 	// _ "github.com/jinzhu/gorm/dialects/postgres"
@@ -11,16 +12,24 @@ import (
 )
 
 type BaseModel struct {
-	UID       string     `gorm:"primary_key;size:64" json:"uuid"`
+	UID       int64      `gorm:"primaryKey;autoIncrement:false" json:"uuid"`
 	CreatedAt time.Time  `json:"createTime"`
 	UpdatedAt time.Time  `json:"updateTime"`
 	DeletedAt *time.Time `json:"-"`
 }
 
-func (m *BaseModel) BeforeCreate(tx *gorm.DB) error {
-	if m.UID == "" {
-		id, _ := uuid.NewV4()
-		m.UID = id.String()
+func (m *BaseModel) BeforeCreate(tx *gorm.DB) (err error) {
+	stmt := tx.Statement
+	if stmt == nil || stmt.Table == "" {
+		return fmt.Errorf("cannot determine table name")
 	}
+	tableName := stmt.Table
+
+	node := GetOrCreateGenerator(tableName, int64(global.Global.Node()))
+
+	if m.UID == 0 {
+		m.UID, err = node.GenerateID()
+	}
+
 	return nil
 }

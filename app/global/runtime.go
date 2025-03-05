@@ -130,6 +130,10 @@ func (r *RunTime) TokenEx() time.Duration {
 	return time.Minute * time.Duration(r.Viper.GetInt("env.tokenex"))
 }
 
+func (r *RunTime) Node() int {
+	return r.Viper.GetInt("env.machineID")
+}
+
 func (r *RunTime) TokenExRefresh() time.Duration {
 	return time.Minute * time.Duration(r.Viper.GetInt("env.tokenexrefresh"))
 }

@@ -37,7 +37,6 @@ func NewMysql(dbconf DBConf) (*gorm.DB, error) {
 
 	var option gorm.Option
 	Global.Logger.Info("Global.IsDebugMode()", zap.Bool("Global.IsDebugMode()", Global.IsDebugMode()))
-	Global.Logger.Warn("Global.IsDebugMode()", zap.Bool("Global.IsDebugMode()", Global.IsDebugMode()))
 	if Global.IsDebugMode() {
 		option = &gorm.Config{
 			Logger: logger.New(
