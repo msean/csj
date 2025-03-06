@@ -130,11 +130,11 @@ func (i InCond) Cond(db *gorm.DB) *gorm.DB {
 	return db
 }
 
-func WhereOwnerUserCond(ownerUser string) Cond {
+func WhereOwnerUserCond(ownerUser int64) Cond {
 	return NewWhereCond(CommonCondOwnerUser, ownerUser)
 }
 
-func WhereUIDCond(UID string) Cond {
+func WhereUIDCond(UID int64) Cond {
 	return NewWhereCond(CommonCondUID, UID)
 }
 

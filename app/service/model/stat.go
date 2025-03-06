@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func MonthFinance(db *gorm.DB, ownerUser string) (amount, creditAmount float64, err error) {
+func MonthFinance(db *gorm.DB, ownerUser int64) (amount, creditAmount float64, err error) {
 	now := time.Now()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	var bos []BatchOrder
@@ -27,15 +27,15 @@ func MonthFinance(db *gorm.DB, ownerUser string) (amount, creditAmount float64, 
 	return
 }
 
-func BillingCondByOwnerUser(db *gorm.DB, owneruser string, customers []Customer) (billingLatestDate map[string]int, err error) {
-	billingLatestDate = make(map[string]int)
-	customUUIDList := make([]string, 0)
+func BillingCondByOwnerUser(db *gorm.DB, owneruser int64, customers []Customer) (billingLatestDate map[int64]int, err error) {
+	billingLatestDate = make(map[int64]int)
+	customUUIDList := make([]int64, 0)
 	for _, customer := range customers {
 		billingLatestDate[customer.UID] = common.DurationDays(customer.CreatedAt)
 		customUUIDList = append(customUUIDList, customer.UID)
 	}
 	var results []struct {
-		UserUUID      string
+		UserUUID      int64
 		LatestOrderAt time.Time
 	}
 

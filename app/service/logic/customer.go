@@ -15,7 +15,7 @@ import (
 type CustomerLogic struct {
 	context   *gin.Context
 	runtime   *global.RunTime
-	OwnerUser string
+	OwnerUser int64
 }
 
 func NewCustomerLogic(context *gin.Context) *CustomerLogic {
@@ -29,10 +29,10 @@ func NewCustomerLogic(context *gin.Context) *CustomerLogic {
 
 func (logic *CustomerLogic) Check(param request.CustomerParam) (duplicate bool, err error) {
 	var _c model.Customer
-	if err = utils.GormFind(logic.runtime.DB, &_c, utils.WhereNameCond(param.Name), utils.WhereUIDCond(param.UID)); err != nil {
+	if err = utils.GormFind(logic.runtime.DB, &_c, utils.WhereNameCond(param.Name), utils.WhereUIDCond(param.UIDCompatible)); err != nil {
 		return
 	}
-	if _c.UID != "" && _c.UID != param.UID {
+	if _c.UID != 0 && _c.UID != param.UIDCompatible {
 		duplicate = true
 	}
 	return
@@ -57,7 +57,7 @@ func (logic *CustomerLogic) Update(param request.CustomerParam) (err error) {
 		CarNo:     param.CarNo,
 		Debt:      param.Debt,
 	}
-	customerModel.UID = param.UID
+	customerModel.UID = param.UIDCompatible
 	return dao.Customer.Update(logic.runtime.DB, customerModel)
 }
 

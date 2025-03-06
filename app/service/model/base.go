@@ -2,7 +2,9 @@ package model
 
 import (
 	"app/global"
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -12,7 +14,7 @@ import (
 )
 
 type BaseModel struct {
-	UID       int64      `gorm:"primaryKey;autoIncrement:false" json:"uuid"`
+	UID       int64      `gorm:"primaryKey;autoIncrement:false" json:"-"`
 	CreatedAt time.Time  `json:"createTime"`
 	UpdatedAt time.Time  `json:"updateTime"`
 	DeletedAt *time.Time `json:"-"`
@@ -32,4 +34,15 @@ func (m *BaseModel) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 
 	return nil
+}
+
+func (b BaseModel) MarshalJSON() ([]byte, error) {
+	type Alias BaseModel
+	return json.Marshal(&struct {
+		UIDCompatible string `json:"uuid"`
+		*Alias
+	}{
+		UIDCompatible: strconv.FormatInt(b.UID, 10),
+		Alias:         (*Alias)(&b),
+	})
 }

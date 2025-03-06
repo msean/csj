@@ -22,7 +22,7 @@ func Response(c *gin.Context, err error, data any) {
 	})
 }
 
-func GetUserUUID(c *gin.Context) string {
-	userUUID, _ := c.Value("userUUID").(string)
+func GetUserUUID(c *gin.Context) int64 {
+	userUUID, _ := c.Value("userUUID").(int64)
 	return userUUID
 }

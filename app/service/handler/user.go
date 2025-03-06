@@ -8,6 +8,7 @@ import (
 	"app/service/model"
 	"app/service/model/request"
 	"fmt"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -64,7 +65,7 @@ func Register(c *gin.Context) {
 
 	common.Response(c, e, map[string]any{
 		"token": token,
-		"uuid":  registerUser.UID,
+		"uuid":  strconv.FormatInt(registerUser.UID, 10),
 	})
 }
 
@@ -129,7 +130,7 @@ func Login(c *gin.Context) {
 	}
 	common.Response(c, e, map[string]any{
 		"token": token,
-		"uuid":  loginUser.UID,
+		"uuid":  strconv.FormatInt(loginUser.UID, 10),
 	})
 }
 

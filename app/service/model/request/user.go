@@ -14,8 +14,9 @@ type (
 		VerifyCode string `json:"verifycode"`
 	}
 	UserUpdateParam struct {
-		Phone string `json:"phone"`
-		Name  string `json:"name"`
-		UID   string `json:"uid"`
+		Phone         string `json:"phone"`
+		Name          string `json:"name"`
+		UID           int64  `json:"uid"`
+		UIDCompatible int64
 	}
 )

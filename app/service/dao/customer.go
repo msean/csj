@@ -23,7 +23,7 @@ func (dao *CustomerDao) Update(db *gorm.DB, customer model.Customer) (err error)
 	}).Error
 }
 
-func (dao *CustomerDao) NewTempCustomer(ownerUser string, db *gorm.DB) (err error) {
+func (dao *CustomerDao) NewTempCustomer(ownerUser int64, db *gorm.DB) (err error) {
 	customer := model.Customer{
 		Name:      "临时客户",
 		Remark:    "临时客户",
@@ -32,9 +32,9 @@ func (dao *CustomerDao) NewTempCustomer(ownerUser string, db *gorm.DB) (err erro
 	return utils.GormCreateObj(db, &customer)
 }
 
-func (c *CustomerDao) MapperFromList(db *gorm.DB, UUIDList []string, ownerUser string) (customerM map[string]model.Customer, err error) {
+func (c *CustomerDao) MapperFromList(db *gorm.DB, UUIDList []string, ownerUser string) (customerM map[int64]model.Customer, err error) {
 	var _customers []model.Customer
-	customerM = make(map[string]model.Customer)
+	customerM = make(map[int64]model.Customer)
 	if err = utils.GormFind(db, &_customers, utils.NewWhereCond("owner_user", ownerUser)); err != nil {
 		return
 	}

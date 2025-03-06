@@ -55,11 +55,11 @@ func (logic *UserLogic) Register(params request.RegisterParam) (registerUser mod
 	if err != nil {
 		return
 	}
-	if user.UID != "" {
+	if user.UID != 0 {
 		// logic.runTime.Logger.Error(fmt.Sprintf("[UserLogic] [Register] phone: %s uid: %s", user.Phone, user.UID))
 		logic.runTime.Logger.Error("[UserLogic] [Register]",
 			zap.String("phone", user.Phone),
-			zap.String("uid", user.UID))
+			zap.Int64("uid", user.UID))
 		err = common.PhoneObejectExistErr
 		return
 	}
@@ -77,7 +77,7 @@ func (logic *UserLogic) Register(params request.RegisterParam) (registerUser mod
 	if err = dao.Customer.NewTempCustomer(registerUser.UID, logic.runTime.DB); err != nil {
 		logic.runTime.Logger.Error("[UserLogic] [Register] [NewTempCustomer]",
 			zap.String("phone", registerUser.Phone),
-			zap.String("UUID", registerUser.UID),
+			zap.Int64("UUID", registerUser.UID),
 			zap.Error(err))
 		tx.Rollback()
 		return
@@ -107,7 +107,7 @@ func (logic *UserLogic) Login(params request.LoginParam) (loginUser model.User, 
 			zap.Error(err))
 		return
 	}
-	if loginUser.UID == "" {
+	if loginUser.UID == 0 {
 		logic.runTime.Logger.Error("[UserLogic] [Login]",
 			zap.String("phone", params.Phone))
 		err = common.PhoneUnRegisterErr
@@ -116,28 +116,28 @@ func (logic *UserLogic) Login(params request.LoginParam) (loginUser model.User, 
 	return
 }
 
-func (logic *UserLogic) FromUUID(userUUID string) (user model.User, err error) {
+func (logic *UserLogic) FromUUID(userUUID int64) (user model.User, err error) {
 	err = utils.GormFind(logic.runTime.DB, &user, utils.WhereUIDCond(userUUID))
 	if err != nil {
 		return
 	}
-	if user.UID == "" {
+	if user.UID == 0 {
 		logic.runTime.Logger.Error("[UserLogic] [FromUUID]",
-			zap.String("uuid", userUUID))
+			zap.Int64("uuid", userUUID))
 		err = common.UnRegisterErr
 	}
 	return
 }
 
-func (logic *UserLogic) Update(params request.UserUpdateParam) (err error) {
+func (logic *UserLogic) Update(param request.UserUpdateParam) (err error) {
 	var _u model.User
-	if params.Phone != "" {
-		e := utils.GormFind(logic.runTime.DB, &_u, utils.NewWhereCond("phone", params.Phone))
+	if param.Phone != "" {
+		e := utils.GormFind(logic.runTime.DB, &_u, utils.NewWhereCond("phone", param.Phone))
 		if e != nil {
 			err = e
 			return
 		}
-		if _u.UID != "" && _u.UID != params.UID {
+		if _u.UID != 0 && _u.UID != param.UID {
 			err = common.PhoneObejectExistErr
 			return
 		}

@@ -77,12 +77,12 @@ func GoodsCategoryDelete(c *gin.Context) {
 	}
 
 	goodCategoryLogic := logic.NewGoodsCategoryLogic(c)
-	if param.UUID == "" {
+	if param.UID == "" {
 		common.Response(c, common.RequestUIDMustErr, nil)
 		return
 	}
 
-	if err := goodCategoryLogic.Delete(param.UUID); err != nil {
+	if err := goodCategoryLogic.Delete(param.UID); err != nil {
 		common.Response(c, err, nil)
 		return
 	}

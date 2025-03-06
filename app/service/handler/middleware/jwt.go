@@ -14,11 +14,11 @@ import (
 
 type MyClaims struct {
 	Phone string `json:"phone"`
-	UUID  string `json:"uuid"`
+	UUID  int64  `json:"uuid"`
 	jwt.RegisteredClaims
 }
 
-func SetToken(phone, uuid string) (token string, err error) {
+func SetToken(phone string, uuid int64) (token string, err error) {
 	SetClaims := MyClaims{
 		Phone: phone,
 		UUID:  uuid,

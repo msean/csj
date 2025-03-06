@@ -15,14 +15,14 @@ import (
 
 type (
 	GoodsLogic struct {
-		OwnerUser string
+		OwnerUser int64
 		runtime   *global.RunTime
 		context   *gin.Context
 	}
 	GoodsCategoryLogic struct {
 		runtime   *global.RunTime
 		context   *gin.Context
-		OwnerUser string
+		OwnerUser int64
 	}
 )
 
@@ -53,7 +53,7 @@ func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...ut
 	var _goodCategories []model.GoodsCategory
 	if err = utils.GormFind(logic.runtime.DB, &_goodCategories, conds...); err != nil {
 		logic.runtime.Logger.Error("ListGoodsCategoryByUser",
-			zap.String("uuid", logic.OwnerUser),
+			zap.Int64("uuid", logic.OwnerUser),
 			zap.Error(err))
 		return
 	}
@@ -77,8 +77,8 @@ func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...ut
 		return
 	}
 
-	goodsCategoriesM := map[string]*model.GoodsCategory{}
-	goodsCategoriesM[""] = &model.GoodsCategory{
+	goodsCategoriesM := map[int64]*model.GoodsCategory{}
+	goodsCategoriesM[0] = &model.GoodsCategory{
 		Name:  "未分类",
 		Goods: []model.Goods{},
 	}
@@ -108,7 +108,7 @@ func (logic *GoodsCategoryLogic) Check(param request.GoodsCategorySaveParam) (er
 	if err = utils.GormFind(logic.runtime.DB, &gc, utils.WhereOwnerUserCond(logic.OwnerUser), utils.WhereNameCond(param.Name)); err != nil {
 		return
 	}
-	if gc.UID != "" {
+	if gc.UID != 0 {
 		return common.GoodsCategoryAlreadyExistErr
 	}
 	return nil
@@ -128,7 +128,7 @@ func (logic *GoodsCategoryLogic) Update(param request.GoodsCategorySaveParam) (_
 		Name:      param.Name,
 		OwnerUser: logic.OwnerUser,
 		BaseModel: model.BaseModel{
-			UID: param.UID,
+			UID: param.UIDCompatible,
 		},
 	}
 	err = dao.GoodsCategory.Update(logic.runtime.DB, _g)
@@ -152,7 +152,7 @@ func (logic *GoodsLogic) Check(param request.GoodsSaveParam) (err error) {
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return
 	}
-	if _goods.UID != "" {
+	if _goods.UID != 0 {
 		return common.GoodsAlreadyExistErr
 	}
 	return nil
@@ -160,7 +160,7 @@ func (logic *GoodsLogic) Check(param request.GoodsSaveParam) (err error) {
 
 func (logic *GoodsLogic) Create(param request.GoodsSaveParam) (_goods model.Goods, err error) {
 	_goods = model.Goods{
-		CategoryID: param.CategoryID,
+		CategoryID: param.CategoryIDCompatible,
 		Name:       param.Name,
 		Typ:        param.Type,
 		Price:      param.Price,
@@ -173,13 +173,13 @@ func (logic *GoodsLogic) Create(param request.GoodsSaveParam) (_goods model.Good
 
 func (logic *GoodsLogic) Update(param request.GoodsSaveParam) (_goods model.Goods, err error) {
 	_goods = model.Goods{
-		CategoryID: param.CategoryID,
+		CategoryID: param.CategoryIDCompatible,
 		Name:       param.Name,
 		Typ:        param.Type,
 		Price:      param.Price,
 		Weight:     param.Weight,
 		BaseModel: model.BaseModel{
-			UID: param.UID,
+			UID: param.UIDCompatible,
 		},
 	}
 	err = dao.Goods.Update(logic.runtime.DB, _goods)
@@ -197,7 +197,7 @@ func (logic *GoodsLogic) LoadGoods(searchKey string, limitCond utils.LimitCond) 
 
 	if err = utils.GormFind(logic.runtime.DB, &goodsList, conds...); err != nil {
 		logic.runtime.Logger.Error("LoadGoods",
-			zap.String("uuid", logic.OwnerUser),
+			zap.Int64("uuid", logic.OwnerUser),
 			zap.Any("conditions", conds),
 			zap.Error(err))
 		return
