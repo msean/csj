@@ -49,6 +49,7 @@ func NewMysql(dbconf DBConf) (*gorm.DB, error) {
 		}
 	} else {
 		l := zapgorm2.New(Global.Logger)
+		l.LogLevel = logger.Info
 		l.SetAsDefault()
 		option = &gorm.Config{Logger: l}
 	}
