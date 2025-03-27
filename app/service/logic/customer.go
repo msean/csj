@@ -83,3 +83,17 @@ func (logic *CustomerLogic) ListCustomersByOwnerUser(searchvalue string, conds .
 	}
 	return
 }
+
+func (logic *CustomerLogic) FromUUID(uuid int64) (rsp response.ListCustomerRsp, err error) {
+	var customer model.Customer
+	if customer, err = dao.Customer.FromUUID(logic.runtime.DB, uuid, logic.OwnerUser); err != nil {
+		return
+	}
+
+	bill, _ := model.BillingCondByOwnerUser(logic.runtime.DB, logic.OwnerUser, []model.Customer{customer})
+	rsp = response.ListCustomerRsp{
+		Customer:       customer,
+		LatestBillDate: bill[customer.UID],
+	}
+	return
+}

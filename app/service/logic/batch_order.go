@@ -20,12 +20,12 @@ type (
 	BatchOrderLogic struct {
 		context   *gin.Context
 		runtime   *global.RunTime
-		OwnerUser string
+		OwnerUser int64
 	}
 	BatchOrderGoodsLogic struct {
-		context *gin.Context
-		runtime *global.RunTime
-		*model.BatchOrderGoods
+		context   *gin.Context
+		runtime   *global.RunTime
+		OwnerUser int64
 	}
 	BatchOrderGoodsOrder struct {
 		GoodsUUID string  `json:"goodsUUID"`
@@ -52,7 +52,7 @@ func NewBatchOrderGoodsLogic(context *gin.Context) *BatchOrderGoodsLogic {
 }
 
 // 码单
-func (logic *BatchOrderLogic) TempCreate(param request.CreateTempBatchOrderParam) (batchOrder model.BatchOrder, err error) {
+func (logic *BatchOrderLogic) TempCreate(param request.CreateTempBatchOrderParam) (err error) {
 	if param.BatchUUID == "" {
 		err = common.BatchUUIDRequireErr
 		return
@@ -62,16 +62,17 @@ func (logic *BatchOrderLogic) TempCreate(param request.CreateTempBatchOrderParam
 		return
 	}
 
-	batchOrder = model.BatchOrder{
-		BatchUUID: param.BatchUUID,
+	batchOrder := model.BatchOrder{
+		BatchUUID: param.BatchUUIDCompatible,
 		OwnerUser: logic.OwnerUser,
-		UserUUID:  param.CustomerUUID,
+		UserUUID:  param.CustomerUUIDCompatible,
 		Shared:    model.BatchOrderUnshare,
 		Status:    model.BatchOrderTemp,
 	}
 
+	var batchOrderGoodsList []model.BatchOrderGoods
 	for _, goods := range param.GoodsList {
-		batchOrder.GoodsListRelated = append(batchOrder.GoodsListRelated, &model.BatchOrderGoods{
+		batchOrderGoodsList = append(batchOrderGoodsList, model.BatchOrderGoods{
 			OwnerUser: logic.OwnerUser,
 			BatchUUID: batchOrder.BatchUUID,
 			UserUUID:  batchOrder.UserUUID,
@@ -82,13 +83,20 @@ func (logic *BatchOrderLogic) TempCreate(param request.CreateTempBatchOrderParam
 		})
 	}
 
-	batchOrder.TotalAmount = batchOrder.SetTotalAmount()
+	batchOrder.TotalAmount = batchOrder.SetTotalAmount(batchOrderGoodsList)
 	batchOrder.CreditAmount = batchOrder.TotalAmount
 
-	if err = utils.GormCreateObj(logic.runtime.DB, &batchOrder); err != nil {
-		return
-	}
-	logic.SetFeilds(&batchOrder)
+	db := logic.runtime.DB
+	err = db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&batchOrder).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Create(&batchOrderGoodsList).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 	return
 }
 
@@ -237,7 +245,7 @@ func (logic *BatchOrderLogic) SetGoodsFeild(batchOrder *model.BatchOrder) (err e
 		goodsUUIDList = append(goodsUUIDList, goods.GoodsUUID)
 	}
 
-	goodsM, e := model.BatchGoodsFeildSet(logic.runtime.DB, goodsUUIDList, logic.OwnerUser)
+	goodsM, e := model.BatchGoodsFieldSet(logic.runtime.DB, goodsUUIDList, logic.OwnerUser)
 	if e != nil {
 		err = e
 		return
@@ -251,7 +259,7 @@ func (logic *BatchOrderLogic) SetGoodsFeild(batchOrder *model.BatchOrder) (err e
 	return
 }
 
-func (logic *BatchOrderLogic) SetCustomerFeild(batchOrder *model.BatchOrder) (err error) {
+func (logic *BatchOrderLogic) SetCustomerField(batchOrder *model.BatchOrder) (err error) {
 	batchOrder.CustomerField, err = model.CustomerFieldSet(logic.runtime.DB, batchOrder.UserUUID, logic.OwnerUser)
 	return
 }
@@ -335,7 +343,7 @@ func (logic *BatchOrderLogic) SetFeilds(batchOrder *model.BatchOrder) {
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		logic.SetCustomerFeild(batchOrder)
+		dao.SetCustomerField(batchOrder)
 		wg.Done()
 	}()
 	go func() {
@@ -345,16 +353,17 @@ func (logic *BatchOrderLogic) SetFeilds(batchOrder *model.BatchOrder) {
 	wg.Wait()
 }
 
-func (logic *BatchOrderLogic) Record(batchOrder model.BatchOrder, loadself bool, stepType int32, pay model.PayField) {
+func (logic *BatchOrderLogic) Record(batchOrder model.BatchOrder, batchOrderGoods []model.BatchOrderGoods, stepType int32, pay model.PayField) {
 	go func() {
-		if loadself {
-			if err := utils.GormFind(logic.runtime.DB.Preload("GoodsListRelated"), &batchOrder); err != nil {
-				logic.runtime.Logger.Error(fmt.Sprintf("BatchOrderLogic Record: %s", err))
-				return
-			}
-			logic.SetFeilds(&batchOrder)
-		}
-		batchOrder.Record(logic.runtime.DB, stepType, pay)
+		// if load {
+		// 	if err := utils.GormFind(logic.runtime.DB, &batchOrder); err != nil {
+		// 		logic.runtime.Logger.Error(fmt.Sprintf("BatchOrderLogic Record: %s", err))
+		// 		return
+		// 	}
+
+		// 	logic.SetFeilds(&batchOrder)
+		// }
+		dao.BatchOrder.Record(logic.runtime.DB, batchOrder, batchOrderGoods, stepType, pay)
 	}()
 	return
 }

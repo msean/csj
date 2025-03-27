@@ -5,6 +5,7 @@ import (
 	"app/service/handler/middleware"
 	"app/service/logic"
 	"app/service/model/request"
+	"app/service/model/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,7 +20,8 @@ func customerRouter(g *gin.RouterGroup) {
 
 func CustomerSave(c *gin.Context) {
 	var param request.CustomerParam
-	if err := c.ShouldBind(&param); err != nil {
+	var err error
+	if err = c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
@@ -35,7 +37,7 @@ func CustomerSave(c *gin.Context) {
 			common.Response(c, common.CustomerDuplicateErr, nil)
 			return
 		}
-		if err := customerLogic.Create(param); err != nil {
+		if err = customerLogic.Create(param); err != nil {
 			common.Response(c, err, nil)
 			return
 		}
@@ -44,11 +46,13 @@ func CustomerSave(c *gin.Context) {
 	}
 
 	// 修改客户
-	if err := customerLogic.Update(param); err != nil {
+	if err = customerLogic.Update(param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, customerLogic)
+	var rsp response.ListCustomerRsp
+	rsp, err = customerLogic.FromUUID(param.UIDCompatible)
+	common.Response(c, err, rsp)
 }
 
 func CustomerList(c *gin.Context) {

@@ -20,3 +20,8 @@ func (dao *BatchGoodsDao) Update(db *gorm.DB, batchGoods model.BatchGoods) error
 		Mount:  batchGoods.Mount,
 	}).Error
 }
+
+func (logic *BatchGoodsDao) FromBatchUUID(db *gorm.DB, batchUUID int64) (batchGoods []model.BatchGoods, err error) {
+	err = utils.GormFind(db, &batchGoods, utils.NewWhereCond("batch_uuid", batchUUID))
+	return
+}

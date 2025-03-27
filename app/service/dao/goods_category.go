@@ -19,8 +19,8 @@ func (dao *GoodsCategoryDao) Update(db *gorm.DB, goods model.GoodsCategory) erro
 	}).Error
 }
 
-func (dao *GoodsCategoryDao) DeleteGoodsCategory(db *gorm.DB, goodCategoryUUID string) (err error) {
-	if goodCategoryUUID == "" {
+func (dao *GoodsCategoryDao) DeleteGoodsCategory(db *gorm.DB, goodCategoryUUID int64) (err error) {
+	if goodCategoryUUID == 0 {
 		return
 	}
 	var object model.GoodsCategory

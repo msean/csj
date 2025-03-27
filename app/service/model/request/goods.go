@@ -80,7 +80,7 @@ func (param *GoodsSaveParam) UnmarshalJSON(data []byte) error {
 	}
 
 	if param.CategoryID != "" {
-		if uid, err := strconv.ParseInt(param.UID, 10, 64); err == nil {
+		if uid, err := strconv.ParseInt(param.CategoryID, 10, 64); err == nil {
 			param.CategoryIDCompatible = uid
 		} else {
 			return err

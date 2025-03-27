@@ -7,6 +7,7 @@ import (
 	"app/service/logic"
 	"app/service/model"
 	"app/service/model/request"
+	"app/utils"
 	"fmt"
 	"strconv"
 
@@ -65,12 +66,12 @@ func Register(c *gin.Context) {
 
 	common.Response(c, e, map[string]any{
 		"token": token,
-		"uuid":  strconv.FormatInt(registerUser.UID, 10),
+		"uuid":  utils.Violent2String(registerUser.UID),
 	})
 }
 
 func SenderVerifyCode(c *gin.Context) {
-	var payload request.VerfifyCodeParam
+	var payload request.VerifyCodeParam
 	var err error
 	if err = c.ShouldBind(&payload); err != nil {
 		common.Response(c, err, nil)

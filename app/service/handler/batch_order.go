@@ -38,7 +38,8 @@ func BatchOrderTempCreate(c *gin.Context) {
 
 	logic := logic.NewBatchOrderLogic(c)
 	var batchOrder model.BatchOrder
-	if batchOrder, err = logic.TempCreate(param); err != nil {
+	err = logic.TempCreate(param)
+	if err != nil {
 		common.Response(c, err, nil)
 		return
 	}

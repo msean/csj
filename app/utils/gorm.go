@@ -125,6 +125,18 @@ func NewInCondFromString(key string, v []string) InCond {
 	}
 }
 
+func NewInCondFromInt64(key string, v []int64) InCond {
+	value := []any{}
+	for _, _v := range v {
+		value = append(value, _v)
+	}
+
+	return InCond{
+		key:   key,
+		value: value,
+	}
+}
+
 func (i InCond) Cond(db *gorm.DB) *gorm.DB {
 	db = db.Where(fmt.Sprintf("%s in (?)", i.key), i.value)
 	return db

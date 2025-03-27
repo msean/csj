@@ -5,7 +5,7 @@ type (
 		Phone      string `json:"phone"`
 		VerifyCode string `json:"verifycode"`
 	}
-	VerfifyCodeParam struct {
+	VerifyCodeParam struct {
 		Phone string `json:"phone"`
 		Typ   int    `json:"type"`
 	}

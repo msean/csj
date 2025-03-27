@@ -2,7 +2,7 @@ package model
 
 type Customer struct {
 	BaseModel
-	OwnerUser int64   `gorm:"column:owner_user;comment:所属用户;type:VARCHAR(64)" json:"ownerUser"`
+	OwnerUser int64   `gorm:"column:owner_user;index;comment:所属用户" json:"-"`
 	Name      string  `gorm:"column:name;comment:客户名字" json:"name"`
 	Phone     string  `gorm:"column:phone;comment:手机号" json:"phone"`
 	Remark    string  `gorm:"column:remark;comment:备注" json:"remark"`

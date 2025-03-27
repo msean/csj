@@ -26,27 +26,24 @@ type (
 	// 一个订单对应多个订单货品
 	BatchOrder struct {
 		BaseModel
-		BatchUUID        string             `gorm:"column:batch_uuid;comment:批次uuid" json:"batchUUID"`
-		OwnerUser        string             `gorm:"column:owner_user;comment:所属用户;index" json:"ownerUser"`
-		UserUUID         string             `gorm:"column:user_uuid;comment:开单uuid" json:"customerUUID"`
-		Shared           int32              `gorm:"column:shared;comment:是否分享单" json:"shared"`
-		SharedTime       int32              `gorm:"column:share_time;comment:分享时间" json:"sharedTime"`
-		Status           int32              `gorm:"column:status;comment:状态" json:"status"`
-		TotalAmount      float64            `gorm:"column:amount;comment:金额" json:"totalAmount"`
-		CreditAmount     float64            `gorm:"column:credit_amount;comment:赊欠金额" json:"creditAmount"`
-		GoodsListRelated []*BatchOrderGoods `gorm:"foreignKey:BatchOrderUID;references:UID" json:"goodsList"`
-		CustomerField
-		History BatchOrderHistory `gorm:"-" json:"history"`
+		BatchUUID    int64   `gorm:"column:batch_uuid;comment:批次uuid" json:"batchUUID"`
+		OwnerUser    int64   `gorm:"column:owner_user;comment:所属用户;index" json:"ownerUser"`
+		UserUUID     int64   `gorm:"column:user_uuid;comment:开单uuid" json:"customerUUID"`
+		Shared       int32   `gorm:"column:shared;comment:是否分享单" json:"shared"`
+		SharedTime   int32   `gorm:"column:share_time;comment:分享时间" json:"sharedTime"`
+		Status       int32   `gorm:"column:status;comment:状态" json:"status"`
+		TotalAmount  float64 `gorm:"column:amount;comment:金额" json:"totalAmount"`
+		CreditAmount float64 `gorm:"column:credit_amount;comment:赊欠金额" json:"creditAmount"`
 	}
 
 	BatchOrderGoods struct {
 		BaseModel
-		BatchOrderUID string `gorm:"column:batch_order_uuid;comment:批次uuid" json:"batchOrderUUID"`
-		BatchUUID     string `gorm:"column:batch_uuid;comment:批次uuid" json:"batchUUID"`
+		BatchOrderUID int64 `gorm:"column:batch_order_uuid;comment:批次uuid" json:"batchOrderUUID"`
+		BatchUUID     int64 `gorm:"column:batch_uuid;comment:批次uuid" json:"batchUUID"`
 		// BatchGoodsUUID string  `gorm:"column:batch_goods_uuid;comment:批次货品uuid" json:"BatchGoodsUUID"`
-		GoodsUUID string  `gorm:"column:goods_uuid;comment:货品uuid" json:"goodsUUID"`
-		OwnerUser string  `gorm:"column:owner_user;comment:所属用户;index" json:"ownerUser"`
-		UserUUID  string  `gorm:"column:user_uuid;comment:开单uuid" json:"customerUUID"`
+		GoodsUUID int64   `gorm:"column:goods_uuid;comment:货品uuid" json:"goodsUUID"`
+		OwnerUser int64   `gorm:"column:owner_user;comment:所属用户;index" json:"ownerUser"`
+		UserUUID  int64   `gorm:"column:user_uuid;comment:开单uuid" json:"customerUUID"`
 		SerialNo  string  `gorm:"column:serial_no;comment:批次序号" json:"serialNo"`
 		Price     float64 `gorm:"column:price;type:decimal(10,2);comment:单价" json:"price"`
 		Weight    float64 `gorm:"column:weight;type:decimal(10,2);comment:重量" json:"weight"`
@@ -80,9 +77,9 @@ func (b *BatchOrderGoods) Amount() float64 {
 	return b.Price * float64(b.Mount)
 }
 
-func (b *BatchOrder) SetTotalAmount() float64 {
+func (b *BatchOrder) SetTotalAmount(batchOrderGoods []BatchOrderGoods) float64 {
 	var t float64
-	for _, batchGoods := range b.GoodsListRelated {
+	for _, batchGoods := range batchOrderGoods {
 		t += batchGoods.Amount()
 	}
 	return math.Round(float64(t))

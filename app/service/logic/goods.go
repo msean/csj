@@ -135,7 +135,7 @@ func (logic *GoodsCategoryLogic) Update(param request.GoodsCategorySaveParam) (_
 	return
 }
 
-func (logic *GoodsCategoryLogic) Delete(uuid string) (err error) {
+func (logic *GoodsCategoryLogic) Delete(uuid int64) (err error) {
 	tx := logic.runtime.DB.Begin()
 	if err = dao.GoodsCategory.DeleteGoodsCategory(tx, uuid); err != nil {
 		tx.Rollback()
