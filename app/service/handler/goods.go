@@ -82,7 +82,7 @@ func GoodsCategoryDelete(c *gin.Context) {
 		return
 	}
 
-	if err := goodCategoryLogic.Delete(param.UID); err != nil {
+	if err := goodCategoryLogic.Delete(param.UIDCompatible); err != nil {
 		common.Response(c, err, nil)
 		return
 	}

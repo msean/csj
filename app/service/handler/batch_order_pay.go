@@ -62,7 +62,7 @@ func BatchOrderPayDetail(c *gin.Context) {
 	}
 
 	var batchOrderPay model.BatchOrderPay
-	if batchOrderPay, err = logic.NewBatchOrderPayLogic(c).FromUUID(param.BatchOrderPayUUID); err != nil {
+	if batchOrderPay, err = logic.NewBatchOrderPayLogic(c).FromUUID(param.BatchOrderPayUUIDCompatible); err != nil {
 		common.Response(c, err, nil)
 		return
 	}

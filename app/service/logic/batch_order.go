@@ -6,6 +6,7 @@ import (
 	"app/service/dao"
 	"app/service/model"
 	"app/service/model/request"
+	"app/service/model/response"
 	"app/utils"
 	"errors"
 	"fmt"
@@ -52,7 +53,7 @@ func NewBatchOrderGoodsLogic(context *gin.Context) *BatchOrderGoodsLogic {
 }
 
 // 码单
-func (logic *BatchOrderLogic) TempCreate(param request.CreateTempBatchOrderParam) (err error) {
+func (logic *BatchOrderLogic) TempCreate(param request.CreateTempBatchOrderParam) (batchOrder response.BatchOrderRsp, err error) {
 	if param.BatchUUID == "" {
 		err = common.BatchUUIDRequireErr
 		return
@@ -62,7 +63,7 @@ func (logic *BatchOrderLogic) TempCreate(param request.CreateTempBatchOrderParam
 		return
 	}
 
-	batchOrder := model.BatchOrder{
+	batchOrder.BatchOrder = model.BatchOrder{
 		BatchUUID: param.BatchUUIDCompatible,
 		OwnerUser: logic.OwnerUser,
 		UserUUID:  param.CustomerUUIDCompatible,
@@ -70,9 +71,8 @@ func (logic *BatchOrderLogic) TempCreate(param request.CreateTempBatchOrderParam
 		Status:    model.BatchOrderTemp,
 	}
 
-	var batchOrderGoodsList []model.BatchOrderGoods
 	for _, goods := range param.GoodsList {
-		batchOrderGoodsList = append(batchOrderGoodsList, model.BatchOrderGoods{
+		batchOrder.GoodsListRelated = append(batchOrder.GoodsListRelated, &model.BatchOrderGoods{
 			OwnerUser: logic.OwnerUser,
 			BatchUUID: batchOrder.BatchUUID,
 			UserUUID:  batchOrder.UserUUID,
@@ -83,25 +83,20 @@ func (logic *BatchOrderLogic) TempCreate(param request.CreateTempBatchOrderParam
 		})
 	}
 
-	batchOrder.TotalAmount = batchOrder.SetTotalAmount(batchOrderGoodsList)
+	batchOrder.TotalAmount = batchOrder.SetTotalAmount()
 	batchOrder.CreditAmount = batchOrder.TotalAmount
 
-	db := logic.runtime.DB
-	err = db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&batchOrder).Error; err != nil {
-			return err
-		}
+	logic.runtime.DB.Create(&batchOrder)
 
-		if err := tx.Create(&batchOrderGoodsList).Error; err != nil {
-			return err
-		}
-		return nil
-	})
+	logic.SetField(&batchOrder)
 	return
 }
 
 // 下单
-func (logic *BatchOrderLogic) Create(tx *gorm.DB, param request.CreateBatchOrderParam) (batchOrder model.BatchOrder, err error) {
+func (logic *BatchOrderLogic) Create(
+	tx *gorm.DB,
+	param request.CreateBatchOrderParam,
+) (batchOrder response.BatchOrderRsp, err error) {
 	if param.BatchUUID == "" {
 		err = common.BatchUUIDRequireErr
 		return
@@ -111,10 +106,10 @@ func (logic *BatchOrderLogic) Create(tx *gorm.DB, param request.CreateBatchOrder
 		err = common.BatchOrderGoodsRequireErr
 		return
 	}
-	batchOrder = model.BatchOrder{
-		BatchUUID: param.BatchUUID,
+	batchOrder.BatchOrder = model.BatchOrder{
+		BatchUUID: param.BatchUUIDCompatible,
 		OwnerUser: logic.OwnerUser,
-		UserUUID:  param.CustomerUUID,
+		UserUUID:  param.CustomerUUIDCompatible,
 		Shared:    model.BatchOrderUnshare,
 	}
 
@@ -141,47 +136,49 @@ func (logic *BatchOrderLogic) Create(tx *gorm.DB, param request.CreateBatchOrder
 	if err = utils.GormCreateObj(tx, &batchOrder); err != nil {
 		return
 	}
-	logic.SetFeilds(&batchOrder)
+
+	logic.SetField(&batchOrder)
 	return
 }
 
-func (logic *BatchOrderLogic) Shared(uuid string) (batchOrder model.BatchOrder, err error) {
+func (logic *BatchOrderLogic) Shared(uuid int64) (err error) {
+	var batchOrder response.BatchOrderRsp
 	if batchOrder, err = logic.FromUUID(uuid); err != nil {
 		return
 	}
 	if err = dao.BatchOrder.UpdateShare(logic.runtime.DB, uuid, model.BatchOrderShared); err != nil {
 		return
 	}
-	logic.Record(batchOrder, true, model.HistoryStepOrderShare, model.PayField{})
+	logic.Record(&batchOrder, true, model.HistoryStepOrderShare, model.PayField{})
 	return
 }
 
-func (logic *BatchOrderLogic) UpdateStatus(param request.UpdateBatchOrderStatusParam) (batchOrder model.BatchOrder, err error) {
-	if batchOrder, err = logic.FromUUID(param.BatchOrderUUID); err != nil {
+func (logic *BatchOrderLogic) UpdateStatus(param request.UpdateBatchOrderStatusParam) (batchOrder response.BatchOrderRsp, err error) {
+	if batchOrder, err = logic.FromUUID(param.BatchOrderUUIDCompatible); err != nil {
 		return
 	}
-	if err = dao.BatchOrder.UpdateStatus(logic.runtime.DB, param.BatchOrderUUID, param.Status); err != nil {
+	if err = dao.BatchOrder.UpdateStatus(logic.runtime.DB, param.BatchOrderUUIDCompatible, param.Status); err != nil {
 		return
 	}
 	switch param.Status {
 	case model.BatchOrderedCredit:
-		logic.Record(batchOrder, true, model.HistoryStepCredit, model.PayField{})
+		logic.Record(&batchOrder, true, model.HistoryStepCredit, model.PayField{})
 	case model.BatchOrderCancel, model.BatchOrderRefund:
-		logic.Record(batchOrder, true, model.HistoryStepCrash, model.PayField{})
+		logic.Record(&batchOrder, true, model.HistoryStepCrash, model.PayField{})
 	}
 	return
 }
 
-func (logic *BatchOrderLogic) Update(param request.UpdateBatchOrderParam) (batchOrder model.BatchOrder, err error) {
-	if batchOrder, err = logic.FromUUID(param.BatchOrderUUID); err != nil {
+func (logic *BatchOrderLogic) Update(param request.UpdateBatchOrderParam) (batchOrder response.BatchOrderRsp, err error) {
+	if batchOrder, err = logic.FromUUID(param.BatchOrderUUIDCompatible); err != nil {
 		return
 	}
 	tx := logic.runtime.DB.Begin()
-	if err = tx.Delete(&model.BatchOrderGoods{}, "batch_order_uuid=?", param.BatchOrderUUID).Error; err != nil {
+	if err = tx.Unscoped().Delete(&model.BatchOrderGoods{}, "batch_order_uuid=?", param.BatchOrderUUID).Error; err != nil {
 		tx.Rollback()
 		return
 	}
-	batchOrder.UserUUID = param.CustomerUUID
+	batchOrder.UserUUID = param.CustomerUUIDCompatible
 	for _, goods := range param.GoodsList {
 		batchOrder.GoodsListRelated = append(batchOrder.GoodsListRelated, &model.BatchOrderGoods{
 			OwnerUser:     logic.OwnerUser,
@@ -200,17 +197,18 @@ func (logic *BatchOrderLogic) Update(param request.UpdateBatchOrderParam) (batch
 		return
 	}
 
-	logic.SetFeilds(&batchOrder)
-	logic.Record(batchOrder, false, model.HistoryStepOrderFix, model.PayField{})
+	logic.Record(&batchOrder, false, model.HistoryStepOrderFix, model.PayField{})
 	return
 }
 
-func (logic *BatchOrderLogic) FromUUID(uuid string) (batchOrder model.BatchOrder, err error) {
-	if err = utils.GormFind(logic.runtime.DB.Preload("GoodsListRelated"), &batchOrder); err != nil {
+func (logic *BatchOrderLogic) FromUUID(uuid int64) (batchOrder response.BatchOrderRsp, err error) {
+
+	if err = utils.GormFind(logic.runtime.DB.Preload("GoodsListRelated"), &batchOrder.BatchOrder); err != nil {
 		return
 	}
+
 	logic.LoadHistory(&batchOrder)
-	logic.SetFeilds(&batchOrder)
+	logic.SetField(&batchOrder)
 	return
 }
 
@@ -239,13 +237,13 @@ func (logic *BatchOrderLogic) FindLatestGoods(goodsUUIDList []string) (goodsOrde
 	return
 }
 
-func (logic *BatchOrderLogic) SetGoodsFeild(batchOrder *model.BatchOrder) (err error) {
-	var goodsUUIDList []string
+func (logic *BatchOrderLogic) SetGoodsFeild(batchOrder *response.BatchOrderRsp) (err error) {
+	var goodsUUIDList []int64
 	for _, goods := range batchOrder.GoodsListRelated {
 		goodsUUIDList = append(goodsUUIDList, goods.GoodsUUID)
 	}
 
-	goodsM, e := model.BatchGoodsFieldSet(logic.runtime.DB, goodsUUIDList, logic.OwnerUser)
+	goodsM, e := dao.BatchGoodsFieldSet(logic.runtime.DB, goodsUUIDList, logic.OwnerUser)
 	if e != nil {
 		err = e
 		return
@@ -259,48 +257,48 @@ func (logic *BatchOrderLogic) SetGoodsFeild(batchOrder *model.BatchOrder) (err e
 	return
 }
 
-func (logic *BatchOrderLogic) SetCustomerField(batchOrder *model.BatchOrder) (err error) {
-	batchOrder.CustomerField, err = model.CustomerFieldSet(logic.runtime.DB, batchOrder.UserUUID, logic.OwnerUser)
+func (logic *BatchOrderLogic) SetCustomerField(batchOrder *response.BatchOrderRsp) (err error) {
+	batchOrder.CustomerField, err = dao.CustomerFieldSet(logic.runtime.DB, batchOrder.UserUUID, logic.OwnerUser)
 	return
 }
 
-func (logic *BatchOrderLogic) List(param request.ListBatchOrderParam) (orderList []*model.BatchOrder, err error) {
+func (logic *BatchOrderLogic) List(param request.ListBatchOrderParam) (orderList []*response.BatchOrderRsp, err error) {
 
-	conds := []utils.Cond{
+	conditions := []utils.Cond{
 		utils.DefaultSetLimitCond(param.LimitCond),
 		utils.NewWhereCond("owner_user", logic.OwnerUser),
 	}
 	if param.UserUUID != "" {
-		conds = append(conds, utils.NewWhereCond("user_uuid", param.UserUUID))
+		conditions = append(conditions, utils.NewWhereCond("user_uuid", param.UserUUID))
 	}
 
 	if param.StartTime != 0 {
-		conds = append(conds, utils.NewCmpCond("created_at", ">=", time.Unix(param.StartTime, 0)))
+		conditions = append(conditions, utils.NewCmpCond("created_at", ">=", time.Unix(param.StartTime, 0)))
 	}
 	if param.EndTime != 0 {
-		conds = append(conds, utils.NewCmpCond("created_at", "<=", time.Unix(param.EndTime, 0)))
+		conditions = append(conditions, utils.NewCmpCond("created_at", "<=", time.Unix(param.EndTime, 0)))
 	}
 	if param.Status != 0 {
-		conds = append(conds, utils.NewWhereCond("status", param.Status))
+		conditions = append(conditions, utils.NewWhereCond("status", param.Status))
 	}
-	conds = append(conds, utils.CreatedOrderDescCond())
-	if err = utils.GormFind(logic.runtime.DB.Preload("GoodsListRelated"), &orderList, conds...); err != nil {
+	conditions = append(conditions, utils.CreatedOrderDescCond())
+	if err = utils.GormFind(logic.runtime.DB.Preload("GoodsListRelated"), &orderList, conditions...); err != nil {
 		return
 	}
 
-	logic.BatchFeilds(orderList)
+	logic.BatchField(orderList)
 	return
 }
 
-func (logic *BatchOrderLogic) BatchFeilds(orderList []*model.BatchOrder) {
+func (logic *BatchOrderLogic) BatchField(orderList []*response.BatchOrderRsp) {
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		var _cl []string
+		var _cl []int64
 		for _, o := range orderList {
 			_cl = append(_cl, o.UserUUID)
 		}
-		_cm, _ := model.BatchCustomerFieldSet(logic.runtime.DB, _cl, logic.OwnerUser)
+		_cm, _ := dao.BatchCustomerFieldSet(logic.runtime.DB, _cl, logic.OwnerUser)
 
 		for _, o := range orderList {
 			o.CustomerField = _cm[o.UserUUID]
@@ -308,13 +306,13 @@ func (logic *BatchOrderLogic) BatchFeilds(orderList []*model.BatchOrder) {
 		wg.Done()
 	}()
 	go func() {
-		var _gl []string
+		var _gl []int64
 		for _, o := range orderList {
 			for _, g := range o.GoodsListRelated {
 				_gl = append(_gl, g.GoodsUUID)
 			}
 		}
-		_gm, _ := model.BatchGoodsFeildSet(logic.runtime.DB, _gl, logic.OwnerUser)
+		_gm, _ := dao.BatchGoodsFieldSet(logic.runtime.DB, _gl, logic.OwnerUser)
 		for _, o := range orderList {
 			for _, g := range o.GoodsListRelated {
 				g.GoodsField = _gm[g.GoodsUUID]
@@ -339,11 +337,11 @@ func (logic *BatchOrderLogic) BatchFeilds(orderList []*model.BatchOrder) {
 // 	wg.Wait()
 // }
 
-func (logic *BatchOrderLogic) SetFeilds(batchOrder *model.BatchOrder) {
+func (logic *BatchOrderLogic) SetField(batchOrder *response.BatchOrderRsp) {
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		dao.SetCustomerField(batchOrder)
+		logic.SetCustomerField(batchOrder)
 		wg.Done()
 	}()
 	go func() {
@@ -353,28 +351,27 @@ func (logic *BatchOrderLogic) SetFeilds(batchOrder *model.BatchOrder) {
 	wg.Wait()
 }
 
-func (logic *BatchOrderLogic) Record(batchOrder model.BatchOrder, batchOrderGoods []model.BatchOrderGoods, stepType int32, pay model.PayField) {
+func (logic *BatchOrderLogic) Record(batchOrder *response.BatchOrderRsp, load bool, stepType int32, pay model.PayField) {
 	go func() {
-		// if load {
-		// 	if err := utils.GormFind(logic.runtime.DB, &batchOrder); err != nil {
-		// 		logic.runtime.Logger.Error(fmt.Sprintf("BatchOrderLogic Record: %s", err))
-		// 		return
-		// 	}
+		if load {
+			if err := utils.GormFind(logic.runtime.DB.Preload("GoodsListRelated"), &batchOrder.BatchOrder); err != nil {
+				logic.runtime.Logger.Error(fmt.Sprintf("BatchOrderLogic Record: %s", err))
+				return
+			}
 
-		// 	logic.SetFeilds(&batchOrder)
-		// }
-		dao.BatchOrder.Record(logic.runtime.DB, batchOrder, batchOrderGoods, stepType, pay)
+			logic.SetField(batchOrder)
+		}
+		dao.BatchOrder.Record(logic.runtime.DB, *batchOrder, stepType, pay)
 	}()
-	return
 }
 
-func (logic *BatchOrderLogic) LoadHistory(batchOrder *model.BatchOrder) (err error) {
+func (logic *BatchOrderLogic) LoadHistory(batchOrder *response.BatchOrderRsp) (err error) {
 	var history model.BatchOrderHistory
 	if err = utils.GormFirst(logic.runtime.DB, &history, utils.NewWhereCond("batch_order_uuid", batchOrder.UID)); err != nil {
 		global.Global.Logger.Error(fmt.Sprintf("BatchOrderLogic LoadHistory err", err))
 		return
 	}
-	if history.UID != "" {
+	if history.UID != 0 {
 		batchOrder.History = history
 	}
 	return

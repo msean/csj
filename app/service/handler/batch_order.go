@@ -7,6 +7,7 @@ import (
 	"app/service/logic"
 	"app/service/model"
 	"app/service/model/request"
+	"app/service/model/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -37,13 +38,13 @@ func BatchOrderTempCreate(c *gin.Context) {
 	}
 
 	logic := logic.NewBatchOrderLogic(c)
-	var batchOrder model.BatchOrder
-	err = logic.TempCreate(param)
+	var batchOrder response.BatchOrderRsp
+	batchOrder, err = logic.TempCreate(param)
 	if err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	go logic.Record(batchOrder, false, model.HistoryStepOrder, model.PayField{})
+	go logic.Record(&batchOrder, false, model.HistoryStepOrder, model.PayField{})
 	common.Response(c, nil, batchOrder)
 }
 
@@ -56,7 +57,7 @@ func BatchOrderCreate(c *gin.Context) {
 	}
 
 	batchOrderLogic := logic.NewBatchOrderLogic(c)
-	var batchOrder model.BatchOrder
+	var batchOrder response.BatchOrderRsp
 	tx := global.Global.DB.Begin()
 	if batchOrder, err = batchOrderLogic.Create(tx, param); err != nil {
 		tx.Rollback()
@@ -65,12 +66,11 @@ func BatchOrderCreate(c *gin.Context) {
 	}
 
 	orderPayLogic := logic.NewBatchOrderPayLogic(c)
-	// orderPayLogic.BatchOrderUUID = batchOrder.UID
 	batchOrderPayParam := request.CreateBatchOrderPayParam{
-		BatchOrderUUID: batchOrder.UID,
-		Amount:         batchOrder.TotalAmount - batchOrder.CreditAmount,
-		PayType:        param.PayType,
-		CustomerUUID:   batchOrder.UserUUID,
+		BatchOrderUUIDCompatible: batchOrder.UID,
+		Amount:                   batchOrder.TotalAmount - batchOrder.CreditAmount,
+		PayType:                  param.PayType,
+		CustomerUUIDCompatible:   batchOrder.UserUUID,
 	}
 	if _, err = orderPayLogic.Create(tx, batchOrderPayParam, false); err != nil {
 		tx.Rollback()
@@ -79,13 +79,13 @@ func BatchOrderCreate(c *gin.Context) {
 	}
 	tx.Commit()
 	if !common.FloatGreat(0.0, batchOrder.CreditAmount) {
-		go batchOrderLogic.Record(batchOrder, false, model.HistoryStepCredit, model.PayField{
+		go batchOrderLogic.Record(&batchOrder, false, model.HistoryStepCredit, model.PayField{
 			PayFee:  param.FPayAmount,
 			PayType: param.PayType,
 			PaidFee: param.FPayAmount,
 		})
 	} else {
-		go batchOrderLogic.Record(batchOrder, false, model.HistoryStepCash, model.PayField{
+		go batchOrderLogic.Record(&batchOrder, false, model.HistoryStepCash, model.PayField{
 			PayFee:  batchOrder.TotalAmount - batchOrder.CreditAmount,
 			PayType: param.PayType,
 			PaidFee: batchOrder.TotalAmount - batchOrder.CreditAmount,
@@ -104,7 +104,7 @@ func BatchOrderUpdate(c *gin.Context) {
 	}
 
 	logic := logic.NewBatchOrderLogic(c)
-	var batchOrder model.BatchOrder
+	var batchOrder response.BatchOrderRsp
 	if batchOrder, err = logic.Update(param); err != nil {
 		common.Response(c, err, nil)
 		return
@@ -120,7 +120,7 @@ func BatchOrderUpdateStatus(c *gin.Context) {
 		return
 	}
 
-	var batchOrder model.BatchOrder
+	var batchOrder response.BatchOrderRsp
 	if batchOrder, err = logic.NewBatchOrderLogic(c).UpdateStatus(param); err != nil {
 		common.Response(c, err, nil)
 		return
@@ -129,19 +129,18 @@ func BatchOrderUpdateStatus(c *gin.Context) {
 }
 
 func BatchOrderShared(c *gin.Context) {
-	var param request.ShareBatchOrderrParam
+	var param request.ShareBatchOrderParam
 	var err error
 	if err = c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	var batchOrder model.BatchOrder
-	if batchOrder, err = logic.NewBatchOrderLogic(c).Shared(param.UUID); err != nil {
+	if err = logic.NewBatchOrderLogic(c).Shared(param.UUIDCompatible); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, batchOrder)
+	common.Response(c, nil, nil)
 }
 
 func BatchOrderDetail(c *gin.Context) {
@@ -153,8 +152,8 @@ func BatchOrderDetail(c *gin.Context) {
 	}
 
 	logic := logic.NewBatchOrderLogic(c)
-	var batchOrder model.BatchOrder
-	if batchOrder, err = logic.FromUUID(param.UUID); err != nil {
+	var batchOrder response.BatchOrderRsp
+	if batchOrder, err = logic.FromUUID(param.UUIDCompatible); err != nil {
 		common.Response(c, err, nil)
 		return
 	}

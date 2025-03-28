@@ -3,6 +3,7 @@ package dao
 import (
 	"app/service/common"
 	"app/service/model"
+	"app/service/model/response"
 	"app/utils"
 	"fmt"
 	"time"
@@ -28,17 +29,15 @@ func (dao *BatchOrderDao) UpdateShare(db *gorm.DB, uid int64, share int32) error
 
 func (bo *BatchOrderDao) Record(
 	db *gorm.DB,
-	batchOrder model.BatchOrder,
-	batchOrderGoodsList []model.BatchOrderGoods,
+	batchOrder response.BatchOrderRsp,
 	stepType int32,
 	pay model.PayField,
-	customerField model.CustomerField,
 ) (err error) {
 	var boh model.BatchOrderHistory
 	if err = utils.GormFind(db, &boh, utils.NewWhereCond("batch_order_uuid", batchOrder.UID)); err != nil {
 		return
 	}
-	step := bo.NewHistoryStep(batchOrder, stepType, pay, batchOrderGoodsList, customerField)
+	step := bo.NewHistoryStep(batchOrder, stepType, pay)
 	boh.History = append(boh.History, step)
 	boh.BatchOrderUID = batchOrder.UID
 	if boh.UID == 0 {
@@ -47,14 +46,14 @@ func (bo *BatchOrderDao) Record(
 	return db.Save(&boh).Error
 }
 
-func (bo *BatchOrderDao) NewHistoryStep(batchOrder model.BatchOrder, stepType int32, pay model.PayField, batchOrderGoodsList []model.BatchOrderGoods, customerField model.CustomerField) (step model.Step) {
+func (bo *BatchOrderDao) NewHistoryStep(batchOrder response.BatchOrderRsp, stepType int32, pay model.PayField) (step model.Step) {
 	s := model.Step{
-		CustomerField: customerField,
+		CustomerField: batchOrder.CustomerField,
 		StepType:      stepType,
 		OprTime:       time.Now(),
 	}
 
-	for _, goods := range batchOrderGoodsList {
+	for _, goods := range batchOrder.GoodsListRelated {
 		s.GoodsList = append(s.GoodsList, &model.StepGoods{
 			Price:      goods.Price,
 			Weight:     goods.Weight,

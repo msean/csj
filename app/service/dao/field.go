@@ -17,7 +17,7 @@ func CustomerFieldSet(db *gorm.DB, uuid, ownerUser int64) (c model.CustomerField
 	return
 }
 
-func BatchCustomerFieldSet(db *gorm.DB, uuidList []int64, ownerUser string) (customerM map[int64]model.CustomerField, err error) {
+func BatchCustomerFieldSet(db *gorm.DB, uuidList []int64, ownerUser int64) (customerM map[int64]model.CustomerField, err error) {
 	customerM = make(map[int64]model.CustomerField)
 	var customers []model.Customer
 	if err = utils.GormFind(db, &customers, utils.NewWhereCond("owner_user", ownerUser), utils.NewInCondFromInt64("uid", uuidList)); err != nil {

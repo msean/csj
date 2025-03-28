@@ -15,10 +15,9 @@ import (
 )
 
 type BatchOrderPayLogic struct {
-	context *gin.Context
-	runtime *global.RunTime
-	// model.BatchOrderPay
-	OwnerUser string
+	context   *gin.Context
+	runtime   *global.RunTime
+	OwnerUser int64
 }
 
 func NewBatchOrderPayLogic(context *gin.Context) *BatchOrderPayLogic {
@@ -38,9 +37,9 @@ func (logic *BatchOrderPayLogic) Create(tx *gorm.DB, param request.CreateBatchOr
 	}
 
 	batchOrderPay = model.BatchOrderPay{
-		CustomerUUID:   param.CustomerUUID,
+		CustomerUUID:   param.CustomerUUIDCompatible,
 		OwnerUser:      logic.OwnerUser,
-		BatchOrderUUID: param.BatchOrderUUID,
+		BatchOrderUUID: param.BatchOrderUUIDCompatible,
 		Amount:         param.Amount,
 		PayType:        param.PayType,
 	}
@@ -68,7 +67,7 @@ func (logic *BatchOrderPayLogic) Create(tx *gorm.DB, param request.CreateBatchOr
 }
 
 func (logic *BatchOrderPayLogic) Update(param request.UpdateBatchOrderPayParam) (storage model.BatchOrderPay, err error) {
-	if storage, err = logic.FromUUID(param.BatchOrderPayUUID); err != nil {
+	if storage, err = logic.FromUUID(param.BatchOrderPayUUIDCompatible); err != nil {
 		return
 	}
 	storage.Amount = param.Amount
@@ -88,7 +87,7 @@ func (logic *BatchOrderPayLogic) Update(param request.UpdateBatchOrderPayParam) 
 }
 
 // 查询该批次的单次是否结算完成，若完成，则需修改单次的状态
-func UpdateOrderPay(db *gorm.DB, payFee float64, payType int32, batchOrderUUID string, ctx *gin.Context) (err error) {
+func UpdateOrderPay(db *gorm.DB, payFee float64, payType int32, batchOrderUUID int64, ctx *gin.Context) (err error) {
 	var order model.BatchOrder
 	if err = utils.GormFind(db, &order, utils.WhereUIDCond(batchOrderUUID)); err != nil {
 		return
@@ -108,7 +107,7 @@ func UpdateOrderPay(db *gorm.DB, payFee float64, payType int32, batchOrderUUID s
 	return
 }
 
-func (logic *BatchOrderPayLogic) FromUUID(uuid string) (object model.BatchOrderPay, err error) {
+func (logic *BatchOrderPayLogic) FromUUID(uuid int64) (object model.BatchOrderPay, err error) {
 	err = utils.GormFind(logic.runtime.DB, &object, utils.WhereUIDCond(uuid))
 	return
 }
