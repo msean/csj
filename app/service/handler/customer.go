@@ -41,7 +41,7 @@ func CustomerSave(c *gin.Context) {
 			common.Response(c, err, nil)
 			return
 		}
-		common.Response(c, nil, customerLogic)
+		common.Response(c, nil, nil)
 		return
 	}
 

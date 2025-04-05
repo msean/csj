@@ -49,12 +49,11 @@ func (c *CustomerDao) MapperFromList(db *gorm.DB, UUIDList []int64, ownerUser in
 }
 
 func (c *CustomerDao) FromUUID(db *gorm.DB, uuid, ownerUser int64) (customer model.Customer, err error) {
-	var _customers model.Customer
 	conditions := []utils.Cond{
 		utils.NewWhereCond("owner_user", ownerUser),
 		utils.NewWhereCond("uid", uuid),
 	}
-	if err = utils.GormFind(db, &_customers, conditions...); err != nil {
+	if err = utils.GormFind(db, &customer, conditions...); err != nil {
 		return
 	}
 	return

@@ -6,6 +6,7 @@ import (
 	"app/service/dao"
 	"app/service/model"
 	"app/service/model/request"
+	"app/service/model/response"
 	"app/utils"
 
 	"github.com/gin-gonic/gin"
@@ -45,13 +46,13 @@ func NewGoodsCategoryLogic(context *gin.Context) *GoodsCategoryLogic {
 }
 
 // brief 不需要货品详情
-func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...utils.Cond) (gcList []*model.GoodsCategory, err error) {
+func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...utils.Cond) (gcList []*response.GoodsCategoryRsp, err error) {
 
-	gcList = make([]*model.GoodsCategory, 0)
+	gcList = make([]*response.GoodsCategoryRsp, 0)
 
+	var modelList []model.GoodsCategory
 	conds = append(conds, utils.WhereOwnerUserCond(logic.OwnerUser))
-	var _goodCategories []model.GoodsCategory
-	if err = utils.GormFind(logic.runtime.DB, &_goodCategories, conds...); err != nil {
+	if err = utils.GormFind(logic.runtime.DB, &modelList, conds...); err != nil {
 		logic.runtime.Logger.Error("ListGoodsCategoryByUser",
 			zap.Int64("uuid", logic.OwnerUser),
 			zap.Error(err))
@@ -59,11 +60,10 @@ func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...ut
 	}
 
 	if brief {
-		for _, gc := range _goodCategories {
-			gcList = append(gcList, &model.GoodsCategory{
-				Name:      gc.Name,
-				OwnerUser: gc.OwnerUser,
-				Goods:     []model.Goods{},
+		for _, model := range modelList {
+			gcList = append(gcList, &response.GoodsCategoryRsp{
+				GoodsCategory: model,
+				Goods:         []response.GoodsDetailRsp{},
 			})
 		}
 		return
@@ -77,23 +77,26 @@ func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...ut
 		return
 	}
 
-	goodsCategoriesM := map[int64]*model.GoodsCategory{}
-	goodsCategoriesM[0] = &model.GoodsCategory{
-		Name:  "未分类",
-		Goods: []model.Goods{},
+	goodsCategoriesM := map[int64]*response.GoodsCategoryRsp{}
+	goodsCategoriesM[0] = &response.GoodsCategoryRsp{
+		GoodsCategory: model.GoodsCategory{
+			Name: "未分类",
+		},
+		Goods: []response.GoodsDetailRsp{},
 	}
 
-	for _, _goodCategory := range _goodCategories {
-		goodsCategoriesM[_goodCategory.UID] = &model.GoodsCategory{
-			Name:      _goodCategory.Name,
-			OwnerUser: _goodCategory.OwnerUser,
-			Goods:     []model.Goods{},
+	for _, model := range modelList {
+		goodsCategoriesM[model.UID] = &response.GoodsCategoryRsp{
+			GoodsCategory: model,
+			Goods:         []response.GoodsDetailRsp{},
 		}
 	}
 
 	for _, goods := range _goodsList {
 		if _goodsList, ok := goodsCategoriesM[goods.CategoryID]; ok {
-			_goodsList.Goods = append(_goodsList.Goods, goods)
+			_goodsList.Goods = append(_goodsList.Goods, response.GoodsDetailRsp{
+				Goods: goods,
+			})
 		}
 	}
 

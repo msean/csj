@@ -6,6 +6,7 @@ import (
 	"app/service/logic"
 	"app/service/model"
 	"app/service/model/request"
+	"app/service/model/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -43,7 +44,7 @@ func GoodsCategorySave(c *gin.Context) {
 			common.Response(c, err, nil)
 			return
 		}
-		common.Response(c, nil, goodsCategoryLogic)
+		common.Response(c, nil, goodsCategory)
 		return
 	}
 
@@ -60,7 +61,7 @@ func GoodsCategoryList(c *gin.Context) {
 		common.Response(c, err, nil)
 		return
 	}
-	var gclist []*model.GoodsCategory
+	var gclist []*response.GoodsCategoryRsp
 	var err error
 	if gclist, err = logic.NewGoodsCategoryLogic(c).ListGoodsCategoryByUser(params.Brief, params.LimitCond); err != nil {
 		common.Response(c, err, nil)

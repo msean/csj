@@ -60,15 +60,13 @@ func AuthMiddleware() gin.HandlerFunc {
 			common.Response(c, common.TokenUnValidErr, nil)
 			return
 		}
-
 		claims, err := GetTokenClaims(tokenHeader)
-		global.Global.Logger.Debug("[AuthMiddleware]", zap.Any("expiresat", claims.ExpiresAt))
 		if err != nil {
 			c.Abort()
 			common.Response(c, common.TokenUnValidErr, nil)
 			return
 		}
-
+		global.Global.Logger.Debug("[AuthMiddleware]", zap.Any("expiresat", claims.ExpiresAt))
 		if time.Now().Unix() > claims.ExpiresAt.Unix() {
 			if t := claims.ExpiresAt.Time.Add(global.Global.TokenExRefresh()); t.After(time.Now()) {
 				newToken, e := SetToken(claims.Phone, claims.UUID)

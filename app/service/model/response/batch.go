@@ -20,6 +20,7 @@ type (
 
 func (b BatchRsp) MarshalJSON() ([]byte, error) {
 	type Alias BatchRsp
+	b.UIDCompatible = utils.Violent2String(b.UID)
 	return json.Marshal(&struct {
 		OwnerUserCompatible string `json:"ownerUser"`
 		*Alias
@@ -31,6 +32,7 @@ func (b BatchRsp) MarshalJSON() ([]byte, error) {
 
 func (b BatchGoodsRsp) MarshalJSON() ([]byte, error) {
 	type Alias BatchGoodsRsp
+	b.UIDCompatible = utils.Violent2String(b.UID)
 	return json.Marshal(&struct {
 		OwnerUserCompatible string `json:"ownerUser"`
 		BatchUUIDCompatible string `json:"batchUUID"`

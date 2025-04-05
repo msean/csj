@@ -26,9 +26,9 @@ type (
 	// 一个订单对应多个订单货品
 	BatchOrder struct {
 		BaseModel
-		BatchUUID        int64              `gorm:"column:batch_uuid;comment:批次uuid" json:"batchUUID"`
-		OwnerUser        int64              `gorm:"column:owner_user;comment:所属用户;index" json:"ownerUser"`
-		UserUUID         int64              `gorm:"column:user_uuid;comment:开单uuid" json:"customerUUID"`
+		BatchUUID        int64              `gorm:"column:batch_uuid;comment:批次uuid" json:"-"`
+		OwnerUser        int64              `gorm:"column:owner_user;comment:所属用户;index" json:"-"`
+		UserUUID         int64              `gorm:"column:user_uuid;comment:开单uuid" json:"-"`
 		Shared           int32              `gorm:"column:shared;comment:是否分享单" json:"shared"`
 		SharedTime       int32              `gorm:"column:share_time;comment:分享时间" json:"sharedTime"`
 		Status           int32              `gorm:"column:status;comment:状态" json:"status"`

@@ -14,12 +14,11 @@ type (
 )
 
 func (b ListCustomerRsp) MarshalJSON() ([]byte, error) {
+	b.UIDCompatible = utils.Violent2String(b.UID)
 	type Alias ListCustomerRsp
 	return json.Marshal(&struct {
-		OwnerUserCompatible string `json:"ownerUser"`
 		*Alias
 	}{
-		OwnerUserCompatible: utils.Violent2String(b.OwnerUser),
-		Alias:               (*Alias)(&b),
+		Alias: (*Alias)(&b),
 	})
 }
