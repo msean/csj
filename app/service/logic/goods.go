@@ -9,6 +9,7 @@ import (
 	"app/service/model/response"
 	"app/utils"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -46,21 +47,17 @@ func NewGoodsCategoryLogic(context *gin.Context) *GoodsCategoryLogic {
 }
 
 // brief 不需要货品详情
-func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...utils.Cond) (gcList []*response.GoodsCategoryRsp, err error) {
+func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(param request.ListGoodsCategoryParam) (gcList []*response.GoodsCategoryRsp, err error) {
 
 	gcList = make([]*response.GoodsCategoryRsp, 0)
-
-	var modelList []model.GoodsCategory
-	conds = append(conds, utils.WhereOwnerUserCond(logic.OwnerUser))
-	if err = utils.GormFind(logic.runtime.DB, &modelList, conds...); err != nil {
-		logic.runtime.Logger.Error("ListGoodsCategoryByUser",
-			zap.Int64("uuid", logic.OwnerUser),
-			zap.Error(err))
+	var modelGoodsCategoryList []model.GoodsCategory
+	if modelGoodsCategoryList, err = dao.Goods.ListGoodsCatetoryByOwnerUser(logic.runtime.DB, logic.OwnerUser, param); err != nil {
+		logic.runtime.Logger.Error("ListGoodsCategoryByUser", zap.Any("param", param), zap.Error(err))
 		return
 	}
-
-	if brief {
-		for _, model := range modelList {
+	spew.Dump("ListGoodsCategoryByUser", modelGoodsCategoryList)
+	if param.Brief {
+		for _, model := range modelGoodsCategoryList {
 			gcList = append(gcList, &response.GoodsCategoryRsp{
 				GoodsCategory: model,
 				Goods:         []response.GoodsDetailRsp{},
@@ -70,10 +67,11 @@ func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...ut
 	}
 
 	var _goodsList []model.Goods
-	if err = utils.GormFind(logic.runtime.DB, &_goodsList,
-		utils.WhereOwnerUserCond(logic.OwnerUser),
-		utils.UpdateOrderDescCond(),
-	); err != nil {
+	_goodsList, err = dao.Goods.ListGoods(logic.runtime.DB, logic.OwnerUser, request.ListGoodsParam{
+		OrderBy: "updated_at desc",
+	})
+	if err != nil {
+		logic.runtime.Logger.Error("ListGoodsCategoryByUser", zap.Any("param", param), zap.Error(err))
 		return
 	}
 
@@ -85,7 +83,7 @@ func (logic *GoodsCategoryLogic) ListGoodsCategoryByUser(brief bool, conds ...ut
 		Goods: []response.GoodsDetailRsp{},
 	}
 
-	for _, model := range modelList {
+	for _, model := range modelGoodsCategoryList {
 		goodsCategoriesM[model.UID] = &response.GoodsCategoryRsp{
 			GoodsCategory: model,
 			Goods:         []response.GoodsDetailRsp{},
@@ -161,8 +159,8 @@ func (logic *GoodsLogic) Check(param request.GoodsSaveParam) (err error) {
 	return nil
 }
 
-func (logic *GoodsLogic) Create(param request.GoodsSaveParam) (_goods model.Goods, err error) {
-	_goods = model.Goods{
+func (logic *GoodsLogic) Create(param request.GoodsSaveParam) (goods response.GoodsDetailRsp, err error) {
+	_goods := model.Goods{
 		CategoryID: param.CategoryIDCompatible,
 		Name:       param.Name,
 		Typ:        param.Type,
@@ -171,11 +169,14 @@ func (logic *GoodsLogic) Create(param request.GoodsSaveParam) (_goods model.Good
 		OwnerUser:  logic.OwnerUser,
 	}
 	err = utils.GormCreateObj(logic.runtime.DB, &_goods)
+	goods = response.GoodsDetailRsp{
+		Goods: _goods,
+	}
 	return
 }
 
-func (logic *GoodsLogic) Update(param request.GoodsSaveParam) (_goods model.Goods, err error) {
-	_goods = model.Goods{
+func (logic *GoodsLogic) Update(param request.GoodsSaveParam) (goods response.GoodsDetailRsp, err error) {
+	_goods := model.Goods{
 		CategoryID: param.CategoryIDCompatible,
 		Name:       param.Name,
 		Typ:        param.Type,
@@ -186,24 +187,22 @@ func (logic *GoodsLogic) Update(param request.GoodsSaveParam) (_goods model.Good
 		},
 	}
 	err = dao.Goods.Update(logic.runtime.DB, _goods)
+	goods = response.GoodsDetailRsp{
+		Goods: _goods,
+	}
 	return
 }
 
-func (logic *GoodsLogic) LoadGoods(searchKey string, limitCond utils.LimitCond) (goodsList []model.Goods, err error) {
-	conds := []utils.Cond{
-		utils.WhereOwnerUserCond(logic.OwnerUser),
-		limitCond,
-	}
-	if searchKey != "" {
-		conds = append(conds, dao.Goods.NameLike(logic.runtime.DB, searchKey))
-	}
-
-	if err = utils.GormFind(logic.runtime.DB, &goodsList, conds...); err != nil {
-		logic.runtime.Logger.Error("LoadGoods",
-			zap.Int64("uuid", logic.OwnerUser),
-			zap.Any("conditions", conds),
-			zap.Error(err))
+func (logic *GoodsLogic) LoadGoods(param request.ListGoodsParam) (goodsList []response.GoodsDetailRsp, err error) {
+	var modelGoodsList []model.Goods
+	if modelGoodsList, err = dao.Goods.ListGoods(logic.runtime.DB, logic.OwnerUser, param); err != nil {
+		logic.runtime.Logger.Error("LoadGoods", zap.Any("param", param), zap.Error(err))
 		return
+	}
+	for _, modelGoods := range modelGoodsList {
+		goodsList = append(goodsList, response.GoodsDetailRsp{
+			Goods: modelGoods,
+		})
 	}
 	return
 }

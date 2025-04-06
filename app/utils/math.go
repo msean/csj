@@ -32,3 +32,14 @@ func Float32Preserve(f float64, places int) string {
 func Float32ToString(f float32) string {
 	return fmt.Sprintf("%.f", f)
 }
+
+// FloatReserve 保留浮点型几位小数
+func FloatReserve(f float64, reserve uint) float64 {
+	factor := math.Pow(10, float64(reserve))
+	rounded := math.Round(f*factor) / factor
+
+	roundedStr := fmt.Sprintf("%.*f", reserve, rounded)
+
+	_f, _ := strconv.ParseFloat(roundedStr, 64)
+	return _f
+}

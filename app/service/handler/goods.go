@@ -63,7 +63,7 @@ func GoodsCategoryList(c *gin.Context) {
 	}
 	var gclist []*response.GoodsCategoryRsp
 	var err error
-	if gclist, err = logic.NewGoodsCategoryLogic(c).ListGoodsCategoryByUser(params.Brief, params.LimitCond); err != nil {
+	if gclist, err = logic.NewGoodsCategoryLogic(c).ListGoodsCategoryByUser(params); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
@@ -98,7 +98,7 @@ func GoodsList(c *gin.Context) {
 		return
 	}
 
-	goods, err := logic.NewGoodsLogic(c).LoadGoods(form.SearchKey, form.LimitCond)
+	goods, err := logic.NewGoodsLogic(c).LoadGoods(form)
 
 	if err != nil {
 		common.Response(c, err, nil)
@@ -117,7 +117,7 @@ func GoodsSave(c *gin.Context) {
 	}
 
 	goodLogic := logic.NewGoodsLogic(c)
-	var goods model.Goods
+	var goods response.GoodsDetailRsp
 	var err error
 	if param.UID == "" {
 		if err := goodLogic.Check(param); err != nil {
@@ -128,7 +128,7 @@ func GoodsSave(c *gin.Context) {
 			common.Response(c, err, nil)
 			return
 		}
-		common.Response(c, nil, goodLogic)
+		common.Response(c, nil, goods)
 		return
 	}
 

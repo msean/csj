@@ -80,13 +80,14 @@ func (logic *BatchOrderLogic) TempCreate(param request.CreateTempBatchOrderParam
 			Weight:    goods.Weight,
 			Mount:     goods.Mount,
 			SerialNo:  goods.SerialNo,
+			GoodsUUID: goods.GoodsUUIDCompatible,
 		})
 	}
 
 	batchOrder.TotalAmount = batchOrder.SetTotalAmount()
 	batchOrder.CreditAmount = batchOrder.TotalAmount
 
-	logic.runtime.DB.Create(&batchOrder)
+	logic.runtime.DB.Create(&batchOrder.BatchOrder)
 
 	logic.SetField(&batchOrder)
 	return
@@ -97,7 +98,7 @@ func (logic *BatchOrderLogic) Create(
 	tx *gorm.DB,
 	param request.CreateBatchOrderParam,
 ) (batchOrder response.BatchOrderRsp, err error) {
-	if param.BatchUUID == "" {
+	if param.BatchUUIDCompatible == 0 {
 		err = common.BatchUUIDRequireErr
 		return
 	}
@@ -122,6 +123,7 @@ func (logic *BatchOrderLogic) Create(
 			Weight:    goods.Weight,
 			Mount:     goods.Mount,
 			SerialNo:  goods.SerialNo,
+			GoodsUUID: goods.GoodsUUIDCompatible,
 		})
 	}
 
@@ -133,7 +135,7 @@ func (logic *BatchOrderLogic) Create(
 		batchOrder.Status = model.BatchOrderedCredit
 	}
 
-	if err = utils.GormCreateObj(tx, &batchOrder); err != nil {
+	if err = utils.GormCreateObj(tx, &batchOrder.BatchOrder); err != nil {
 		return
 	}
 
@@ -192,7 +194,7 @@ func (logic *BatchOrderLogic) Update(param request.UpdateBatchOrderParam) (batch
 		})
 
 	}
-	if err = tx.Save(&batchOrder).Error; err != nil {
+	if err = tx.Save(&batchOrder.BatchOrder).Error; err != nil {
 		tx.Rollback()
 		return
 	}
@@ -203,7 +205,10 @@ func (logic *BatchOrderLogic) Update(param request.UpdateBatchOrderParam) (batch
 
 func (logic *BatchOrderLogic) FromUUID(uuid int64) (batchOrder response.BatchOrderRsp, err error) {
 
-	if err = utils.GormFind(logic.runtime.DB.Preload("GoodsListRelated"), &batchOrder.BatchOrder); err != nil {
+	if err = utils.GormFind(logic.runtime.DB.Preload("GoodsListRelated"),
+		&batchOrder.BatchOrder,
+		utils.WhereUIDCond(uuid),
+	); err != nil {
 		return
 	}
 
@@ -263,6 +268,7 @@ func (logic *BatchOrderLogic) SetCustomerField(batchOrder *response.BatchOrderRs
 }
 
 func (logic *BatchOrderLogic) List(param request.ListBatchOrderParam) (orderList []*response.BatchOrderRsp, err error) {
+	var modelOrderList []model.BatchOrder
 
 	conditions := []utils.Cond{
 		utils.DefaultSetLimitCond(param.LimitCond),
@@ -282,8 +288,14 @@ func (logic *BatchOrderLogic) List(param request.ListBatchOrderParam) (orderList
 		conditions = append(conditions, utils.NewWhereCond("status", param.Status))
 	}
 	conditions = append(conditions, utils.CreatedOrderDescCond())
-	if err = utils.GormFind(logic.runtime.DB.Preload("GoodsListRelated"), &orderList, conditions...); err != nil {
+	if err = utils.GormFind(logic.runtime.DB.Preload("GoodsListRelated"), &modelOrderList, conditions...); err != nil {
 		return
+	}
+
+	for _, modelBatchOrder := range modelOrderList {
+		orderList = append(orderList, &response.BatchOrderRsp{
+			BatchOrder: modelBatchOrder,
+		})
 	}
 
 	logic.BatchField(orderList)
@@ -352,7 +364,7 @@ func (logic *BatchOrderLogic) SetField(batchOrder *response.BatchOrderRsp) {
 }
 
 func (logic *BatchOrderLogic) Record(batchOrder *response.BatchOrderRsp, load bool, stepType int32, pay model.PayField) {
-	go func() {
+	func() {
 		if load {
 			if err := utils.GormFind(logic.runtime.DB.Preload("GoodsListRelated"), &batchOrder.BatchOrder); err != nil {
 				logic.runtime.Logger.Error(fmt.Sprintf("BatchOrderLogic Record: %s", err))

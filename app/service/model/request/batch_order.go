@@ -36,11 +36,11 @@ type (
 		PayType                int32                  `json:"payType"`   // 支付方式
 	}
 	UpdateBatchOrderParam struct {
-		BatchOrderUUID           string `json:"uuid"`
-		BatchOrderUUIDCompatible int64
-		CustomerUUID             string `json:"customerUUID"`
-		CustomerUUIDCompatible   int64
+		BatchOrderUUID           string                 `json:"uuid"`
+		CustomerUUID             string                 `json:"customerUUID"`
 		GoodsList                []BatchOrderGoodsParam `json:"goodsList"`
+		BatchOrderUUIDCompatible int64
+		CustomerUUIDCompatible   int64
 	}
 	UpdateBatchOrderStatusParam struct {
 		BatchOrderUUID           string `json:"uuid"`
@@ -102,6 +102,14 @@ func (param *CreateTempBatchOrderParam) UnmarshalJSON(data []byte) error {
 	if param.BatchUUID != "" {
 		if uid, err := strconv.ParseInt(param.BatchUUID, 10, 64); err == nil {
 			param.BatchUUIDCompatible = uid
+		} else {
+			return err
+		}
+	}
+
+	if param.CustomerUUID != "" {
+		if uid, err := strconv.ParseInt(param.CustomerUUID, 10, 64); err == nil {
+			param.CustomerUUIDCompatible = uid
 		} else {
 			return err
 		}

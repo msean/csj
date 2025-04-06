@@ -31,7 +31,7 @@ func NewBatchOrderPayLogic(context *gin.Context) *BatchOrderPayLogic {
 
 func (logic *BatchOrderPayLogic) Create(tx *gorm.DB, param request.CreateBatchOrderPayParam, toUpdateOrder bool) (batchOrderPay model.BatchOrderPay, err error) {
 	useTxOut := true
-	if param.BatchOrderUUID == "" {
+	if param.BatchOrderUUIDCompatible == 0 {
 		err = common.BatchOrderUUIDRequireErr
 		return
 	}

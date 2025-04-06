@@ -4,6 +4,7 @@ import (
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
+	"app/service/model"
 	"app/service/model/request"
 	"app/service/model/response"
 
@@ -19,7 +20,7 @@ func batchRouter(g *gin.RouterGroup) {
 		batchGroup.POST("/update", BatchUpdate)
 		batchGroup.POST("/update/status", BatchUpdateStatus)
 	}
-	batchGoodsGroup := g.Group("/batch/goods")
+	batchGoodsGroup := g.Group("/batch/goods", middleware.AuthMiddleware())
 	{
 		batchGoodsGroup.POST("/update", BatchGoodsUpdate)
 		batchGoodsGroup.POST("/detail", BatchGoodsDetail)
@@ -39,36 +40,42 @@ func BatchSurplus(c *gin.Context) {
 
 func BatchCreate(c *gin.Context) {
 	var param request.CreateBatchParam
-	if err := c.ShouldBind(&param); err != nil {
+	var err error
+	if err = c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-
 	batchLogic := logic.NewBatchLogic(c)
-	var err error
-	err = batchLogic.Create(param)
+	var batchModel model.Batch
+	batchModel, err = batchLogic.Create(param)
 	if err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, nil)
+	batch, err := batchLogic.Detail(request.BatchDetailParam{
+		UUIDCompatible: batchModel.UID,
+	})
+	common.Response(c, err, batch)
 }
 
 func BatchUpdate(c *gin.Context) {
 	var param request.UpdateBatchParam
-
-	if err := c.ShouldBind(&param); err != nil {
+	var err error
+	if err = c.ShouldBind(&param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
 	batchLogic := logic.NewBatchLogic(c)
-	var err error
-	if err = batchLogic.Update(param); err != nil {
+	var batchModel model.Batch
+	if batchModel, err = batchLogic.Update(param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, nil)
+	batch, err := batchLogic.Detail(request.BatchDetailParam{
+		UUIDCompatible: batchModel.UID,
+	})
+	common.Response(c, err, batch)
 }
 
 func BatchUpdateStatus(c *gin.Context) {
@@ -122,10 +129,11 @@ func BatchGoodsUpdate(c *gin.Context) {
 		return
 	}
 
-	var batchGoods response.BatchGoodsRsp
-	if batchGoods, err = logic.NewBatchGoodsLogic(c).Update(param); err != nil {
+	if err = logic.NewBatchGoodsLogic(c).Update(param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, batchGoods)
+	var batchGoods response.BatchGoodsRsp
+	batchGoods, err = logic.NewBatchGoodsLogic(c).FromUUID(param.UUIDCompatible)
+	common.Response(c, err, batchGoods)
 }

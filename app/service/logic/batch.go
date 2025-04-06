@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -46,6 +47,11 @@ func NewBatchGoodsLogic(context *gin.Context) *BatchGoodsLogic {
 }
 
 func (logic *BatchLogic) CalSurplus() (surplusGoodsList []response.BatchGoodsRsp, err error) {
+	defer func() {
+		if err != nil {
+			logic.runtime.Logger.Error("CalSurplus", zap.Error(err))
+		}
+	}()
 	db := logic.runtime.DB
 
 	var preBatch model.Batch
@@ -63,7 +69,7 @@ func (logic *BatchLogic) CalSurplus() (surplusGoodsList []response.BatchGoodsRsp
 	}
 
 	var preBatchGoodsList []response.BatchGoodsRsp
-	if err = utils.GormFind(db, &preBatchGoodsList, utils.WhereOwnerUserCond(logic.OwnerUser), utils.NewWhereCond("batch_uuid", preBatch.UID)); err != nil {
+	if err = utils.GormFind(db.Table(model.BatchGoods{}.TableName()), &preBatchGoodsList, utils.WhereOwnerUserCond(logic.OwnerUser), utils.NewWhereCond("batch_uuid", preBatch.UID)); err != nil {
 		return
 	}
 
@@ -105,7 +111,13 @@ func (logic *BatchLogic) CalSurplus() (surplusGoodsList []response.BatchGoodsRsp
 	return
 }
 
-func (logic *BatchLogic) Create(param request.CreateBatchParam) (err error) {
+func (logic *BatchLogic) Create(param request.CreateBatchParam) (batchModel model.Batch, err error) {
+	defer func() {
+		if err != nil {
+			logic.runtime.Logger.Error("Create", zap.Any("param", param), zap.Error(err))
+		}
+	}()
+
 	var checkBatch model.Batch
 	serialNo := model.SerialNo(time.Now())
 	if err = utils.GormFind(logic.runtime.DB, &checkBatch, utils.WhereSerialNoCond(serialNo)); err != nil {
@@ -117,7 +129,7 @@ func (logic *BatchLogic) Create(param request.CreateBatchParam) (err error) {
 		return
 	}
 
-	batchModel := model.Batch{
+	batchModel = model.Batch{
 		OwnerUser:   logic.OwnerUser,
 		SerialNo:    serialNo,
 		StorageTime: param.StorageTime,
@@ -125,21 +137,24 @@ func (logic *BatchLogic) Create(param request.CreateBatchParam) (err error) {
 	}
 
 	var batchGoods []model.BatchGoods
-	for _, goods := range param.Goods {
-		batchGoods = append(batchGoods, model.BatchGoods{
-			OwnerUser: logic.OwnerUser,
-			SerialNo:  serialNo,
-			Price:     goods.Price,
-			Weight:    goods.Weight,
-			Mount:     goods.Mount,
-		})
-	}
+
 	db := logic.runtime.DB
 	err = db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&batchModel).Error; err != nil {
 			return err
 		}
 
+		for _, goods := range param.Goods {
+			batchGoods = append(batchGoods, model.BatchGoods{
+				OwnerUser: logic.OwnerUser,
+				SerialNo:  serialNo,
+				Price:     goods.Price,
+				Weight:    goods.Weight,
+				Mount:     goods.Mount,
+				BatchUUID: batchModel.UID,
+				GoodsUUID: goods.UUIDCompatible,
+			})
+		}
 		if err := tx.Create(&batchGoods).Error; err != nil {
 			return err
 		}
@@ -149,9 +164,14 @@ func (logic *BatchLogic) Create(param request.CreateBatchParam) (err error) {
 	return
 }
 
-func (logic *BatchLogic) Update(param request.UpdateBatchParam) (err error) {
-	var batch model.Batch
-	if batch, err = dao.Batch.FromUUID(logic.runtime.DB, param.UUIDCompatible); err != nil {
+func (logic *BatchLogic) Update(param request.UpdateBatchParam) (batchModel model.Batch, err error) {
+	defer func() {
+		if err != nil {
+			logic.runtime.Logger.Error("Update", zap.Any("param", param), zap.Error(err))
+		}
+	}()
+
+	if batchModel, err = dao.Batch.FromUUID(logic.runtime.DB, param.UUIDCompatible); err != nil {
 		return
 	}
 	tx := logic.runtime.DB.Begin()
@@ -160,22 +180,25 @@ func (logic *BatchLogic) Update(param request.UpdateBatchParam) (err error) {
 		return
 	}
 
-	batch.StorageTime = param.StorageTime
+	batchModel.StorageTime = param.StorageTime
 
 	var batchGoods []model.BatchGoods
+
+	if err = dao.Batch.Update(tx, batchModel); err != nil {
+		tx.Rollback()
+		return
+	}
+
 	for _, goods := range param.Goods {
 		batchGoods = append(batchGoods, model.BatchGoods{
-			SerialNo:  batch.SerialNo,
-			OwnerUser: batch.OwnerUser,
+			SerialNo:  batchModel.SerialNo,
+			OwnerUser: batchModel.OwnerUser,
 			Price:     goods.Price,
 			Weight:    goods.Weight,
 			Mount:     goods.Mount,
+			GoodsUUID: goods.UUIDCompatible,
+			BatchUUID: batchModel.UID,
 		})
-	}
-
-	if err = dao.Batch.Update(tx, batch); err != nil {
-		tx.Rollback()
-		return
 	}
 
 	if err = tx.Create(&batchGoods).Error; err != nil {
@@ -187,8 +210,15 @@ func (logic *BatchLogic) Update(param request.UpdateBatchParam) (err error) {
 }
 
 func (logic *BatchLogic) Detail(param request.BatchDetailParam) (rsp response.BatchRsp, err error) {
+
+	defer func() {
+		if err != nil {
+			logic.runtime.Logger.Error("Detail", zap.Any("param", param), zap.Error(err))
+		}
+	}()
+
 	var batch model.Batch
-	if param.UUID != "" {
+	if param.UUIDCompatible != 0 {
 		if batch, err = dao.Batch.FromUUID(logic.runtime.DB, param.UUIDCompatible); err != nil {
 			return
 		}
@@ -213,27 +243,32 @@ func (logic *BatchLogic) Detail(param request.BatchDetailParam) (rsp response.Ba
 		})
 	}
 
-	logic.SetGoodsField(rsp)
+	logic.SetGoodsField(&rsp)
 	return
 }
 
 func (logic *BatchLogic) UpdateStatus(param request.UpdateBatchStatusParam) (err error) {
+	defer func() {
+		if err != nil {
+			logic.runtime.Logger.Error("UpdateStatus", zap.Any("param", param), zap.Error(err))
+		}
+	}()
+
 	var batch model.Batch
 	if batch, err = dao.Batch.FromUUID(logic.runtime.DB, param.UUIDCompatible); err != nil {
 		return
 	}
 	batch.Status = int32(param.Status)
-	err = dao.Batch.Update(logic.runtime.DB.Begin(), batch)
+	err = dao.Batch.Update(logic.runtime.DB, batch)
 	return
 }
 
 // SetGoodsField 设置批次下货品的名称、类型以及剩余信息
-func (logic *BatchLogic) SetGoodsField(batch response.BatchRsp) (err error) {
+func (logic *BatchLogic) SetGoodsField(batch *response.BatchRsp) (err error) {
 	var goodsUUIDList []int64
 	for _, goods := range batch.Goods {
 		goodsUUIDList = append(goodsUUIDList, goods.GoodsUUID)
 	}
-
 	goodsM, e := dao.BatchGoodsFieldSet(logic.runtime.DB, goodsUUIDList, logic.OwnerUser)
 	if e != nil {
 		err = e
@@ -257,13 +292,20 @@ func (logic *BatchLogic) SetGoodsField(batch response.BatchRsp) (err error) {
 }
 
 func (logic *BatchGoodsLogic) FromUUID(uuid int64) (batchGoods response.BatchGoodsRsp, err error) {
-	if err = utils.GormFind(logic.runtime.DB, &batchGoods, utils.WhereUIDCond(uuid), utils.WhereOwnerUserCond(logic.OwnerUser)); err != nil {
+	var modelBatchGoods model.BatchGoods
+	if err = utils.GormFind(logic.runtime.DB,
+		&modelBatchGoods,
+		utils.WhereUIDCond(uuid),
+		utils.WhereOwnerUserCond(logic.OwnerUser),
+	); err != nil {
+		logic.runtime.Logger.Error("FromUUID", zap.Int64("uuid", uuid), zap.Error(err))
 		return
 	}
-	if batchGoods.UID == 0 {
+	if modelBatchGoods.UID == 0 {
 		err = common.ObjectNotExistErr
 		return
 	}
+	batchGoods.BatchGoods = modelBatchGoods
 	var goods []model.Goods
 	if err = utils.GormFind(logic.runtime.DB, &goods, utils.WhereUIDCond(batchGoods.GoodsUUID)); err != nil {
 		return
@@ -277,11 +319,13 @@ func (logic *BatchGoodsLogic) FromUUID(uuid int64) (batchGoods response.BatchGoo
 	return
 }
 
-func (logic *BatchGoodsLogic) Update(param request.UpdateBatchGoodsParam) (batchGoods response.BatchGoodsRsp, err error) {
-	batchGoods.UID = param.UUIDCompatible
-	batchGoods.Price = param.Price
-	batchGoods.BatchGoods.Mount = param.Mount
-	batchGoods.BatchGoods.Weight = param.Weight
-	err = dao.BatchGoods.Update(logic.runtime.DB, batchGoods.BatchGoods)
+func (logic *BatchGoodsLogic) Update(param request.UpdateBatchGoodsParam) (err error) {
+	batchGoodsModel := model.BatchGoods{
+		Price:  param.Price,
+		Mount:  param.Mount,
+		Weight: param.Weight,
+	}
+	batchGoodsModel.UID = param.UUIDCompatible
+	err = dao.BatchGoods.Update(logic.runtime.DB, batchGoodsModel)
 	return
 }

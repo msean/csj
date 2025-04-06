@@ -2,7 +2,7 @@ package model
 
 import (
 	"app/utils"
-	"math"
+	"encoding/json"
 )
 
 const (
@@ -39,12 +39,12 @@ type (
 
 	BatchOrderGoods struct {
 		BaseModel
-		BatchOrderUID int64 `gorm:"column:batch_order_uuid;comment:批次uuid" json:"batchOrderUUID"`
-		BatchUUID     int64 `gorm:"column:batch_uuid;comment:批次uuid" json:"batchUUID"`
+		BatchOrderUID int64 `gorm:"column:batch_order_uuid;comment:批次uuid" json:"-"`
+		BatchUUID     int64 `gorm:"column:batch_uuid;comment:批次uuid" json:"-"`
 		// BatchGoodsUUID string  `gorm:"column:batch_goods_uuid;comment:批次货品uuid" json:"BatchGoodsUUID"`
-		GoodsUUID int64   `gorm:"column:goods_uuid;comment:货品uuid" json:"goodsUUID"`
-		OwnerUser int64   `gorm:"column:owner_user;comment:所属用户;index" json:"ownerUser"`
-		UserUUID  int64   `gorm:"column:user_uuid;comment:开单uuid" json:"customerUUID"`
+		GoodsUUID int64   `gorm:"column:goods_uuid;comment:货品uuid" json:"-"`
+		OwnerUser int64   `gorm:"column:owner_user;comment:所属用户;index" json:"-"`
+		UserUUID  int64   `gorm:"column:user_uuid;comment:开单uuid" json:"-"`
 		SerialNo  string  `gorm:"column:serial_no;comment:批次序号" json:"serialNo"`
 		Price     float64 `gorm:"column:price;type:decimal(10,2);comment:单价" json:"price"`
 		Weight    float64 `gorm:"column:weight;type:decimal(10,2);comment:重量" json:"weight"`
@@ -83,9 +83,29 @@ func (b *BatchOrder) SetTotalAmount() float64 {
 	for _, batchGoods := range b.GoodsListRelated {
 		t += batchGoods.Amount()
 	}
-	return math.Round(float64(t))
+	return utils.FloatReserve(t, 2)
 }
 
 func (b *BatchOrder) SetCreditAmount(pay float64) {
 	b.CreditAmount -= pay
+}
+
+func (bg *BatchOrderGoods) MarshalJSON() ([]byte, error) {
+	type Alias BatchOrderGoods
+	bg.UIDCompatible = utils.Violent2String(bg.UID)
+	return json.Marshal(&struct {
+		OwnerUserCompatible     string `json:"ownerUser"`
+		BatchOrderUIDCompatible string `json:"batchOrderUUID"`
+		BatchUUIDCompatible     string `json:"batchUUID"`
+		CustomerUUIDCompatible  string `json:"customerUUID"`
+		GoodsUUID               string `json:"goodsUUID"`
+		*Alias
+	}{
+		OwnerUserCompatible:     utils.Violent2String(bg.OwnerUser),
+		BatchOrderUIDCompatible: utils.Violent2String(bg.BatchOrderUID),
+		BatchUUIDCompatible:     utils.Violent2String(bg.BatchUUID),
+		CustomerUUIDCompatible:  utils.Violent2String(bg.UserUUID),
+		GoodsUUID:               utils.Violent2String(bg.GoodsUUID),
+		Alias:                   (*Alias)(bg),
+	})
 }

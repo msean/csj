@@ -38,7 +38,11 @@ type (
 		UUIDCompatible int64
 	}
 	UpdateBatchGoodsParam struct {
-		SaveBatchGoods
+		UUID           string `json:"uuid"`
+		UUIDCompatible int64
+		Price          float64 `json:"price"`
+		Weight         float64 `json:"weight"`
+		Mount          int32   `json:"mount"`
 	}
 )
 
@@ -136,6 +140,29 @@ func (param *UpdateBatchStatusParam) UnmarshalJSON(data []byte) error {
 
 func (param *FindBatchGoodsParam) UnmarshalJSON(data []byte) error {
 	type Alias FindBatchGoodsParam
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(param),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	if param.UUID != "" {
+		if uid, err := strconv.ParseInt(param.UUID, 10, 64); err == nil {
+			param.UUIDCompatible = uid
+		} else {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (param *UpdateBatchGoodsParam) UnmarshalJSON(data []byte) error {
+	type Alias UpdateBatchGoodsParam
 	aux := &struct {
 		*Alias
 	}{

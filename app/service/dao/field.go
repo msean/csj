@@ -78,6 +78,7 @@ func SetSurplusByBatch(db *gorm.DB, batchUUID int64) (goodsM map[int64]*model.Su
 	}
 	for _, _bo := range _bos {
 		if _, ok := goodsM[_bo.GoodsUUID]; ok {
+
 			goodsM[_bo.GoodsUUID] = &model.SurplusField{
 				Weight: goodsM[_bo.GoodsUUID].Weight - _bo.Weight,
 				Mount:  goodsM[_bo.GoodsUUID].Mount - _bo.Mount,

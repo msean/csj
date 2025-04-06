@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"gorm.io/gorm"
 )
 
@@ -43,6 +44,7 @@ func (bo *BatchOrderDao) Record(
 	if boh.UID == 0 {
 		return utils.GormCreateObj(db, &boh)
 	}
+	spew.Dump(">>>>>>>>>", boh)
 	return db.Save(&boh).Error
 }
 

@@ -10,6 +10,7 @@ webTar=web.tar
 
 
 run_app:
+	@-lsof -i :8090 | awk '$$1 == "main" {print $$2}' | xargs kill -9
 	cd ${APPDIR}/cmd && go run main.go -c ${DEPLOYDIR}/app_debug_conf.yaml
 
 run_backend:

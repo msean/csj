@@ -14,10 +14,10 @@ func NewBatchGoods() *BatchGoodsDao {
 }
 
 func (dao *BatchGoodsDao) Update(db *gorm.DB, batchGoods model.BatchGoods) error {
-	return utils.WhereUIDCond(batchGoods.UID).Cond(db).Updates(&model.BatchGoods{
-		Price:  batchGoods.Price,
-		Weight: batchGoods.Weight,
-		Mount:  batchGoods.Mount,
+	return utils.WhereUIDCond(batchGoods.UID).Cond(db.Table(batchGoods.TableName())).Updates(map[string]any{
+		"price":  batchGoods.Price,
+		"weight": batchGoods.Weight,
+		"mount":  batchGoods.Mount,
 	}).Error
 }
 

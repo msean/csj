@@ -25,6 +25,7 @@ type (
 	ListGoodsParam struct {
 		SearchKey string `json:"searchName"`
 		utils.LimitCond
+		OrderBy string `json:"orderBy"`
 	}
 	ListGoodsCategoryParam struct {
 		Brief bool `json:"brief"`
