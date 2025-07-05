@@ -2,27 +2,39 @@ package main
 
 import (
 	"fmt"
-	"reflect"
+	"time"
+
+	"github.com/panjf2000/ants/v2"
 )
 
-func Inslice(val interface{}, slice interface{}) bool {
-	sliceValue := reflect.ValueOf(slice)
-	if sliceValue.Kind() != reflect.Slice && sliceValue.Kind() != reflect.Array {
-		return val == slice
+func main() {
+
+	numWokers := 100
+	antsPool, _ := ants.NewPool(numWokers)
+
+	defer func() {
+		antsPool.ReleaseTimeout(5 * time.Second)
+	}()
+
+	array := []int{}
+	for i := 0; i < 98; i++ {
+		array = append(array, i)
 	}
 
-	for i := 0; i < sliceValue.Len(); i++ {
-		_val := sliceValue.Index(i).Interface()
-		if val == _val {
-			return true
-		}
-	}
-
-	return false
+	fmt.Println(time.Now())
+	antsPool.Submit(func() {
+		time.Sleep(1 * time.Second)
+		fmt.Println(">>>>>>222")
+	})
+	fmt.Println(time.Now())
+	fmt.Println(">>>>>>next")
 }
 
-func main() {
-	v := 4
-	vs := []int{1, 2, 3}
-	fmt.Println(Inslice(v, vs))
+// 平台用户下WA账号登录信息 结构体  TaskUserWaLoginRecord
+type TaskUserWaLoginRecord struct {
+	Id      *int64 `json:"id" form:"id" gorm:"primarykey;column:id;comment:自增id;size:19;"`            //自增id
+	UserId  *int64 `json:"userId" form:"userId" gorm:"column:user_id;comment:任务平台用户;size:19;"`        //任务平台用户
+	WaId    *int64 `json:"waId" form:"waId" gorm:"column:wa_id;comment:平台用户绑定的 whatsapp 账号;size:19;"` //平台用户绑定的 whatsapp 账号
+	StartTs *int   `json:"startTs" form:"startTs" gorm:"column:start_ts;comment:wa挂机开始时间;size:10;"`   //wa挂机开始时间
+	EndTs   *int   `json:"endTs" form:"endTs" gorm:"column:end_ts;comment:wa挂机结束时间;size:10;"`         //wa挂机结束时间 - 默认值0，表示还未下线
 }

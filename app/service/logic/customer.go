@@ -10,6 +10,7 @@ import (
 	"app/utils"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type CustomerLogic struct {
@@ -27,26 +28,28 @@ func NewCustomerLogic(context *gin.Context) *CustomerLogic {
 	return logic
 }
 
-func (logic *CustomerLogic) Check(param request.CustomerParam) (duplicate bool, err error) {
+func (logic *CustomerLogic) ExistName(name string) (duplicate bool, err error) {
 	var _c model.Customer
-	if err = utils.GormFind(logic.runtime.DB, &_c, utils.WhereNameCond(param.Name), utils.WhereUIDCond(param.UIDCompatible)); err != nil {
+	if err = utils.GormFind(logic.runtime.DB, &_c, utils.WhereNameCond(name), utils.WhereOwnerUserCond(logic.OwnerUser)); err != nil {
+		logic.runtime.Logger.Error("CustomerLogic Exist", zap.Int64("owner_user", logic.OwnerUser), zap.String("name", name), zap.Error(err))
 		return
 	}
-	if _c.UID != 0 && _c.UID != param.UIDCompatible {
+	if _c.UID != 0 {
 		duplicate = true
 	}
 	return
 }
 
-func (logic *CustomerLogic) Create(param request.CustomerParam) (err error) {
-	customerModel := model.Customer{
+func (logic *CustomerLogic) Create(param request.CustomerParam) (customerModel model.Customer, err error) {
+	customerModel = model.Customer{
 		OwnerUser: logic.OwnerUser,
 		Name:      param.Name,
 		Phone:     param.Phone,
 		CarNo:     param.CarNo,
 		Debt:      param.Debt,
 	}
-	return utils.GormCreateObj(logic.runtime.DB, &customerModel)
+	err = utils.GormCreateObj(logic.runtime.DB, &customerModel)
+	return
 }
 
 func (logic *CustomerLogic) Update(param request.CustomerParam) (err error) {

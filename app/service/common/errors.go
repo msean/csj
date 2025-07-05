@@ -15,7 +15,7 @@ var (
 
 // customer
 var (
-	CustomerDuplicateErr = errors.New("已经存在相同的客户名或者手机号")
+	CustomerDuplicateErr = errors.New("已经存在相同的客户名")
 )
 
 // Goods

@@ -4,8 +4,8 @@ import (
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
+	"app/service/model"
 	"app/service/model/request"
-	"app/service/model/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,7 +28,7 @@ func CustomerSave(c *gin.Context) {
 	// 增加客户
 	customerLogic := logic.NewCustomerLogic(c)
 	if param.UID == "" {
-		dup, err := customerLogic.Check(param)
+		dup, err := customerLogic.ExistName(param.Name)
 		if err != nil {
 			common.Response(c, err, nil)
 			return
@@ -37,11 +37,12 @@ func CustomerSave(c *gin.Context) {
 			common.Response(c, common.CustomerDuplicateErr, nil)
 			return
 		}
-		if err = customerLogic.Create(param); err != nil {
+		var customer model.Customer
+		if customer, err = customerLogic.Create(param); err != nil {
 			common.Response(c, err, nil)
 			return
 		}
-		common.Response(c, nil, nil)
+		common.Response(c, nil, customer)
 		return
 	}
 
@@ -50,9 +51,9 @@ func CustomerSave(c *gin.Context) {
 		common.Response(c, err, nil)
 		return
 	}
-	var rsp response.ListCustomerRsp
-	rsp, err = customerLogic.FromUUID(param.UIDCompatible)
-	common.Response(c, err, rsp)
+	// var rsp response.ListCustomerRsp
+	// rsp, err = customerLogic.FromUUID(param.UIDCompatible)
+	common.Response(c, err, param)
 }
 
 func CustomerList(c *gin.Context) {

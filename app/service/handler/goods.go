@@ -132,9 +132,9 @@ func GoodsSave(c *gin.Context) {
 		return
 	}
 
-	if goods, err = goodLogic.Update(param); err != nil {
+	if err = goodLogic.Update(param); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, goods)
+	common.Response(c, nil, param)
 }

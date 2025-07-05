@@ -18,7 +18,7 @@ func userRouter(g *gin.RouterGroup) {
 	userRouterGroup := g.Group("/user")
 	{
 		userRouterGroup.POST("/register", Register)
-		userRouterGroup.POST("/send_verify_code", SenderVerifyCode)
+		userRouterGroup.POST("/send_verify_code", SendVerifyCode)
 		userRouterGroup.POST("/login", Login)
 		userRouterGroup.POST("/update", middleware.AuthMiddleware(), UserUpdate)
 		userRouterGroup.GET("/profile", middleware.AuthMiddleware(), UserInfo)
@@ -70,7 +70,7 @@ func Register(c *gin.Context) {
 	})
 }
 
-func SenderVerifyCode(c *gin.Context) {
+func SendVerifyCode(c *gin.Context) {
 	var payload request.VerifyCodeParam
 	var err error
 	if err = c.ShouldBind(&payload); err != nil {

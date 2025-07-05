@@ -43,6 +43,7 @@ func (logic *BatchOrderPayLogic) Create(tx *gorm.DB, param request.CreateBatchOr
 		Amount:         param.Amount,
 		PayType:        param.PayType,
 	}
+
 	if tx == nil {
 		tx = logic.runtime.DB.Begin()
 		useTxOut = false

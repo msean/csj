@@ -175,7 +175,7 @@ func (logic *GoodsLogic) Create(param request.GoodsSaveParam) (goods response.Go
 	return
 }
 
-func (logic *GoodsLogic) Update(param request.GoodsSaveParam) (goods response.GoodsDetailRsp, err error) {
+func (logic *GoodsLogic) Update(param request.GoodsSaveParam) (err error) {
 	_goods := model.Goods{
 		CategoryID: param.CategoryIDCompatible,
 		Name:       param.Name,
@@ -186,11 +186,7 @@ func (logic *GoodsLogic) Update(param request.GoodsSaveParam) (goods response.Go
 			UID: param.UIDCompatible,
 		},
 	}
-	err = dao.Goods.Update(logic.runtime.DB, _goods)
-	goods = response.GoodsDetailRsp{
-		Goods: _goods,
-	}
-	return
+	return dao.Goods.Update(logic.runtime.DB, _goods)
 }
 
 func (logic *GoodsLogic) LoadGoods(param request.ListGoodsParam) (goodsList []response.GoodsDetailRsp, err error) {
