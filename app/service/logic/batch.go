@@ -209,6 +209,7 @@ func (logic *BatchLogic) FromLatest() (err error) {
 	var batch model.Batch
 	if err = model.First(db.Preload("GoodsListRelated"), &batch, model.CreatedOrderDescCond(), model.NewWhereCond("owner_user", logic.OwnerUser)); err != nil {
 		if err == gorm.ErrRecordNotFound {
+			batch.GoodsListRelated = []*model.BatchGoods{}
 			err = nil
 		} else {
 			return

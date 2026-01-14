@@ -6,9 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"time"
 
-	"github.com/gofrs/uuid"
+	"github.com/oklog/ulid/v2"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -46,10 +47,19 @@ func First(db *gorm.DB, dst interface{}, conds ...Cond) (err error) {
 	return
 }
 
+// func (m *BaseModel) BeforeCreate(tx *gorm.DB) error {
+// 	if m.UID == "" {
+// 		id, _ := uuid.NewV4()
+// 		m.UID = id.String()
+// 	}
+// 	return nil
+// }
+
 func (m *BaseModel) BeforeCreate(tx *gorm.DB) error {
 	if m.UID == "" {
-		id, _ := uuid.NewV4()
-		m.UID = id.String()
+		t := time.Now()
+		entropy := ulid.Monotonic(rand.New(rand.NewSource(t.UnixNano())), 0)
+		m.UID = ulid.MustNew(ulid.Timestamp(t), entropy).String()
 	}
 	return nil
 }

@@ -1,6 +1,8 @@
 From alpine:latest
 
-COPY app_bin /usr/local/bin/
+RUN mkdir -p /etc/caishuji/log
+COPY app_bin /usr/local/bin/server
+RUN chmod +x /usr/local/bin/server
 
 WORKDIR /
 

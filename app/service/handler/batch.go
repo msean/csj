@@ -4,6 +4,7 @@ import (
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
+	"app/service/model"
 
 	"github.com/gin-gonic/gin"
 )
@@ -109,7 +110,7 @@ func BatchDetail(c *gin.Context) {
 
 	err = batchLogic.FromLatest()
 	if err != nil {
-		common.Response(c, err, nil)
+		common.Response(c, nil, model.Batch{})
 		return
 	}
 	common.Response(c, nil, batchLogic)

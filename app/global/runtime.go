@@ -63,6 +63,7 @@ func InitViper(configFile string) (v *viper.Viper, err error) {
 
 func InitRunTime(configfile string) (err error) {
 	v, e := InitViper(configfile)
+	fmt.Println(configfile)
 	if err != nil {
 		return e
 	}

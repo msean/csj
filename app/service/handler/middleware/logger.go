@@ -46,7 +46,7 @@ func LoggerMiddleware() gin.HandlerFunc {
 		global.Global.Logger.Info(
 			"[response] info",
 			zap.Int("status_code", statusCode),
-			zap.Float64("duration", time.Now().Sub(_st).Seconds()),
+			zap.Float64("duration", time.Since(_st).Seconds()),
 		)
 	}
 }

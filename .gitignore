@@ -6,3 +6,4 @@ deploy/*yaml
 *sessions
 *log
 *DS_Store
+.Makefile

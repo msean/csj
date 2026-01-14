@@ -1,4 +1,9 @@
-RemoteHost = 47.120.77.40
+RemoteHost = 193.112.131.40
+RemoteUser = root
+RemotePassWd = DthWd16FFMC5vXt1Z86V
+RemoteBinDir = /etc/caishuji
+APP_IMAGE = caishuji_app
+APP_DOCKERFILE = app.Dockerfile
 APPDIR=$(CURDIR)/app
 BACKENDDIR=$(CURDIR)/backend
 WEBDIR=$(CURDIR)/web
@@ -8,29 +13,56 @@ AppBin=app_bin
 BackendBin=backend_bin
 webTar=web.tar
 
-
+# 本地启动app
 run_app:
 	cd ${APPDIR}/cmd && go run main.go -c ${DEPLOYDIR}/app_debug_conf.yaml
 
+# 本地启动后台服务
 run_backend:
 	cd ${BACKENDDIR} && go run main.go -c ${DEPLOYDIR}/backend_debug_conf.yaml
 
+# 本地启动web服务
 run_web:
 	cd ${WEBDIR} && npm run serve
 
-deploy_app:
+# 重启远程app
+restart_remote_app: upload_app_bin restart_remote_app_docker
+	@echo "✅ app 已重新部署并重启完成"
+
+# 上传app_bin到远程目录
+upload_app_bin:
 	cd ${APPDIR} && GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(CURDIR)/${AppBin} ${APPDIR}/cmd/main.go
-	sshpass -p 1qaz@WSX scp $(CURDIR)/${AppBin} root@${RemoteHost}:/root/caishuji
+	sshpass -p ${RemotePassWd} scp $(CURDIR)/${AppBin} ${RemoteUser}@${RemoteHost}:${RemoteBinDir}
+
+# 重启远程docker服务
+restart_remote_app_docker:
+	sshpass -p ${RemotePassWd} ssh ${RemoteUser}@${RemoteHost} "\
+		docker stop $(APP_IMAGE) || true && \
+		docker rm $(APP_IMAGE) || true && \
+		docker run -d \
+			--name $(APP_IMAGE) \
+			-p 8090:8090 \
+			-v /etc/caishuji/conf.yaml:/etc/caishuji/conf.yaml \
+			-v /etc/caishuji/log:/etc/caishuji/log \
+			--restart=always \
+			$(APP_IMAGE):latest \
+	"
+
+# 上传app镜像
+build_app_image:
+	sshpass -p ${RemotePassWd} ssh ${RemoteUser}@${RemoteHost} "\
+		cd ${RemoteBinDir} && \
+		docker build -f $(APP_DOCKERFILE) -t $(APP_IMAGE):latest . \
+	"
 
 deploy_backend:
 	cd ${BACKENDDIR} && GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(CURDIR)/${BackendBin} ${BACKENDDIR}/main.go
-	sshpass -p 1qaz@WSX scp $(CURDIR)/${BackendBin} root@${RemoteHost}:/root/caishuji
+	sshpass -p ${RemotePassWd} scp $(CURDIR)/${BackendBin} ${RemoteUser}@${RemoteHost}:${RemoteBinDir}
 
 deploy_all:
-	sshpass -p 1qaz@WSX  ssh -o StrictHostKeyChecking=no root@${RemoteHost}  "cd /root/caishuji && ./deploy2.sh"
+	sshpass -p ${RemotePassWd}  ssh -o StrictHostKeyChecking=no ${RemoteUser}@${RemoteHost}  "cd /root/caishuji && ./deploy2.sh"
 
 # deploy_web:
 # 	tar -cvf ${webTar} ./web
 # 	sshpass -p 1qaz@WSX scp $(CURDIR)/${webTar} root@${RemoteHost}:/root/caishuji
 # 	sshpass -p 1qaz@WSX  ssh -o StrictHostKeyChecking=no root@${RemoteHost}  "cd /root/caishuji && tar -xvf web.tar"
-
