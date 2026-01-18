@@ -4,6 +4,7 @@ import (
 	"app/global"
 	"app/service/common"
 	"app/service/model"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -105,7 +106,7 @@ func (logic *BatchLogic) CalSurplus(ownerUser string) (surplusGoodsList []BatchG
 
 func (logic *BatchLogic) Create() (err error) {
 	var _b model.Batch
-	if err = model.Find(logic.runtime.DB, &_b, model.WhereSerialNoCond(logic.SerialNo)); err != nil {
+	if err = model.Find(logic.runtime.DB, &_b, model.WhereSerialNoCond(model.SerioalNo(time.Now()))); err != nil {
 		return
 	}
 	// 当天只能创建一个批次

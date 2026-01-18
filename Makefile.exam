@@ -1,18 +1,5 @@
 RemoteHost = 193.112.131.40
 RemoteUser = 
-RemotePassWd = 
-RemoteBinDir = /etc/caishuji
-APP_IMAGE = caishuji_app
-APP_DOCKERFILE = app.Dockerfile
-APPDIR=$(CURDIR)/app
-BACKENDDIR=$(CURDIR)/backend
-WEBDIR=$(CURDIR)/web
-DEPLOYDIR=$(CURDIR)/deploy
-
-AppBin=app_bin
-BackendBin=backend_bin
-webTar=web.tar
-
 # 本地启动app
 run_app:
 	cd ${APPDIR}/cmd && go run main.go -c ${DEPLOYDIR}/app_debug_conf.yaml
@@ -26,7 +13,7 @@ run_web:
 	cd ${WEBDIR} && npm run serve
 
 # 重启远程app
-restart_remote_app: upload_app_bin restart_remote_app_docker
+restart_remote_app: build_app_image restart_remote_app_docker
 	@echo "✅ app 已重新部署并重启完成"
 
 # 上传app_bin到远程目录
@@ -49,9 +36,10 @@ restart_remote_app_docker:
 	"
 
 # 上传app镜像
-build_app_image:
+build_app_image:upload_app_bin
 	sshpass -p ${RemotePassWd} ssh ${RemoteUser}@${RemoteHost} "\
 		cd ${RemoteBinDir} && \
+		docker image rm -f $(APP_IMAGE):latest || true && \
 		docker build -f $(APP_DOCKERFILE) -t $(APP_IMAGE):latest . \
 	"
 

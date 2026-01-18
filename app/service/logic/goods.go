@@ -4,6 +4,7 @@ import (
 	"app/global"
 	"app/service/common"
 	"app/service/model"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -149,7 +150,31 @@ func (logic *GoodsLogic) Create() (err error) {
 }
 
 func (logic *GoodsLogic) Update() (err error) {
-	return logic.Goods.Update(logic.runtime.DB)
+	tx := logic.runtime.DB.Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
+	}()
+
+	// 1️⃣ 更新 Goods 自身
+	if err = logic.Goods.Update(tx); err != nil {
+		return
+	}
+
+	// 2️⃣ 同步更新在售批次里的 BatchGoods
+	err = tx.Model(&model.BatchGoods{}).
+		Where("goods_uuid = ?", logic.Goods.BaseModel.UID).
+		Where(fmt.Sprintf(`
+			batch_uuid IN (SELECT uid FROM %s WHERE status = ?)`, model.Batch{}.TableName()), 1).
+		Updates(map[string]interface{}{
+			"price":  logic.Goods.Price,
+			"weight": logic.Goods.Weight,
+		}).Error
+
+	return
 }
 
 func (logic *GoodsLogic) LoadGoods(ownerUser, searchKey string, limitCond model.LimitCond) (goodsList []model.Goods, err error) {

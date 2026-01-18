@@ -37,6 +37,8 @@ type (
 	}
 )
 
+func (Batch) TableName() string { return "batches" }
+
 func (b *Batch) Update(db *gorm.DB) (err error) {
 	toUpdates := make(map[string]any)
 	if b.StorageTime != 0 {
