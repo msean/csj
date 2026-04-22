@@ -1,8 +1,8 @@
 package system
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system/response"
+	"github.com/msean/csj/backend/global"
+	"github.com/msean/csj/backend/model/system/response"
 )
 
 var AutoCodeOracle = new(autoCodeOracle)
@@ -15,7 +15,7 @@ type autoCodeOracle struct{}
 func (s *autoCodeOracle) GetDB(businessDB string) (data []response.Db, err error) {
 	var entities []response.Db
 	sql := `SELECT lower(username) AS "database" FROM all_users`
-	err = global.GVA_DBList[businessDB].Raw(sql).Scan(&entities).Error
+	err = global.GVA_MYSQLList[businessDB].Raw(sql).Scan(&entities).Error
 	return entities, err
 }
 
@@ -26,7 +26,7 @@ func (s *autoCodeOracle) GetTables(businessDB string, dbName string) (data []res
 	var entities []response.Table
 	sql := `select lower(table_name) as "table_name" from all_tables where lower(owner) = ?`
 
-	err = global.GVA_DBList[businessDB].Raw(sql, dbName).Scan(&entities).Error
+	err = global.GVA_MYSQLList[businessDB].Raw(sql, dbName).Scan(&entities).Error
 	return entities, err
 }
 
@@ -36,12 +36,13 @@ func (s *autoCodeOracle) GetTables(businessDB string, dbName string) (data []res
 func (s *autoCodeOracle) GetColumn(businessDB string, tableName string, dbName string) (data []response.Column, err error) {
 	var entities []response.Column
 	sql := `
-		SELECT
+	SELECT
     lower(a.COLUMN_NAME) as "column_name",
     (CASE WHEN a.DATA_TYPE = 'NUMBER' AND a.DATA_SCALE=0 THEN 'int' else lower(a.DATA_TYPE) end)  as "data_type",
     (CASE WHEN a.DATA_TYPE = 'NUMBER' THEN a.DATA_PRECISION else a.DATA_LENGTH end) as "data_type_long",
     b.COMMENTS as "column_comment",
-    (CASE WHEN pk.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END) as "primary_key"
+    (CASE WHEN pk.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END) as "primary_key",
+    a.COLUMN_ID
 FROM
     all_tab_columns a
 JOIN
@@ -61,9 +62,11 @@ LEFT JOIN
     ) pk ON a.OWNER = pk.OWNER AND a.TABLE_NAME = pk.TABLE_NAME AND a.COLUMN_NAME = pk.COLUMN_NAME
 WHERE
     lower(a.table_name) = ?
-    AND lower(a.OWNER) = ?;
+    AND lower(a.OWNER) = ?
+ORDER BY
+    a.COLUMN_ID
 `
 
-	err = global.GVA_DBList[businessDB].Raw(sql, tableName, dbName).Scan(&entities).Error
+	err = global.GVA_MYSQLList[businessDB].Raw(sql, tableName, dbName).Scan(&entities).Error
 	return entities, err
 }

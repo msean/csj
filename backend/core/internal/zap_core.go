@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/msean/csj/backend/global"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

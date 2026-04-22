@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"app/global"
+	"app/pkg/utils"
 	"app/service/common"
 	"app/service/model"
 
@@ -71,14 +72,14 @@ func (logic *BatchOrderPayLogic) Update() (err error) {
 }
 
 // 查询该批次的单次是否结算完成，若完成，则需修改单次的状态
-func UpdateOrderPay(db *gorm.DB, payFee float32, payType int32, batchOrderUUID string, ctx *gin.Context) (err error) {
+func UpdateOrderPay(db *gorm.DB, payFee float64, payType int32, batchOrderUUID string, ctx *gin.Context) (err error) {
 	var order model.BatchOrder
 	if err = model.Find(db, &order, model.WhereUIDCond(batchOrderUUID)); err != nil {
 		return
 	}
 
 	order.CreditAmount = order.CreditAmount - payFee
-	if common.FloatGreat(0.0, order.CreditAmount) {
+	if utils.FloatGreat(0.0, order.CreditAmount) {
 		order.Status = model.BatchOrderFinish
 	}
 	if err = model.WhereUIDCond(order.UID).Cond(db).Updates(&model.BatchOrder{

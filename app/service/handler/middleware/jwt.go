@@ -57,7 +57,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		tokenHeader := c.Request.Header.Get("Authorization")
 		if tokenHeader == "" {
 			c.Abort()
-			common.Response(c, common.TokenUnValidErr, nil)
+			common.IllegalResponse(c, common.TokenUnValidErr, nil)
 			return
 		}
 
@@ -65,7 +65,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		global.Global.Logger.Debug("[AuthMiddleware]", zap.Any("expiresat", claims.ExpiresAt))
 		if err != nil {
 			c.Abort()
-			common.Response(c, common.TokenUnValidErr, nil)
+			common.IllegalResponse(c, common.TokenUnValidErr, nil)
 			return
 		}
 
@@ -74,12 +74,12 @@ func AuthMiddleware() gin.HandlerFunc {
 				newToken, e := SetToken(claims.Phone, claims.UUID)
 				if e != nil {
 					c.Abort()
-					common.Response(c, common.TokenUnGenerateErr, nil)
+					common.IllegalResponse(c, common.TokenUnGenerateErr, nil)
 				}
 				c.Header("new-token", newToken)
 			} else {
 				c.Abort()
-				common.Response(c, common.TokenUnValidErr, nil)
+				common.IllegalResponse(c, common.TokenUnValidErr, nil)
 				return
 			}
 		}

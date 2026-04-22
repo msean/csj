@@ -2,8 +2,9 @@ package system
 
 import (
 	"fmt"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system/response"
+
+	"github.com/msean/csj/backend/global"
+	"github.com/msean/csj/backend/model/system/response"
 )
 
 var AutoCodeMssql = new(autoCodeMssql)
@@ -15,11 +16,11 @@ type autoCodeMssql struct{}
 // Author [SliverHorn](https://github.com/SliverHorn)
 func (s *autoCodeMssql) GetDB(businessDB string) (data []response.Db, err error) {
 	var entities []response.Db
-	sql := "select name AS 'database' from sysdatabases;"
+	sql := "select name AS 'database' from sys.databases;"
 	if businessDB == "" {
-		err = global.GVA_DB.Raw(sql).Scan(&entities).Error
+		err = global.GVA_MYSQL.Raw(sql).Scan(&entities).Error
 	} else {
-		err = global.GVA_DBList[businessDB].Raw(sql).Scan(&entities).Error
+		err = global.GVA_MYSQLList[businessDB].Raw(sql).Scan(&entities).Error
 	}
 	return entities, err
 }
@@ -32,9 +33,9 @@ func (s *autoCodeMssql) GetTables(businessDB string, dbName string) (data []resp
 
 	sql := fmt.Sprintf(`select name as 'table_name' from %s.DBO.sysobjects where xtype='U'`, dbName)
 	if businessDB == "" {
-		err = global.GVA_DB.Raw(sql).Scan(&entities).Error
+		err = global.GVA_MYSQL.Raw(sql).Scan(&entities).Error
 	} else {
-		err = global.GVA_DBList[businessDB].Raw(sql).Scan(&entities).Error
+		err = global.GVA_MYSQLList[businessDB].Raw(sql).Scan(&entities).Error
 	}
 
 	return entities, err
@@ -53,7 +54,8 @@ SELECT
     CASE
         WHEN pk.object_id IS NOT NULL THEN 1
         ELSE 0
-    END AS primary_key
+    END AS primary_key,
+    sc.column_id
 FROM
     %s.sys.columns sc
 JOIN
@@ -68,12 +70,14 @@ LEFT JOIN
     %s.sys.key_constraints pk ON pk.object_id = si.object_id
 WHERE
     st.is_user_defined=0 AND sc.object_id = so.object_id
+ORDER BY
+    sc.column_id
 `, dbName, dbName, tableName, dbName, dbName, dbName)
 
 	if businessDB == "" {
-		err = global.GVA_DB.Raw(sql).Scan(&entities).Error
+		err = global.GVA_MYSQL.Raw(sql).Scan(&entities).Error
 	} else {
-		err = global.GVA_DBList[businessDB].Raw(sql).Scan(&entities).Error
+		err = global.GVA_MYSQLList[businessDB].Raw(sql).Scan(&entities).Error
 	}
 
 	return entities, err

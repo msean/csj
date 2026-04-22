@@ -72,7 +72,7 @@ func (t *timer) AddTaskByFunc(cronName string, spec string, fun func(), taskName
 	return id, err
 }
 
-// AddTaskByFuncWithSeconds 通过函数的方法使用WithSeconds添加任务
+// AddTaskByFuncWithSecond 通过函数的方法使用WithSeconds添加任务
 func (t *timer) AddTaskByFuncWithSecond(cronName string, spec string, fun func(), taskName string, option ...cron.Option) (cron.EntryID, error) {
 	t.Lock()
 	defer t.Unlock()
@@ -137,7 +137,7 @@ func (t *timer) AddTaskByJobWithSeconds(cronName string, spec string, job interf
 	return id, err
 }
 
-// FindTask 获取对应cronName的cron 可能会为空
+// FindCron 获取对应cronName的cron 可能会为空
 func (t *timer) FindCron(cronName string) (*taskManager, bool) {
 	t.Lock()
 	defer t.Unlock()
@@ -186,7 +186,7 @@ func (t *timer) StopCron(cronName string) {
 	}
 }
 
-// Remove 从cronName 删除指定任务
+// RemoveTask 从cronName 删除指定任务
 func (t *timer) RemoveTask(cronName string, id int) {
 	t.Lock()
 	defer t.Unlock()

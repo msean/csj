@@ -126,6 +126,22 @@ export const setSelfInfo = (data) => {
   })
 }
 
+// @Tags SysUser
+// @Summary 设置自身界面配置
+// @Security ApiKeyAuth
+// @accept application/json
+// @Produce application/json
+// @Param data body model.SysUser true "设置自身界面配置"
+// @Success 200 {string} string "{"success":true,"data":{},"msg":"修改成功"}"
+// @Router /user/setSelfSetting [put]
+export const setSelfSetting = (data) => {
+  return service({
+    url: '/user/setSelfSetting',
+    method: 'put',
+    data: data
+  })
+}
+
 // @Tags User
 // @Summary 设置用户权限
 // @Security ApiKeyAuth
@@ -161,5 +177,14 @@ export const resetPassword = (data) => {
     url: '/user/resetPassword',
     method: 'post',
     data: data
+  })
+}
+
+
+export const userAll = (params) => {
+  return service({
+    url: '/user/all',
+    method: 'get',
+    params
   })
 }

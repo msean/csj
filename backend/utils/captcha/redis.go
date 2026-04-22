@@ -4,8 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/mojocn/base64Captcha"
+	"github.com/msean/csj/backend/global"
 	"go.uber.org/zap"
 )
 
@@ -23,8 +22,10 @@ type RedisStore struct {
 	Context    context.Context
 }
 
-func (rs *RedisStore) UseWithCtx(ctx context.Context) base64Captcha.Store {
-	rs.Context = ctx
+func (rs *RedisStore) UseWithCtx(ctx context.Context) *RedisStore {
+	if ctx == nil {
+		rs.Context = ctx
+	}
 	return rs
 }
 

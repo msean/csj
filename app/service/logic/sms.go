@@ -1,7 +1,7 @@
 package logic
 
 import (
-	"app/pkg"
+	"app/pkg/sms"
 	"app/service/model"
 	"fmt"
 	"math/rand"
@@ -54,8 +54,8 @@ func SmsTodayCountCheck(db *gorm.DB, phone string) (over bool, err error) {
 	return
 }
 
-func SmsLoginAndRegister(sender pkg.SmsSender, phone, code, templateCode string) error {
-	msg := pkg.SmsMsg{
+func SmsLoginAndRegister(sender sms.SmsSender, phone, code, templateCode string) error {
+	msg := sms.SmsMsg{
 		TemplateCode: templateCode,
 		Mobile:       phone,
 		TemplateJson: map[string]any{

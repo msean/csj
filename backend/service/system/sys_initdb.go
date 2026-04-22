@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
-	"gorm.io/gorm"
 	"sort"
+
+	"github.com/msean/csj/backend/global"
+	"github.com/msean/csj/backend/model/system/request"
+	"gorm.io/gorm"
 )
 
 const (
@@ -121,7 +122,7 @@ func (initDBService *InitDBService) InitDB(conf request.InitDB) (err error) {
 	}
 
 	db := ctx.Value("db").(*gorm.DB)
-	global.GVA_DB = db
+	global.GVA_MYSQL = db
 
 	if err = initHandler.InitTables(ctx, initializers); err != nil {
 		return err

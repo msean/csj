@@ -3,16 +3,19 @@ package msdsn
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/google/uuid"
 )
 
 type (
@@ -22,9 +25,16 @@ type (
 )
 
 const (
+	DsnTypeURL  = 1
+	DsnTypeOdbc = 2
+	DsnTypeAdo  = 3
+)
+
+const (
 	EncryptionOff      = 0
 	EncryptionRequired = 1
 	EncryptionDisabled = 3
+	EncryptionStrict   = 4
 )
 
 const (
@@ -36,6 +46,8 @@ const (
 	LogTransaction Log = 32
 	LogDebug       Log = 64
 	LogRetries     Log = 128
+	// LogSessionIDs tells the session logger to include activity id and connection id
+	LogSessionIDs Log = 0x8000
 )
 
 const (
@@ -43,6 +55,42 @@ const (
 	BrowserAllInstances BrowserMsg = 0x03
 	BrowserDAC          BrowserMsg = 0x0f
 )
+
+const (
+	Database               = "database"
+	Encrypt                = "encrypt"
+	Password               = "password"
+	ChangePassword         = "change password"
+	UserID                 = "user id"
+	Port                   = "port"
+	TrustServerCertificate = "trustservercertificate"
+	Certificate            = "certificate"
+	TLSMin                 = "tlsmin"
+	PacketSize             = "packet size"
+	LogParam               = "log"
+	ConnectionTimeout      = "connection timeout"
+	HostNameInCertificate  = "hostnameincertificate"
+	KeepAlive              = "keepalive"
+	ServerSpn              = "serverspn"
+	WorkstationID          = "workstation id"
+	AppName                = "app name"
+	ApplicationIntent      = "applicationintent"
+	FailoverPartner        = "failoverpartner"
+	FailOverPort           = "failoverport"
+	DisableRetry           = "disableretry"
+	Server                 = "server"
+	Protocol               = "protocol"
+	DialTimeout            = "dial timeout"
+	Pipe                   = "pipe"
+	MultiSubnetFailover    = "multisubnetfailover"
+	NoTraceID              = "notraceid"
+	GuidConversion         = "guid conversion"
+)
+
+type EncodeParameters struct {
+	// Properly convert GUIDs, using correct byte endianness
+	GuidConversion bool
+}
 
 type Config struct {
 	Port       uint64
@@ -88,6 +136,50 @@ type Config struct {
 	ProtocolParameters map[string]interface{}
 	// BrowserMsg is the message identifier to fetch instance data from SQL browser
 	BrowserMessage BrowserMsg
+	// ChangePassword is used to set the login's password during login. Ignored for non-SQL authentication.
+	ChangePassword string
+	//ColumnEncryption is true if the application needs to decrypt or encrypt Always Encrypted values
+	ColumnEncryption bool
+	// Attempt to connect to all IPs in parallel when MultiSubnetFailover is true
+	MultiSubnetFailover bool
+	// guid to set as Activity Id in the prelogin packet. Defaults to a new value for each Config.
+	ActivityID []byte
+	// When true, no connection id or trace id value is sent in the prelogin packet.
+	// Some cloud servers may block connections that lack such values.
+	NoTraceID bool
+	// Parameters related to type encoding
+	Encoding EncodeParameters
+}
+
+func readDERFile(filename string) ([]byte, error) {
+	derBytes, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	cert, err := x509.ParseCertificate(derBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	pemBytes := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: cert.Raw,
+	})
+	return pemBytes, nil
+}
+
+func readCertificate(certificate string) ([]byte, error) {
+	certType := strings.ToLower(filepath.Ext(certificate))
+
+	switch certType {
+	case ".pem":
+		return os.ReadFile(certificate)
+	case ".der":
+		return readDERFile(certificate)
+	default:
+		return nil, fmt.Errorf("certificate type %s is not supported", certType)
+	}
 }
 
 // Build a tls.Config object from the supplied certificate.
@@ -107,7 +199,7 @@ func SetupTLS(certificate string, insecureSkipVerify bool, hostInCertificate str
 	if len(certificate) == 0 {
 		return &config, nil
 	}
-	pem, err := ioutil.ReadFile(certificate)
+	pem, err := readCertificate(certificate)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read certificate %q: %w", certificate, err)
 	}
@@ -128,24 +220,26 @@ func parseTLS(params map[string]string, host string) (Encryption, *tls.Config, e
 	trustServerCert := false
 
 	var encryption Encryption = EncryptionOff
-	encrypt, ok := params["encrypt"]
+	encrypt, ok := params[Encrypt]
 	if ok {
-		if strings.EqualFold(encrypt, "DISABLE") {
+		encrypt = strings.ToLower(encrypt)
+		switch encrypt {
+		case "mandatory", "yes", "1", "t", "true":
+			encryption = EncryptionRequired
+		case "disable":
 			encryption = EncryptionDisabled
-		} else {
-			e, err := strconv.ParseBool(encrypt)
-			if err != nil {
-				f := "invalid encrypt '%s': %s"
-				return encryption, nil, fmt.Errorf(f, encrypt, err.Error())
-			}
-			if e {
-				encryption = EncryptionRequired
-			}
+		case "strict":
+			encryption = EncryptionStrict
+		case "optional", "no", "0", "f", "false":
+			encryption = EncryptionOff
+		default:
+			f := "invalid encrypt '%s'"
+			return encryption, nil, fmt.Errorf(f, encrypt)
 		}
 	} else {
 		trustServerCert = true
 	}
-	trust, ok := params["trustservercertificate"]
+	trust, ok := params[TrustServerCertificate]
 	if ok {
 		var err error
 		trustServerCert, err = strconv.ParseBool(trust)
@@ -154,9 +248,12 @@ func parseTLS(params map[string]string, host string) (Encryption, *tls.Config, e
 			return encryption, nil, fmt.Errorf(f, trust, err.Error())
 		}
 	}
-	certificate := params["certificate"]
+	certificate := params[Certificate]
 	if encryption != EncryptionDisabled {
-		tlsMin := params["tlsmin"]
+		tlsMin := params[TLSMin]
+		if encrypt == "strict" {
+			trustServerCert = false
+		}
 		tlsConfig, err := SetupTLS(certificate, trustServerCert, host, tlsMin)
 		if err != nil {
 			return encryption, nil, fmt.Errorf("failed to setup TLS: %w", err)
@@ -168,31 +265,58 @@ func parseTLS(params map[string]string, host string) (Encryption, *tls.Config, e
 
 var skipSetup = errors.New("skip setting up TLS")
 
+func getDsnType(dsn string) int {
+	if strings.HasPrefix(dsn, "sqlserver://") {
+		return DsnTypeURL
+	}
+	if strings.HasPrefix(dsn, "odbc:") {
+		return DsnTypeOdbc
+	}
+	return DsnTypeAdo
+}
+
+func getDsnParams(dsn string) (map[string]string, error) {
+
+	var params map[string]string
+	var err error
+
+	switch getDsnType(dsn) {
+	case DsnTypeOdbc:
+		params, err = splitConnectionStringOdbc(dsn[len("odbc:"):])
+		if err != nil {
+			return params, err
+		}
+	case DsnTypeURL:
+		params, err = splitConnectionStringURL(dsn)
+		if err != nil {
+			return params, err
+		}
+	default:
+		params = splitConnectionString(dsn)
+	}
+	return params, nil
+}
+
 func Parse(dsn string) (Config, error) {
 	p := Config{
 		ProtocolParameters: map[string]interface{}{},
 		Protocols:          []string{},
 	}
 
+	activityid, uerr := uuid.NewRandom()
+	if uerr == nil {
+		p.ActivityID = activityid[:]
+	}
 	var params map[string]string
 	var err error
-	if strings.HasPrefix(dsn, "odbc:") {
-		params, err = splitConnectionStringOdbc(dsn[len("odbc:"):])
-		if err != nil {
-			return p, err
-		}
-	} else if strings.HasPrefix(dsn, "sqlserver://") {
-		params, err = splitConnectionStringURL(dsn)
-		if err != nil {
-			return p, err
-		}
-	} else {
-		params = splitConnectionString(dsn)
-	}
 
+	params, err = getDsnParams(dsn)
+	if err != nil {
+		return p, err
+	}
 	p.Parameters = params
 
-	strlog, ok := params["log"]
+	strlog, ok := params[LogParam]
 	if ok {
 		flags, err := strconv.ParseUint(strlog, 10, 64)
 		if err != nil {
@@ -201,12 +325,12 @@ func Parse(dsn string) (Config, error) {
 		p.LogFlags = Log(flags)
 	}
 
-	p.Database = params["database"]
-	p.User = params["user id"]
-	p.Password = params["password"]
-
+	p.Database = params[Database]
+	p.User = params[UserID]
+	p.Password = params[Password]
+	p.ChangePassword = params[ChangePassword]
 	p.Port = 0
-	strport, ok := params["port"]
+	strport, ok := params[Port]
 	if ok {
 		var err error
 		p.Port, err = strconv.ParseUint(strport, 10, 16)
@@ -217,7 +341,7 @@ func Parse(dsn string) (Config, error) {
 	}
 
 	// https://docs.microsoft.com/en-us/sql/database-engine/configure-windows/configure-the-network-packet-size-server-configuration-option\
-	strpsize, ok := params["packet size"]
+	strpsize, ok := params[PacketSize]
 	if ok {
 		var err error
 		psize, err := strconv.ParseUint(strpsize, 0, 16)
@@ -242,7 +366,7 @@ func Parse(dsn string) (Config, error) {
 	//
 	// Do not set a connection timeout. Use Context to manage such things.
 	// Default to zero, but still allow it to be set.
-	if strconntimeout, ok := params["connection timeout"]; ok {
+	if strconntimeout, ok := params[ConnectionTimeout]; ok {
 		timeout, err := strconv.ParseUint(strconntimeout, 10, 64)
 		if err != nil {
 			f := "invalid connection timeout '%v': %v"
@@ -254,7 +378,7 @@ func Parse(dsn string) (Config, error) {
 	// default keep alive should be 30 seconds according to spec:
 	// https://msdn.microsoft.com/en-us/library/dd341108.aspx
 	p.KeepAlive = 30 * time.Second
-	if keepAlive, ok := params["keepalive"]; ok {
+	if keepAlive, ok := params[KeepAlive]; ok {
 		timeout, err := strconv.ParseUint(keepAlive, 10, 64)
 		if err != nil {
 			f := "invalid keepAlive value '%s': %s"
@@ -263,12 +387,12 @@ func Parse(dsn string) (Config, error) {
 		p.KeepAlive = time.Duration(timeout) * time.Second
 	}
 
-	serverSPN, ok := params["serverspn"]
+	serverSPN, ok := params[ServerSpn]
 	if ok {
 		p.ServerSPN = serverSPN
 	} // If not set by the app, ServerSPN will be set by the successful dialer.
 
-	workstation, ok := params["workstation id"]
+	workstation, ok := params[WorkstationID]
 	if ok {
 		p.Workstation = workstation
 	} else {
@@ -278,13 +402,13 @@ func Parse(dsn string) (Config, error) {
 		}
 	}
 
-	appname, ok := params["app name"]
+	appname, ok := params[AppName]
 	if !ok {
 		appname = "go-mssqldb"
 	}
 	p.AppName = appname
 
-	appintent, ok := params["applicationintent"]
+	appintent, ok := params[ApplicationIntent]
 	if ok {
 		if appintent == "ReadOnly" {
 			if p.Database == "" {
@@ -294,12 +418,12 @@ func Parse(dsn string) (Config, error) {
 		}
 	}
 
-	failOverPartner, ok := params["failoverpartner"]
+	failOverPartner, ok := params[FailoverPartner]
 	if ok {
 		p.FailOverPartner = failOverPartner
 	}
 
-	failOverPort, ok := params["failoverport"]
+	failOverPort, ok := params[FailOverPort]
 	if ok {
 		var err error
 		p.FailOverPort, err = strconv.ParseUint(failOverPort, 0, 16)
@@ -309,7 +433,7 @@ func Parse(dsn string) (Config, error) {
 		}
 	}
 
-	disableRetry, ok := params["disableretry"]
+	disableRetry, ok := params[DisableRetry]
 	if ok {
 		var err error
 		p.DisableRetry, err = strconv.ParseBool(disableRetry)
@@ -321,8 +445,8 @@ func Parse(dsn string) (Config, error) {
 		p.DisableRetry = disableRetryDefault
 	}
 
-	server := params["server"]
-	protocol, ok := params["protocol"]
+	server := params[Server]
+	protocol, ok := params[Protocol]
 
 	for _, parser := range ProtocolParsers {
 		if (!ok && !parser.Hidden()) || parser.Protocol() == protocol {
@@ -348,7 +472,7 @@ func Parse(dsn string) (Config, error) {
 		f = 1
 	}
 	p.DialTimeout = time.Duration(15*f) * time.Second
-	if strdialtimeout, ok := params["dial timeout"]; ok {
+	if strdialtimeout, ok := params[DialTimeout]; ok {
 		timeout, err := strconv.ParseUint(strdialtimeout, 10, 64)
 		if err != nil {
 			f := "invalid dial timeout '%v': %v"
@@ -358,7 +482,7 @@ func Parse(dsn string) (Config, error) {
 		p.DialTimeout = time.Duration(timeout) * time.Second
 	}
 
-	hostInCertificate, ok := params["hostnameincertificate"]
+	hostInCertificate, ok := params[HostNameInCertificate]
 	if ok {
 		p.HostInCertificateProvided = true
 	} else {
@@ -371,6 +495,58 @@ func Parse(dsn string) (Config, error) {
 		return p, err
 	}
 
+	if c, ok := params["columnencryption"]; ok {
+		columnEncryption, err := strconv.ParseBool(c)
+		if err != nil {
+			if strings.EqualFold(c, "Enabled") {
+				columnEncryption = true
+			} else if strings.EqualFold(c, "Disabled") {
+				columnEncryption = false
+			} else {
+				return p, fmt.Errorf("invalid columnencryption '%v' : %v", columnEncryption, err.Error())
+			}
+		}
+		p.ColumnEncryption = columnEncryption
+	}
+
+	msf, ok := params[MultiSubnetFailover]
+	if ok {
+		multiSubnetFailover, err := strconv.ParseBool(msf)
+		if err != nil {
+			if strings.EqualFold(msf, "Enabled") {
+				multiSubnetFailover = true
+			} else if strings.EqualFold(msf, "Disabled") {
+				multiSubnetFailover = false
+			} else {
+				return p, fmt.Errorf("invalid multiSubnetFailover value '%v': %v", multiSubnetFailover, err.Error())
+			}
+		}
+		p.MultiSubnetFailover = multiSubnetFailover
+	} else {
+		// Defaulting to true to prevent breaking change although other client libraries default to false
+		p.MultiSubnetFailover = true
+	}
+	nti, ok := params[NoTraceID]
+	if ok {
+		notraceid, err := strconv.ParseBool(nti)
+		if err == nil {
+			p.NoTraceID = notraceid
+		}
+	}
+
+	guidConversion, ok := params[GuidConversion]
+	if ok {
+		var err error
+		p.Encoding.GuidConversion, err = strconv.ParseBool(guidConversion)
+		if err != nil {
+			f := "invalid guid conversion '%s': %s"
+			return p, fmt.Errorf(f, guidConversion, err.Error())
+		}
+	} else {
+		// set to false for backward compatibility
+		p.Encoding.GuidConversion = false
+	}
+
 	return p, nil
 }
 
@@ -379,10 +555,10 @@ func Parse(dsn string) (Config, error) {
 func (p Config) URL() *url.URL {
 	q := url.Values{}
 	if p.Database != "" {
-		q.Add("database", p.Database)
+		q.Add(Database, p.Database)
 	}
 	if p.LogFlags != 0 {
-		q.Add("log", strconv.FormatUint(uint64(p.LogFlags), 10))
+		q.Add(LogParam, strconv.FormatUint(uint64(p.LogFlags), 10))
 	}
 	host := p.Host
 	protocol := ""
@@ -397,8 +573,8 @@ func (p Config) URL() *url.URL {
 	if p.Port > 0 {
 		host = fmt.Sprintf("%s:%d", host, p.Port)
 	}
-	q.Add("disableRetry", fmt.Sprintf("%t", p.DisableRetry))
-	protocolParam, ok := p.Parameters["protocol"]
+	q.Add(DisableRetry, fmt.Sprintf("%t", p.DisableRetry))
+	protocolParam, ok := p.Parameters[Protocol]
 	if ok {
 		if protocol != "" && protocolParam != protocol {
 			panic("Mismatched protocol parameters!")
@@ -406,11 +582,11 @@ func (p Config) URL() *url.URL {
 		protocol = protocolParam
 	}
 	if protocol != "" {
-		q.Add("protocol", protocol)
+		q.Add(Protocol, protocol)
 	}
-	pipe, ok := p.Parameters["pipe"]
+	pipe, ok := p.Parameters[Pipe]
 	if ok {
-		q.Add("pipe", pipe)
+		q.Add(Pipe, pipe)
 	}
 	res := url.URL{
 		Scheme: "sqlserver",
@@ -420,7 +596,22 @@ func (p Config) URL() *url.URL {
 	if p.Instance != "" {
 		res.Path = p.Instance
 	}
-	q.Add("dial timeout", strconv.FormatFloat(float64(p.DialTimeout.Seconds()), 'f', 0, 64))
+	q.Add(DialTimeout, strconv.FormatFloat(float64(p.DialTimeout.Seconds()), 'f', 0, 64))
+
+	switch p.Encryption {
+	case EncryptionDisabled:
+		q.Add(Encrypt, "DISABLE")
+	case EncryptionRequired:
+		q.Add(Encrypt, "true")
+	}
+	if p.ColumnEncryption {
+		q.Add("columnencryption", "true")
+	}
+
+	if p.Encoding.GuidConversion {
+		q.Add(GuidConversion, strconv.FormatBool(p.Encoding.GuidConversion))
+	}
+
 	if len(q) > 0 {
 		res.RawQuery = q.Encode()
 	}
@@ -428,15 +619,18 @@ func (p Config) URL() *url.URL {
 	return &res
 }
 
+// ADO connection string keywords at https://github.com/dotnet/SqlClient/blob/main/src/Microsoft.Data.SqlClient/src/Microsoft/Data/Common/DbConnectionStringCommon.cs
 var adoSynonyms = map[string]string{
-	"application name": "app name",
-	"data source":      "server",
-	"address":          "server",
-	"network address":  "server",
-	"addr":             "server",
-	"user":             "user id",
-	"uid":              "user id",
-	"initial catalog":  "database",
+	"application name":          AppName,
+	"data source":               Server,
+	"address":                   Server,
+	"network address":           Server,
+	"addr":                      Server,
+	"user":                      UserID,
+	"uid":                       UserID,
+	"pwd":                       Password,
+	"initial catalog":           Database,
+	"column encryption setting": "columnencryption",
 }
 
 func splitConnectionString(dsn string) (res map[string]string) {
@@ -460,18 +654,18 @@ func splitConnectionString(dsn string) (res map[string]string) {
 			name = synonym
 		}
 		// "server" in ADO can include a protocol and a port.
-		if name == "server" {
+		if name == Server {
 			for _, parser := range ProtocolParsers {
 				prot := parser.Protocol() + ":"
 				if strings.HasPrefix(value, prot) {
-					res["protocol"] = parser.Protocol()
+					res[Protocol] = parser.Protocol()
 				}
 				value = strings.TrimPrefix(value, prot)
 			}
 			serverParts := strings.Split(value, ",")
 			if len(serverParts) == 2 && len(serverParts[1]) > 0 {
 				value = serverParts[0]
-				res["port"] = serverParts[1]
+				res[Port] = serverParts[1]
 			}
 		}
 		res[name] = value
@@ -493,10 +687,10 @@ func splitConnectionStringURL(dsn string) (map[string]string, error) {
 	}
 
 	if u.User != nil {
-		res["user id"] = u.User.Username()
+		res[UserID] = u.User.Username()
 		p, exists := u.User.Password()
 		if exists {
-			res["password"] = p
+			res[Password] = p
 		}
 	}
 
@@ -506,13 +700,13 @@ func splitConnectionStringURL(dsn string) (map[string]string, error) {
 	}
 
 	if len(u.Path) > 0 {
-		res["server"] = host + "\\" + u.Path[1:]
+		res[Server] = host + "\\" + u.Path[1:]
 	} else {
-		res["server"] = host
+		res[Server] = host
 	}
 
 	if len(port) > 0 {
-		res["port"] = port
+		res[Port] = port
 	}
 
 	query := u.Query()

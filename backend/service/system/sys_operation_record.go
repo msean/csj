@@ -1,10 +1,10 @@
 package system
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	systemReq "github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
+	"github.com/msean/csj/backend/global"
+	"github.com/msean/csj/backend/model/common/request"
+	"github.com/msean/csj/backend/model/system"
+	systemReq "github.com/msean/csj/backend/model/system/request"
 )
 
 //@author: [granty1](https://github.com/granty1)
@@ -15,10 +15,7 @@ import (
 
 type OperationRecordService struct{}
 
-func (operationRecordService *OperationRecordService) CreateSysOperationRecord(sysOperationRecord system.SysOperationRecord) (err error) {
-	err = global.GVA_DB.Create(&sysOperationRecord).Error
-	return err
-}
+var OperationRecordServiceApp = new(OperationRecordService)
 
 //@author: [granty1](https://github.com/granty1)
 //@author: [piexlmax](https://github.com/piexlmax)
@@ -28,7 +25,7 @@ func (operationRecordService *OperationRecordService) CreateSysOperationRecord(s
 //@return: err error
 
 func (operationRecordService *OperationRecordService) DeleteSysOperationRecordByIds(ids request.IdsReq) (err error) {
-	err = global.GVA_DB.Delete(&[]system.SysOperationRecord{}, "id in (?)", ids.Ids).Error
+	err = global.GVA_MYSQL.Delete(&[]system.SysOperationRecord{}, "id in (?)", ids.Ids).Error
 	return err
 }
 
@@ -39,7 +36,7 @@ func (operationRecordService *OperationRecordService) DeleteSysOperationRecordBy
 //@return: err error
 
 func (operationRecordService *OperationRecordService) DeleteSysOperationRecord(sysOperationRecord system.SysOperationRecord) (err error) {
-	err = global.GVA_DB.Delete(&sysOperationRecord).Error
+	err = global.GVA_MYSQL.Delete(&sysOperationRecord).Error
 	return err
 }
 
@@ -50,7 +47,7 @@ func (operationRecordService *OperationRecordService) DeleteSysOperationRecord(s
 //@return: sysOperationRecord system.SysOperationRecord, err error
 
 func (operationRecordService *OperationRecordService) GetSysOperationRecord(id uint) (sysOperationRecord system.SysOperationRecord, err error) {
-	err = global.GVA_DB.Where("id = ?", id).First(&sysOperationRecord).Error
+	err = global.GVA_MYSQL.Where("id = ?", id).First(&sysOperationRecord).Error
 	return
 }
 
@@ -65,7 +62,7 @@ func (operationRecordService *OperationRecordService) GetSysOperationRecordInfoL
 	limit := info.PageSize
 	offset := info.PageSize * (info.Page - 1)
 	// 创建db
-	db := global.GVA_DB.Model(&system.SysOperationRecord{})
+	db := global.GVA_MYSQL.Model(&system.SysOperationRecord{})
 	var sysOperationRecords []system.SysOperationRecord
 	// 如果有条件搜索 下方会自动创建搜索语句
 	if info.Method != "" {

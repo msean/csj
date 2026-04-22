@@ -2,9 +2,10 @@ package system
 
 import (
 	"context"
-	sysModel "github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	"github.com/flipped-aurora/gin-vue-admin/server/service/system"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils"
+
+	sysModel "github.com/msean/csj/backend/model/system"
+	"github.com/msean/csj/backend/service/system"
+	"github.com/msean/csj/backend/utils"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -34,7 +35,7 @@ func (i *initAuthority) TableCreated(ctx context.Context) bool {
 	return db.Migrator().HasTable(&sysModel.SysAuthority{})
 }
 
-func (i initAuthority) InitializerName() string {
+func (i *initAuthority) InitializerName() string {
 	return sysModel.SysAuthority{}.TableName()
 }
 

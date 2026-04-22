@@ -3,8 +3,8 @@ package utils
 import (
 	"fmt"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
+	"github.com/msean/csj/backend/global"
+	"github.com/msean/csj/backend/model/system"
 )
 
 func RegisterApis(apis ...system.SysApi) {
@@ -13,12 +13,11 @@ func RegisterApis(apis ...system.SysApi) {
 	for i := range apis {
 		apiPaths = append(apiPaths, apis[i].Path)
 	}
-	global.GVA_DB.Find(&[]system.SysApi{}, "path in (?)", apiPaths).Count(&count)
+	global.GVA_MYSQL.Find(&[]system.SysApi{}, "path in (?)", apiPaths).Count(&count)
 	if count > 0 {
-		fmt.Println("插件已安装或存在同名路由")
 		return
 	}
-	err := global.GVA_DB.Create(&apis).Error
+	err := global.GVA_MYSQL.Create(&apis).Error
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -32,13 +31,11 @@ func RegisterMenus(menus ...system.SysBaseMenu) {
 	for i := range menus {
 		menuNames = append(menuNames, menus[i].Name)
 	}
-	global.GVA_DB.Find(&[]system.SysBaseMenu{}, "name in (?)", menuNames).Count(&count)
+	global.GVA_MYSQL.Find(&[]system.SysBaseMenu{}, "name in (?)", menuNames).Count(&count)
 	if count > 0 {
-		fmt.Println("插件已安装或存在同名菜单")
 		return
 	}
-	parentMenu.ParentId = 0
-	err := global.GVA_DB.Create(&parentMenu).Error
+	err := global.GVA_MYSQL.Create(&parentMenu).Error
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -46,7 +43,7 @@ func RegisterMenus(menus ...system.SysBaseMenu) {
 		pid := parentMenu.ID
 		otherMenus[i].ParentId = pid
 	}
-	err = global.GVA_DB.Create(&otherMenus).Error
+	err = global.GVA_MYSQL.Create(&otherMenus).Error
 	if err != nil {
 		fmt.Println(err)
 	}

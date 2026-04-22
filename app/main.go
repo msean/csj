@@ -1,17 +1,17 @@
 package main
 
 import (
-	"app/pkg"
+	"app/pkg/sms"
 	"encoding/json"
 	"fmt"
 )
 
 func main() {
-	ali := pkg.AliPlatfrom{
+	ali := sms.AliPlatfrom{
 		Uid:      "msean",
 		Password: "a5375302",
 	}
-	m := pkg.SmsMsg{
+	m := sms.SmsMsg{
 		TemplateCode: "100006",
 		Mobile:       "15112534872",
 		TemplateJson: map[string]any{

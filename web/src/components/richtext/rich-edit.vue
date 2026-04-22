@@ -1,5 +1,5 @@
 <template>
-  <div class="border border-solid border-gray-100 h-full">
+  <div class="border border-solid border-gray-100 h-full z-10">
     <Toolbar
       :editor="editorRef"
       :default-config="toolbarConfig"
@@ -8,83 +8,94 @@
     <Editor
       v-model="valueHtml"
       class="overflow-y-hidden mt-0.5"
-      style="height: 18rem;"
+      style="height: 18rem"
       :default-config="editorConfig"
       mode="default"
       @onCreated="handleCreated"
-      @onChange="change"
+      @onChange="handleEditorChange"
     />
   </div>
 </template>
 
 <script setup>
-
-import '@wangeditor/editor/dist/css/style.css' // 引入 css
-
-const basePath = import.meta.env.VITE_BASE_API
-
-import { onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import '@wangeditor/editor/dist/css/style.css'
+import { ref, shallowRef, onBeforeUnmount, watch } from 'vue'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
-
-import { useUserStore } from '@/pinia/modules/user'
 import { ElMessage } from 'element-plus'
-import { getUrl } from '@/utils/image'
-
-const userStore = useUserStore()
-
-const emits = defineEmits(['change', 'update:modelValue'])
-
-const change = (editor) => {
-  emits('change', editor)
-  emits('update:modelValue', valueHtml.value)
-}
+import { useUserStore } from '@/pinia/modules/user'
 
 const props = defineProps({
-  modelValue: {
-    type: String,
-    default: ''
-  }
+  modelValue: { type: String, default: '' },
 })
+const emits = defineEmits(['update:modelValue'])
+
+const base = import.meta.env.VITE_BASE_API
+const userStore = useUserStore()
 
 const editorRef = shallowRef()
-const valueHtml = ref('')
+const valueHtml = ref(props.modelValue)
 
-const toolbarConfig = {}
+const toolbarConfig = {
+  // 可自定义工具栏，避免报错 translate-page 等
+  excludeKeys: ['save-page', 'translate-page']
+}
+
 const editorConfig = {
   placeholder: '请输入内容...',
   MENU_CONF: {}
 }
+
 editorConfig.MENU_CONF['uploadImage'] = {
   fieldName: 'file',
-  server: basePath + '/fileUploadAndDownload/upload?noSave=1',
+  server: base + '/public/uploadMedia',
+  headers: { 'x-token': userStore.token },
+  maxFileSize: 20 * 1024 * 1024,
   customInsert(res, insertFn) {
-    if (res.code === 0) {
-      const urlPath = getUrl(res.data.file.url)
-      insertFn(urlPath, res.data.file.name)
+    if (!res.url) {
+      ElMessage.error(res.msg || '上传失败')
       return
     }
-    ElMessage.error(res.msg)
+    insertFn(res.url)
+    emits('update:modelValue', editorRef.value.getHtml())
   }
 }
 
-// 组件销毁时，也及时销毁编辑器
-onBeforeUnmount(() => {
-  const editor = editorRef.value
-  if (editor == null) return
-  editor.destroy()
-})
+editorConfig.MENU_CONF['uploadVideo'] = {
+  fieldName: 'file',
+  server: base + '/public/uploadMedia',
+  headers: { 'x-token': userStore.token },
+  maxFileSize: 100 * 1024 * 1024,
+  customInsert(res, insertFn) {
+    if (!res.url) {
+      ElMessage.error(res.msg || '上传失败')
+      return
+    }
+    insertFn(res.url)
+    emits('update:modelValue', editorRef.value.getHtml())
+  }
+}
 
 const handleCreated = (editor) => {
   editorRef.value = editor
-  valueHtml.value = props.modelValue
+  editorRef.value?.txt.html(props.modelValue || '')
 }
 
-watch(() => props.modelValue, () => {
-  valueHtml.value = props.modelValue
+const handleEditorChange = (editor) => {
+  valueHtml.value = editor.getHtml()
+  emits('update:modelValue', valueHtml.value)
+}
+
+onBeforeUnmount(() => {
+  editorRef.value?.destroy()
 })
 
+watch(() => props.modelValue, (val) => {
+  if (val !== valueHtml.value) {
+    valueHtml.value = val
+  }
+})
 </script>
 
 <style scoped lang="scss">
-
+/* 可根据项目自定义样式 */
 </style>

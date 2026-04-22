@@ -1,7 +1,7 @@
 package global
 
 import (
-	"app/pkg"
+	"app/pkg/sms"
 	"context"
 	"errors"
 	"fmt"
@@ -31,7 +31,7 @@ type RunTime struct {
 	server *http.Server
 	Logger *zap.Logger
 	Redis  redis.UniversalClient
-	Sms    pkg.SmsSender
+	Sms    sms.SmsSender
 }
 
 func WatchConfig() {
@@ -98,7 +98,7 @@ func InitRunTime(configfile string) (err error) {
 	// })
 
 	// sms 初始化
-	Global.Sms = &pkg.AliPlatfrom{
+	Global.Sms = &sms.AliPlatfrom{
 		Password: Global.Viper.GetString("sms.password"),
 		Uid:      Global.Viper.GetString("sms.uid"),
 		Secret:   Global.Viper.GetString("sms.secret"),

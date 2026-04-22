@@ -2,8 +2,8 @@ package global
 
 import (
 	"os"
-	"time"
 
+	"github.com/robfig/cron"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -26,72 +26,141 @@ type ZapConf struct {
 	RetentionDay  int    `mapstructure:"retention-day" json:"retention-day" yaml:"retention-day"`    // 日志保留天数
 }
 
-func (c *ZapConf) Encoder() zapcore.Encoder {
-	config := zapcore.EncoderConfig{
-		TimeKey:       "time",
-		NameKey:       "name",
-		LevelKey:      "level",
-		CallerKey:     "caller",
-		MessageKey:    "message",
-		StacktraceKey: c.StacktraceKey,
-		LineEnding:    zapcore.DefaultLineEnding,
-		EncodeTime: func(t time.Time, encoder zapcore.PrimitiveArrayEncoder) {
-			encoder.AppendString(c.Prefix + t.Format("2006-01-02 15:04:05.000"))
-		},
-		EncodeLevel:    c.LevelEncoder(),
-		EncodeCaller:   zapcore.FullCallerEncoder,
-		EncodeDuration: zapcore.SecondsDurationEncoder,
-	}
-	if c.Format == "json" {
-		return zapcore.NewJSONEncoder(config)
-	}
-	return zapcore.NewConsoleEncoder(config)
+// func (c *ZapConf) Encoder() zapcore.Encoder {
+// 	config := zapcore.EncoderConfig{
+// 		TimeKey:       "time",
+// 		NameKey:       "name",
+// 		LevelKey:      "level",
+// 		CallerKey:     "caller",
+// 		MessageKey:    "message",
+// 		StacktraceKey: c.StacktraceKey,
+// 		LineEnding:    zapcore.DefaultLineEnding,
+// 		EncodeTime: func(t time.Time, encoder zapcore.PrimitiveArrayEncoder) {
+// 			encoder.AppendString(c.Prefix + t.Format("2006-01-02 15:04:05.000"))
+// 		},
+// 		EncodeLevel:    c.LevelEncoder(),
+// 		EncodeCaller:   zapcore.FullCallerEncoder,
+// 		EncodeDuration: zapcore.SecondsDurationEncoder,
+// 	}
+// 	if c.Format == "json" {
+// 		return zapcore.NewJSONEncoder(config)
+// 	}
+// 	return zapcore.NewConsoleEncoder(config)
 
-}
+// }
 
-// LevelEncoder 根据 EncodeLevel 返回 zapcore.LevelEncoder
-func (c *ZapConf) LevelEncoder() zapcore.LevelEncoder {
-	switch {
-	case c.EncodeLevel == "LowercaseLevelEncoder": // 小写编码器(默认)
-		return zapcore.LowercaseLevelEncoder
-	case c.EncodeLevel == "LowercaseColorLevelEncoder": // 小写编码器带颜色
-		return zapcore.LowercaseColorLevelEncoder
-	case c.EncodeLevel == "CapitalLevelEncoder": // 大写编码器
-		return zapcore.CapitalLevelEncoder
-	case c.EncodeLevel == "CapitalColorLevelEncoder": // 大写编码器带颜色
-		return zapcore.CapitalColorLevelEncoder
-	default:
-		return zapcore.LowercaseLevelEncoder
-	}
-}
+// // LevelEncoder 根据 EncodeLevel 返回 zapcore.LevelEncoder
+// func (c *ZapConf) LevelEncoder() zapcore.LevelEncoder {
+// 	switch {
+// 	case c.EncodeLevel == "LowercaseLevelEncoder": // 小写编码器(默认)
+// 		return zapcore.LowercaseLevelEncoder
+// 	case c.EncodeLevel == "LowercaseColorLevelEncoder": // 小写编码器带颜色
+// 		return zapcore.LowercaseColorLevelEncoder
+// 	case c.EncodeLevel == "CapitalLevelEncoder": // 大写编码器
+// 		return zapcore.CapitalLevelEncoder
+// 	case c.EncodeLevel == "CapitalColorLevelEncoder": // 大写编码器带颜色
+// 		return zapcore.CapitalColorLevelEncoder
+// 	default:
+// 		return zapcore.LowercaseLevelEncoder
+// 	}
+// }
+
+// func NewZapLogger(conf ZapConf) (logger *zap.Logger) {
+// 	lumberjacklogger := &lumberjack.Logger{
+// 		Filename:   conf.FilePath,
+// 		MaxSize:    conf.Maxsize,
+// 		MaxBackups: conf.MaxBackups,
+// 		MaxAge:     conf.MaxAge,
+// 		Compress:   conf.Compress, // disabled by default
+// 	}
+// 	defer lumberjacklogger.Close()
+
+// 	fileEncoder := conf.Encoder()
+
+// 	cores := []zapcore.Core{
+// 		zapcore.NewCore(fileEncoder, zapcore.AddSync(lumberjacklogger), zap.InfoLevel),
+// 	}
+// 	if conf.LogInConsole {
+// 		consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+// 		consoleWriter := zapcore.Lock(os.Stdout)
+// 		cores = append(cores, zapcore.NewCore(consoleEncoder, consoleWriter, zapcore.DebugLevel))
+// 	}
+// 	zapCores := zapcore.NewTee(cores...)
+
+// 	var options []zap.Option
+// 	if conf.ShowLine {
+// 		options = append(options, zap.AddCaller())
+// 	}
+// 	logger = zap.New(zapCores, options...)
+// 	defer logger.Sync()
+// 	return
+// }
 
 func NewZapLogger(conf ZapConf) (logger *zap.Logger) {
-	lumberjacklogger := &lumberjack.Logger{
+	encoder := getEncoder()
+	writeSyncer := getLogWriter(conf)
+	core := zapcore.NewCore(encoder, writeSyncer, zapcore.DebugLevel)
+	consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+	consoleWriter := zapcore.Lock(os.Stdout)
+	//consoleDebug := zapcore.Lock(os.Stdout)
+	//consoleEncodeer := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+	//p := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
+	//	return level >= zapcore.DebugLevel
+	//})
+	var allcode []zapcore.Core
+	allcode = append(allcode, core)
+	allcode = append(allcode, zapcore.NewCore(consoleEncoder, consoleWriter, zapcore.DebugLevel))
+	//allcode = append(allcode, zapcore.NewCore(consoleEncodeer, consoleDebug, p))
+	c := zapcore.NewTee(allcode...)
+	//zap.AddCaller() //添加将调用函数信息记录到日志中的功能。
+	return zap.New(c, zap.AddCaller())
+}
+
+func getEncoder() zapcore.Encoder {
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05")
+	// 在日志文件中使用大写字母记录日志级别
+	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	// NewConsoleEncoder 打印更符合观察的方式
+	return zapcore.NewConsoleEncoder(encoderConfig)
+}
+
+func getLogWriter(conf ZapConf) zapcore.WriteSyncer {
+	lumberJackLogger := &lumberjack.Logger{
 		Filename:   conf.FilePath,
 		MaxSize:    conf.Maxsize,
-		MaxBackups: conf.MaxBackups,
 		MaxAge:     conf.MaxAge,
-		Compress:   conf.Compress, // disabled by default
+		Compress:   conf.Compress,
+		LocalTime:  true,
+		MaxBackups: 4,
 	}
-	defer lumberjacklogger.Close()
 
-	fileEncoder := conf.Encoder()
-
-	cores := []zapcore.Core{
-		zapcore.NewCore(fileEncoder, zapcore.AddSync(lumberjacklogger), zap.InfoLevel),
-	}
-	if conf.LogInConsole {
-		consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
-		consoleWriter := zapcore.Lock(os.Stdout)
-		cores = append(cores, zapcore.NewCore(consoleEncoder, consoleWriter, zapcore.DebugLevel))
-	}
-	zapCores := zapcore.NewTee(cores...)
-
-	var options []zap.Option
-	if conf.ShowLine {
-		options = append(options, zap.AddCaller())
-	}
-	logger = zap.New(zapCores, options...)
-	defer logger.Sync()
-	return
+	c := cron.New()
+	c.AddFunc("0 0 0 1/1 * ?", func() {
+		lumberJackLogger.Rotate()
+	})
+	c.Start()
+	return zapcore.AddSync(lumberJackLogger)
 }
+
+// 数据库日志
+// var Xlogger *XormLogger
+
+// type XormLogger struct {
+// }
+
+// func (this *XormLogger) Write(p []byte) (n int, err error) {
+// 	Log.Info("数据库操作", zap.String("数据库", string(p)))
+// 	return len(p), nil
+// }
+
+// // echo日志
+// var EchoLog *EchoLogger
+
+// type EchoLogger struct {
+// }
+
+// func (this *EchoLogger) Write(p []byte) (n int, err error) {
+// 	Log.Info("ECHO", zap.String("请求", string(p)))
+// 	return len(p), nil
+// }

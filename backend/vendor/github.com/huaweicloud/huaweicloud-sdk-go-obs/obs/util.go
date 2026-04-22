@@ -13,6 +13,7 @@
 package obs
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/md5"
 	"crypto/sha1"
@@ -22,7 +23,10 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -47,6 +51,37 @@ func XmlTranscoding(src string) string {
 	srcTmp = StringContains(srcTmp, "'", "&apos;")
 	srcTmp = StringContains(srcTmp, "\"", "&quot;")
 	return srcTmp
+}
+
+func HandleHttpResponse(action string, headers map[string][]string, output IBaseModel, resp *http.Response, xmlResult bool, isObs bool) (err error) {
+	if IsHandleCallbackResponse(action, headers, isObs) {
+		if err = ParseCallbackResponseToBaseModel(resp, output, isObs); err != nil {
+			doLog(LEVEL_WARN, "Parse callback response to BaseModel with error: %v", err)
+		}
+	} else {
+		if err = ParseResponseToBaseModel(resp, output, xmlResult, isObs); err != nil {
+			doLog(LEVEL_WARN, "Parse response to BaseModel with error: %v", err)
+		}
+	}
+	return
+}
+
+func IsHandleCallbackResponse(action string, headers map[string][]string, isObs bool) bool {
+	var headerPrefix = HEADER_PREFIX
+	if isObs == true {
+		headerPrefix = HEADER_PREFIX_OBS
+	}
+	supportCallbackActions := []string{PUT_OBJECT, PUT_FILE, "CompleteMultipartUpload"}
+	return len(headers[headerPrefix+CALLBACK]) != 0 && IsContain(supportCallbackActions, action)
+}
+
+func IsContain(items []string, item string) bool {
+	for _, eachItem := range items {
+		if eachItem == item {
+			return true
+		}
+	}
+	return false
 }
 
 // StringToInt converts string value to int value with default value
@@ -85,6 +120,11 @@ func GetCurrentTimestamp() int64 {
 // FormatUtcNow gets a textual representation of the UTC format time value
 func FormatUtcNow(format string) string {
 	return time.Now().UTC().Format(format)
+}
+
+// FormatNowWithLoc gets a textual representation of the format time value with loc
+func FormatNowWithLoc(format string, loc *time.Location) string {
+	return time.Now().In(loc).Format(format)
 }
 
 // FormatUtcToRfc1123 gets a textual representation of the RFC1123 format time value
@@ -143,6 +183,19 @@ func Base64Md5(value []byte) string {
 	return Base64Encode(Md5(value))
 }
 
+// Base64Md5OrSha256 returns the md5 or sha256 value of input with Base64Encode
+func Base64Md5OrSha256(value []byte, enableSha256 bool) string {
+	if enableSha256 {
+		return Base64Sha256(value)
+	}
+	return Base64Md5(value)
+}
+
+// Base64Sha256 returns the sha256 value of input with Base64Encode
+func Base64Sha256(value []byte) string {
+	return Base64Encode(Sha256Hash(value))
+}
+
 // Sha256Hash returns sha256 checksum
 func Sha256Hash(value []byte) []byte {
 	hash := sha256.New()
@@ -175,6 +228,14 @@ func TransToXml(value interface{}) ([]byte, error) {
 		return []byte{}, nil
 	}
 	return xml.Marshal(value)
+}
+
+// TransToJSON wrapper of json.Marshal
+func TransToJSON(value interface{}) ([]byte, error) {
+	if value == nil {
+		return []byte{}, nil
+	}
+	return json.Marshal(value)
 }
 
 // Hex wrapper of hex.EncodeToString
@@ -548,4 +609,53 @@ func getTemporaryAuthorization(ak, sk, method, bucketName, objectKey, signature 
 	}
 
 	return
+}
+
+func GetContentType(key string) (string, bool) {
+	if ct, ok := mimeTypes[strings.ToLower(key[strings.LastIndex(key, ".")+1:])]; ok {
+		return ct, ok
+	}
+	return "", false
+}
+
+func GetReaderLen(reader io.Reader) (int64, error) {
+	var contentLength int64
+	var err error
+	switch v := reader.(type) {
+	case *bytes.Buffer:
+		contentLength = int64(v.Len())
+	case *bytes.Reader:
+		contentLength = int64(v.Len())
+	case *strings.Reader:
+		contentLength = int64(v.Len())
+	case *os.File:
+		fInfo, fError := v.Stat()
+		if fError != nil {
+			err = fmt.Errorf("can't get reader content length,%s", fError.Error())
+		} else {
+			contentLength = fInfo.Size()
+		}
+	case *io.LimitedReader:
+		contentLength = int64(v.N)
+	case *fileReaderWrapper:
+		contentLength = int64(v.totalCount)
+	case *readerWrapper:
+		contentLength = int64(v.totalCount)
+	default:
+		err = fmt.Errorf("can't get reader content length,unkown reader type")
+	}
+	return contentLength, err
+}
+
+func validateLength(value int, minLen int, maxLen int, fieldName string) error {
+	if minLen > maxLen {
+		return fmt.Errorf("Min Value can not be greater than Max Value")
+	}
+	if minLen == maxLen && value != minLen {
+		return fmt.Errorf("%s length must be %d characters. (value len: %d)", fieldName, maxLen, value)
+	}
+	if value < minLen || value > maxLen {
+		return fmt.Errorf("%s length must be between %d and %d characters. (value len: %d)", fieldName, minLen, maxLen, value)
+	}
+	return nil
 }

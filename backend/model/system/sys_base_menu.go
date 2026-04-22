@@ -1,7 +1,7 @@
 package system
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/msean/csj/backend/global"
 )
 
 type SysBaseMenu struct {
@@ -21,12 +21,13 @@ type SysBaseMenu struct {
 }
 
 type Meta struct {
-	ActiveName  string `json:"activeName" gorm:"comment:高亮菜单"`
-	KeepAlive   bool   `json:"keepAlive" gorm:"comment:是否缓存"`           // 是否缓存
-	DefaultMenu bool   `json:"defaultMenu" gorm:"comment:是否是基础路由（开发中）"` // 是否是基础路由（开发中）
-	Title       string `json:"title" gorm:"comment:菜单名"`                // 菜单名
-	Icon        string `json:"icon" gorm:"comment:菜单图标"`                // 菜单图标
-	CloseTab    bool   `json:"closeTab" gorm:"comment:自动关闭tab"`         // 自动关闭tab
+	ActiveName     string `json:"activeName" gorm:"comment:高亮菜单"`
+	KeepAlive      bool   `json:"keepAlive" gorm:"comment:是否缓存"`           // 是否缓存
+	DefaultMenu    bool   `json:"defaultMenu" gorm:"comment:是否是基础路由（开发中）"` // 是否是基础路由（开发中）
+	Title          string `json:"title" gorm:"comment:菜单名"`                // 菜单名
+	Icon           string `json:"icon" gorm:"comment:菜单图标"`                // 菜单图标
+	CloseTab       bool   `json:"closeTab" gorm:"comment:自动关闭tab"`         // 自动关闭tab
+	TransitionType string `json:"transitionType" gorm:"comment:路由切换动画"`    // 路由切换动画
 }
 
 type SysBaseMenuParameter struct {

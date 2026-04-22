@@ -12,11 +12,6 @@ func (d *ppm29Decoder) init(br *rarBitReader) error {
 		return err
 	}
 	reset := maxOrder&0x20 > 0
-
-	// Move any bytes in rarBitReader bit cache back into a byte slice.
-	// PPM only reads bytes so it is more efficient to read those bytes
-	// directly from byte slices, bypassing the extra bit shifts.
-	br.unshiftBytes()
 	d.br = br
 
 	var maxMB int
@@ -135,4 +130,13 @@ func (d *ppm29Decoder) fill(dr *decodeReader) ([]byte, error) {
 		}
 	}
 	return nil, nil
+}
+
+func newPPM29Decoder() *ppm29Decoder {
+	ppm := new(ppm29Decoder)
+	ppm.reset()
+	ppm.m.maxOrder = 2
+	ppm.m.a.init(1)
+
+	return ppm
 }

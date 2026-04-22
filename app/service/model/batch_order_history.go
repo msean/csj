@@ -1,9 +1,10 @@
 package model
 
 import (
-	"app/service/common"
 	"fmt"
 	"time"
+
+	"app/pkg/utils"
 
 	"gorm.io/gorm"
 )
@@ -34,9 +35,9 @@ type (
 		GoodsList []*StepGoods `json:"goods_list"`
 	}
 	StepGoods struct {
-		Price  float32 `json:"price"`
-		Weight float32 `json:"weight"`
-		Mount  int32   `json:"mount"`
+		Price  float64 `json:"price"`
+		Weight float64 `json:"weight"`
+		Mount  int     `json:"mount"`
 		GoodsFeild
 		Amount string `json:"amount"` //货款
 	}
@@ -68,7 +69,7 @@ func (bo *BatchOrder) NewHistoryStep(stepType int32, pay PayFeild) (step Step) {
 			Weight:     goods.Weight,
 			Mount:      goods.Mount,
 			GoodsFeild: goods.GoodsFeild,
-			Amount:     common.Float32Preserve(goods.Amount(), 2),
+			Amount:     utils.FloatReserveStr(goods.Amount(), 2),
 		})
 	}
 	s.CreditAmount = fmt.Sprintf("%.f", bo.CreditAmount)

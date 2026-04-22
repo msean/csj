@@ -19,7 +19,7 @@ const (
 )
 
 var (
-	errInvalidVMInstruction = errors.New("rardecode: invalid vm instruction")
+	ErrInvalidVMInstruction = errors.New("rardecode: invalid vm instruction")
 )
 
 type vm struct {
@@ -63,8 +63,8 @@ func newVM(mem []byte) *vm {
 		copy(v.m, mem)
 	} else {
 		v.m = mem[:vmSize+4]
-		for i := len(mem); i < len(v.m); i++ {
-			v.m[i] = 0
+		if l := len(mem); l < len(v.m) {
+			clear(v.m[l:])
 		}
 	}
 	v.r[7] = vmSize
@@ -655,7 +655,7 @@ func readCommands(br *rarBitReader) ([]command, error) {
 		}
 
 		if code >= len(ops) {
-			return cmds, errInvalidVMInstruction
+			return cmds, ErrInvalidVMInstruction
 		}
 		ins := ops[code]
 

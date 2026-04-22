@@ -1,16 +1,20 @@
 package model
 
 import (
+	"app/global"
+	"app/service/common"
 	"fmt"
 
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 type (
 	SurplusFeild struct {
-		Weight  float32 `gorm:"-" json:"-"`
-		Mount   int32   `gorm:"-" json:"-"`
+		Weight  float64 `gorm:"-" json:"-"`
+		Mount   int     `gorm:"-" json:"-"`
 		Surplus string  `gorm:"-" json:"surplus"`
+		Type    int     `gorm:"-" json:"-"`
 	}
 	CustomerFeild struct {
 		CustomerName  string `gorm:"-"  json:"customerName"`
@@ -21,9 +25,9 @@ type (
 		GoodsTyp  int32  `gorm:"-" json:"type"`
 	}
 	PayFeild struct {
-		PayFee  float32 `gorm:"-"  json:"payFee"`
+		PayFee  float64 `gorm:"-"  json:"payFee"`
 		PayType int32   `gorm:"-"  json:"payType"`
-		PaidFee float32 `gorm:"-"  json:"paidFee"`
+		PaidFee float64 `gorm:"-"  json:"paidFee"`
 	}
 )
 
@@ -86,35 +90,43 @@ func SetSurplusByBatch(db *gorm.DB, batchUUID string) (goodsM map[string]*Surplu
 	if err = Find(db, &_bgs, NewWhereCond("batch_uuid", batchUUID)); err != nil {
 		return
 	}
+
+	global.Global.Logger.Info(">>>>>>", zap.Any(">>>", _bgs))
 	for _, _bg := range _bgs {
 		goodsM[_bg.GoodsUUID] = &SurplusFeild{
 			Weight: _bg.Weight,
 			Mount:  _bg.Mount,
+			Type:   _bg.GoodType,
 		}
 	}
+	global.Global.Logger.Debug("SetSurplusByBatch _bgs", zap.Any("_bgs", _bgs))
 	var _bos []BatchOrderGoods
 	if err = Find(db, &_bos, NewWhereCond("batch_uuid", batchUUID)); err != nil {
 		return
 	}
+	global.Global.Logger.Debug("SetSurplusByBatch _bos", zap.Any("_bos", _bos))
 	for _, _bo := range _bos {
 		if _, ok := goodsM[_bo.GoodsUUID]; ok {
 			goodsM[_bo.GoodsUUID] = &SurplusFeild{
 				Weight: goodsM[_bo.GoodsUUID].Weight - _bo.Weight,
 				Mount:  goodsM[_bo.GoodsUUID].Mount - _bo.Mount,
+				Type:   goodsM[_bo.GoodsUUID].Type,
 			}
 		}
 	}
+
+	global.Global.Logger.Info(">>>>>>", zap.Any(">>>", goodsM))
 	for _, surplus := range goodsM {
+		global.Global.Logger.Info(">>>>>>", zap.Any(">>>", surplus))
 		surplus.Set()
 	}
 	return
 }
 
 func (s *SurplusFeild) Set() {
-	if s.Mount != 0 {
+	if s.Type == common.GoodsTypeFix {
 		s.Surplus = fmt.Sprintf("%d", s.Mount)
 		return
 	}
 	s.Surplus = fmt.Sprintf("%.2f", s.Weight)
-	return
 }

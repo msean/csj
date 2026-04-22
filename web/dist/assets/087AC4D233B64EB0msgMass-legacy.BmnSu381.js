@@ -1,0 +1,4 @@
+/*! 
+ Build based on gin-vue-admin 
+ Time : 1776745549000 */
+System.register(["./087AC4D233B64EB0index-legacy.CZpw2DlT.js"],function(t,s){"use strict";var e;return{setters:[function(t){e=t.s}],execute:function(){t("c",function(t){return e({url:"/botMsgMass/createBotMsgMass",method:"post",data:t})}),t("d",function(t){return e({url:"/botMsgMass/deleteBotMsgMass",method:"delete",params:t})}),t("u",function(t){return e({url:"/botMsgMass/updateBotMsgMass",method:"put",data:t})}),t("f",function(t){return e({url:"/botMsgMass/findBotMsgMass",method:"get",params:t})}),t("g",function(t){return e({url:"/botMsgMass/getBotMsgMassList",method:"get",params:t})}),t("s",function(t){return e({url:"/botMsgMass/sendBotMsgMass",method:"post",data:t})}),t("m",function(t){return e({url:"/botMsgMass/history",method:"get",params:t})})}}});

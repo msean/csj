@@ -2,6 +2,7 @@ package handler
 
 import (
 	"app/global"
+	"app/pkg/utils"
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
@@ -35,8 +36,8 @@ func UserInfo(c *gin.Context) {
 	common.Response(c, nil, map[string]any{
 		"name":          u.Name,
 		"phone":         u.Phone,
-		"customerDebt":  common.Float32Preserve(creditAmount, 2),
-		"monthSales":    common.Float32Preserve(amount, 2),
+		"customerDebt":  utils.FloatReserveStr(creditAmount, 2),
+		"monthSales":    utils.FloatReserveStr(amount, 2),
 		"vipRemainDays": 0,
 	})
 }

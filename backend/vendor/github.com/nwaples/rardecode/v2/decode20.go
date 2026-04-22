@@ -21,7 +21,7 @@ type decoder20 struct {
 func (d *decoder20) version() int { return decode20Ver }
 
 // init intializes the decoder for decoding a new file.
-func (d *decoder20) init(r byteReader, reset bool, size int64) {
+func (d *decoder20) init(r byteReader, reset bool, size int64, ver int) {
 	if d.br == nil {
 		d.br = newRarBitReader(r)
 	} else {
@@ -34,9 +34,7 @@ func (d *decoder20) init(r byteReader, reset bool, size int64) {
 		if d.audio != nil {
 			d.audio.reset()
 		}
-		for i := range d.codeLength {
-			d.codeLength[i] = 0
-		}
+		clear(d.codeLength[:])
 	}
 }
 
@@ -65,7 +63,7 @@ func readCodeLengthTable20(br *rarBitReader, table []byte) error {
 		}
 		if l == 16 {
 			if i == 0 {
-				return errInvalidLengthTable
+				return ErrInvalidLengthTable
 			}
 			var n int
 			n, err = br.readBits(2)
@@ -73,9 +71,10 @@ func readCodeLengthTable20(br *rarBitReader, table []byte) error {
 				return err
 			}
 			n += 3
-			for n > 0 && i < len(table) {
-				table[i] = table[i-1]
-				n--
+			n = min(i+n, len(table))
+			v := table[i-1]
+			for i < n {
+				table[i] = v
 				i++
 			}
 			continue
@@ -94,17 +93,14 @@ func readCodeLengthTable20(br *rarBitReader, table []byte) error {
 			}
 			n += 11
 		}
-		for n > 0 && i < len(table) {
-			table[i] = 0
-			n--
-			i++
-		}
+		n = min(i+n, len(table))
+		clear(table[i:n])
+		i = n
 	}
 	return nil
 }
 
 func (d *decoder20) readBlockHeader() error {
-	d.br.alignByte()
 	n, err := d.br.readBits(1)
 	if err != nil {
 		return err
@@ -115,9 +111,7 @@ func (d *decoder20) readBlockHeader() error {
 		return err
 	}
 	if n == 0 {
-		for i := range d.codeLength {
-			d.codeLength[i] = 0
-		}
+		clear(d.codeLength[:])
 	}
 	if d.isAudio {
 		if d.audio == nil {
@@ -156,7 +150,7 @@ func (d *decoder20) fill(dr *decodeReader) error {
 			d.hdrRead = false
 			continue
 		case io.EOF:
-			err = errDecoderOutOfData
+			err = ErrDecoderOutOfData
 		}
 		return err
 	}

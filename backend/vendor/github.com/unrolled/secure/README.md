@@ -1,4 +1,4 @@
-# Secure [![GoDoc](https://godoc.org/github.com/unrolled/secure?status.svg)](http://godoc.org/github.com/unrolled/secure) [![Test](https://github.com/unrolled/secure/workflows/tests/badge.svg?branch=v1)](https://github.com/unrolled/secure/actions)
+# Secure [![GoDoc](https://pkg.go.dev/badge/github.com/unrolled/secure)](http://godoc.org/github.com/unrolled/secure) [![Test](https://github.com/unrolled/secure/actions/workflows/test.yaml/badge.svg)](https://github.com/unrolled/secure/actions)
 
 Secure is an HTTP middleware for Go that facilitates some quick security wins. It's a standard net/http [Handler](http://golang.org/pkg/net/http/#Handler), and can be used with many [frameworks](#integration-examples) or directly with Go's net/http package.
 
@@ -53,7 +53,7 @@ Content-Security-Policy: script-src 'nonce-a2ZobGFoZg=='
 ~~~
 
 ### Set the `IsDevelopment` option to `true` when developing!
-When `IsDevelopment` is true, the AllowedHosts, SSLRedirect, STS header, and HPKP header will not be in effect. This allows you to work in development/test mode and not have any annoying redirects to HTTPS (ie. development can happen on HTTP), or block `localhost` has a bad host.
+When `IsDevelopment` is true, the AllowedHosts, SSLRedirect, and STS header will not be in effect. This allows you to work in development/test mode and not have any annoying redirects to HTTPS (ie. development can happen on HTTP), or block `localhost` has a bad host.
 
 ### Available options
 Secure comes with a variety of configuration options (Note: these are not the default option values. See the defaults below.):
@@ -66,7 +66,7 @@ s := secure.New(secure.Options{
     AllowRequestFunc: nil, // AllowRequestFunc is a custom function type that allows you to determine if the request should proceed or not based on your own custom logic. Default is nil.
     HostsProxyHeaders: []string{"X-Forwarded-Hosts"}, // HostsProxyHeaders is a set of header keys that may hold a proxied hostname value for the request.
     SSLRedirect: true, // If SSLRedirect is set to true, then only allow HTTPS requests. Default is false.
-    SSLTemporaryRedirect: false, // If SSLTemporaryRedirect is true, the a 302 will be used while redirecting. Default is false (301).
+    SSLTemporaryRedirect: false, // If SSLTemporaryRedirect is true, then a 307 will be used while redirecting. Default is false (301).
     SSLHost: "ssl.example.com", // SSLHost is the host name that is used to redirect HTTP requests to HTTPS. Default is "", which indicates to use the same host.
     SSLHostFunc: nil, // SSLHostFunc is a function pointer, the return value of the function is the host name that has same functionality as `SSHost`. Default is nil. If SSLHostFunc is nil, the `SSLHost` option will be used.
     SSLProxyHeaders: map[string]string{"X-Forwarded-Proto": "https"}, // SSLProxyHeaders is set of header keys with associated values that would indicate a valid HTTPS request. Useful when using Nginx: `map[string]string{"X-Forwarded-Proto": "https"}`. Default is blank map.
@@ -80,13 +80,14 @@ s := secure.New(secure.Options{
     BrowserXssFilter: true, // If BrowserXssFilter is true, adds the X-XSS-Protection header with the value `1; mode=block`. Default is false.
     CustomBrowserXssValue: "1; report=https://example.com/xss-report", // CustomBrowserXssValue allows the X-XSS-Protection header value to be set with a custom value. This overrides the BrowserXssFilter option. Default is "".
     ContentSecurityPolicy: "default-src 'self'", // ContentSecurityPolicy allows the Content-Security-Policy header value to be set with a custom value. Default is "". Passing a template string will replace `$NONCE` with a dynamic nonce value of 16 bytes for each request which can be later retrieved using the Nonce function.
-    PublicKey: `pin-sha256="base64+primary=="; pin-sha256="base64+backup=="; max-age=5184000; includeSubdomains; report-uri="https://www.example.com/hpkp-report"`, // Deprecated: This feature is no longer recommended. PublicKey implements HPKP to prevent MITM attacks with forged certificates. Default is "".
     ReferrerPolicy: "same-origin", // ReferrerPolicy allows the Referrer-Policy header with the value to be set with a custom value. Default is "".
     FeaturePolicy: "vibrate 'none';", // Deprecated: this header has been renamed to PermissionsPolicy. FeaturePolicy allows the Feature-Policy header with the value to be set with a custom value. Default is "".
     PermissionsPolicy: "fullscreen=(), geolocation=()", // PermissionsPolicy allows the Permissions-Policy header with the value to be set with a custom value. Default is "".
     CrossOriginOpenerPolicy: "same-origin", // CrossOriginOpenerPolicy allows the Cross-Origin-Opener-Policy header with the value to be set with a custom value. Default is "".
-    ExpectCTHeader: `enforce, max-age=30, report-uri="https://www.example.com/ct-report"`,
-
+    CrossOriginEmbedderPolicy: "require-corp", // CrossOriginEmbedderPolicy allows the Cross-Origin-Embedder-Policy header with the value to be set with a custom value. Default is "". 
+    CrossOriginResourcePolicy: "same-origin", // CrossOriginResourcePolicy allows the Cross-Origin-Resource-Policy header with the value to be set with a custom value. Default is "".  
+    XDNSPrefetchControl: "on", // XDNSPrefetchControl allows the X-DNS-Prefetch-Control header to be set via "on" or "off" keyword. Default is "". 
+    XPermittedCrossDomainPolicies: "none", // XPermittedCrossDomainPolicies allows the X-Permitted-Cross-Domain-Policies to be set with a custom value. Default is "".
     IsDevelopment: true, // This will cause the AllowedHosts, SSLRedirect, and STSSeconds/STSIncludeSubdomains options to be ignored during development. When deploying to production, be sure to set this to false.
 })
 // ...
@@ -123,7 +124,10 @@ l := secure.New(secure.Options{
     FeaturePolicy: "",
     PermissionsPolicy: "",
     CrossOriginOpenerPolicy: "",
-    ExpectCTHeader: "",
+    CrossOriginEmbedderPolicy: "",
+    CrossOriginResourcePolicy: "",
+    XDNSPrefetchControl: "",
+    XPermittedCrossDomainPolicies: "",
     IsDevelopment: false,
 })
 ~~~

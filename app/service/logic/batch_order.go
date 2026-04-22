@@ -2,6 +2,7 @@ package logic
 
 import (
 	"app/global"
+	"app/pkg/utils"
 	"app/service/common"
 	"app/service/model"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -27,7 +29,7 @@ type (
 	}
 	BatchOrderGoodsOrder struct {
 		GoodsUUID string  `json:"goodsUUID"`
-		Price     float32 `json:"price"`
+		Price     float64 `json:"price"`
 	}
 )
 
@@ -60,17 +62,67 @@ func (logic *BatchOrderLogic) TempCreate() (err error) {
 		return common.BatchOrderGoodsRequireErr
 	}
 
-	for _, goods := range logic.GoodsListRelated {
-		goods.OwnerUser = logic.OwnerUser
-		goods.BatchUUID = logic.BatchUUID
-		goods.UserUUID = logic.UserUUID
-	}
-
-	if err = model.CreateObj(logic.runtime.DB, &logic.BatchOrder); err != nil {
+	// 在创建前加这一行
+	if err = logic.fillGoodsWeight(logic.runtime.DB, logic.GoodsListRelated); err != nil {
 		return
 	}
+
+	// 创建订单
+	if err = model.CreateObj(logic.runtime.DB, &logic.BatchOrder); err != nil {
+		global.Global.Logger.Error("BatchOrderLogic TempCreate CreateObj", zap.Any("logic.BatchOrder", logic.BatchOrder), zap.Error(err))
+		return
+	}
+
 	logic.SetFeilds()
 	return
+}
+
+func (logic *BatchOrderLogic) fillGoodsWeight(db *gorm.DB, list []*model.BatchOrderGoods) error {
+	if len(list) == 0 {
+		return nil
+	}
+
+	// 1. 收集 goodsUUID
+	var goodsUUIDs []string
+	for _, item := range list {
+		if item.GoodsUUID != "" {
+			goodsUUIDs = append(goodsUUIDs, item.GoodsUUID)
+		}
+	}
+
+	// 2. 一次查库
+	var goodsList []model.Goods
+	if err := db.
+		Where("uid IN ?", goodsUUIDs).
+		Find(&goodsList).Error; err != nil {
+		return err
+	}
+
+	// 3. 转 map
+	goodsMap := make(map[string]model.Goods)
+	for _, g := range goodsList {
+		goodsMap[g.UID] = g
+	}
+
+	// 4. 计算 weight
+	for _, item := range list {
+		goods, ok := goodsMap[item.GoodsUUID]
+		if !ok {
+			continue
+		}
+
+		// 定装：weight = mount * goods.weight
+		if goods.Typ == common.GoodsTypeFix {
+			item.Weight = utils.FloatReserve(float64(item.Mount)*goods.Weight, 1)
+		}
+
+		// 将散装设置成0
+		if goods.Typ == common.GoodsTypeBulk {
+			item.Mount = 0
+		}
+	}
+
+	return nil
 }
 
 // 下单
@@ -92,6 +144,11 @@ func (logic *BatchOrderLogic) Create(tx *gorm.DB) (err error) {
 		goods.OwnerUser = logic.OwnerUser
 		goods.BatchUUID = logic.BatchUUID
 		goods.UserUUID = logic.UserUUID
+	}
+
+	// ✅ 计算 weight（核心复用）
+	if err = logic.fillGoodsWeight(tx, logic.GoodsListRelated); err != nil {
+		return
 	}
 
 	if err = model.CreateObj(tx, &logic.BatchOrder); err != nil {
@@ -160,16 +217,22 @@ func (logic *BatchOrderLogic) FindLatestGoods(goodsUUIDList []string) (goodsOrde
 			model.NewWhereCond("goods_uuid", goodsUUID),
 			model.CreatedOrderAscCond(),
 		}
+		// todo BatchOrderGoods需要加索引
 		var goodsOrder model.BatchOrderGoods
-		var _price float32
+		var _price float64
 		if err = model.First(logic.runtime.DB, &goodsOrder, conds...); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				err = nil
+				var goods model.Goods
+				if err = model.First(logic.runtime.DB, &goods, model.NewWhereCond("uid", goodsUUID)); err != nil {
+					return
+				}
+				_price = goods.Price
 			} else {
 				return
 			}
+		} else {
+			_price = goodsOrder.Price
 		}
-		_price = goodsOrder.Price
 		goodsOrderList = append(goodsOrderList, BatchOrderGoodsOrder{
 			GoodsUUID: goodsUUID,
 			Price:     _price,
@@ -205,7 +268,6 @@ func (logic *BatchOrderLogic) SetCustomerFeild() (err error) {
 }
 
 func (logic *BatchOrderLogic) List(userUUID string, startTime, endTime int64, status int32, limitCond model.LimitCond) (orderList []*model.BatchOrder, err error) {
-
 	conds := []model.Cond{
 		limitCond,
 		model.NewWhereCond("owner_user", logic.OwnerUser),
@@ -229,6 +291,7 @@ func (logic *BatchOrderLogic) List(userUUID string, startTime, endTime int64, st
 	}
 
 	logic.BatchFeilds(orderList)
+
 	return
 }
 
@@ -258,6 +321,7 @@ func (logic *BatchOrderLogic) BatchFeilds(orderList []*model.BatchOrder) {
 		for _, o := range orderList {
 			for _, g := range o.GoodsListRelated {
 				g.GoodsFeild = _gm[g.GoodsUUID]
+				g.SetTotal()
 			}
 		}
 		wg.Done()
@@ -304,13 +368,12 @@ func (logic *BatchOrderLogic) Record(loadself bool, stepType int32, pay model.Pa
 		}
 		logic.BatchOrder.Record(logic.runtime.DB, stepType, pay)
 	}()
-	return
 }
 
 func (logic *BatchOrderLogic) LoadHistory() (err error) {
 	var history model.BatchOrderHistory
 	if err = model.First(logic.runtime.DB, &history, model.NewWhereCond("batch_order_uuid", logic.UID)); err != nil {
-		global.Global.Logger.Error(fmt.Sprintf("BatchOrderLogic LoadHistory err", err))
+		logic.runtime.Logger.Error("BatchOrderLogic LoadHistory", zap.Error(err))
 		return
 	}
 	if history.UID != "" {

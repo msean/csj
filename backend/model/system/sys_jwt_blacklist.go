@@ -1,7 +1,7 @@
 package system
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/msean/csj/backend/global"
 )
 
 type JwtBlacklist struct {

@@ -50,6 +50,7 @@ func NewMysql(dbconf DBConf) (*gorm.DB, error) {
 			),
 		}
 	} else {
+		// engine.SetLogger(xorm.NewSimpleLogger(logger.Xlogger))
 		l := zapgorm2.New(Global.Logger)
 		l.LogLevel = logger.Info
 		l.SetAsDefault()

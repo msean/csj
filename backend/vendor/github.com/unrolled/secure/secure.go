@@ -11,26 +11,28 @@ import (
 type secureCtxKey string
 
 const (
-	stsHeader               = "Strict-Transport-Security"
-	stsSubdomainString      = "; includeSubDomains"
-	stsPreloadString        = "; preload"
-	frameOptionsHeader      = "X-Frame-Options"
-	frameOptionsValue       = "DENY"
-	contentTypeHeader       = "X-Content-Type-Options"
-	contentTypeValue        = "nosniff"
-	xssProtectionHeader     = "X-XSS-Protection"
-	xssProtectionValue      = "1; mode=block"
-	cspHeader               = "Content-Security-Policy"
-	cspReportOnlyHeader     = "Content-Security-Policy-Report-Only"
-	hpkpHeader              = "Public-Key-Pins"
-	referrerPolicyHeader    = "Referrer-Policy"
-	featurePolicyHeader     = "Feature-Policy"
-	permissionsPolicyHeader = "Permissions-Policy"
-	expectCTHeader          = "Expect-CT"
-	coopHeader              = "Cross-Origin-Opener-Policy"
-
-	ctxDefaultSecureHeaderKey = secureCtxKey("SecureResponseHeader")
-	cspNonceSize              = 16
+	stsHeader                    = "Strict-Transport-Security"
+	stsSubdomainString           = "; includeSubDomains"
+	stsPreloadString             = "; preload"
+	frameOptionsHeader           = "X-Frame-Options"
+	frameOptionsValue            = "DENY"
+	contentTypeHeader            = "X-Content-Type-Options"
+	contentTypeValue             = "nosniff"
+	xssProtectionHeader          = "X-XSS-Protection"
+	xssProtectionValue           = "1; mode=block"
+	cspHeader                    = "Content-Security-Policy"
+	cspReportOnlyHeader          = "Content-Security-Policy-Report-Only"
+	hpkpHeader                   = "Public-Key-Pins"
+	referrerPolicyHeader         = "Referrer-Policy"
+	featurePolicyHeader          = "Feature-Policy"
+	permissionsPolicyHeader      = "Permissions-Policy"
+	coopHeader                   = "Cross-Origin-Opener-Policy"
+	coepHeader                   = "Cross-Origin-Embedder-Policy"
+	corpHeader                   = "Cross-Origin-Resource-Policy"
+	dnsPreFetchControlHeader     = "X-DNS-Prefetch-Control"
+	permittedCrossDomainPolicies = "X-Permitted-Cross-Domain-Policies"
+	ctxDefaultSecureHeaderKey    = secureCtxKey("SecureResponseHeader")
+	cspNonceSize                 = 16
 )
 
 // SSLHostFunc is a custom function type that can be used to dynamically set the SSL host of a request.
@@ -39,18 +41,18 @@ type SSLHostFunc func(host string) (newHost string)
 // AllowRequestFunc is a custom function type that can be used to dynamically determine if a request should proceed or not.
 type AllowRequestFunc func(r *http.Request) bool
 
-func defaultBadHostHandler(w http.ResponseWriter, r *http.Request) {
+func defaultBadHostHandler(w http.ResponseWriter, _ *http.Request) {
 	http.Error(w, "Bad Host", http.StatusInternalServerError)
 }
 
-func defaultBadRequestHandler(w http.ResponseWriter, r *http.Request) {
+func defaultBadRequestHandler(w http.ResponseWriter, _ *http.Request) {
 	http.Error(w, "Bad Request", http.StatusBadRequest)
 }
 
 // Options is a struct for specifying configuration options for the secure.Secure middleware.
 type Options struct {
 	// If BrowserXssFilter is true, adds the X-XSS-Protection header with the value `1; mode=block`. Default is false.
-	BrowserXssFilter bool //nolint:stylecheck
+	BrowserXssFilter bool //nolint:stylecheck,revive
 	// If ContentTypeNosniff is true, adds the X-Content-Type-Options header with the value `nosniff`. Default is false.
 	ContentTypeNosniff bool
 	// If ForceSTSHeader is set to true, the STS header will be added even when the connection is HTTP. Default is false.
@@ -66,7 +68,7 @@ type Options struct {
 	SSLRedirect bool
 	// If SSLForceHost is true and SSLHost is set, requests will be forced to use SSLHost even the ones that are already using SSL. Default is false.
 	SSLForceHost bool
-	// If SSLTemporaryRedirect is true, the a 302 will be used while redirecting. Default is false (301).
+	// If SSLTemporaryRedirect is true, then a 307 will be used while redirecting. Default is false (301).
 	SSLTemporaryRedirect bool
 	// If STSIncludeSubdomains is set to true, the `includeSubdomains` will be appended to the Strict-Transport-Security header. Default is false.
 	STSIncludeSubdomains bool
@@ -77,14 +79,11 @@ type Options struct {
 	// ContentSecurityPolicyReportOnly allows the Content-Security-Policy-Report-Only header value to be set with a custom value. Default is "".
 	ContentSecurityPolicyReportOnly string
 	// CustomBrowserXssValue allows the X-XSS-Protection header value to be set with a custom value. This overrides the BrowserXssFilter option. Default is "".
-	CustomBrowserXssValue string //nolint:stylecheck
+	CustomBrowserXssValue string //nolint:stylecheck,revive
 	// Passing a template string will replace `$NONCE` with a dynamic nonce value of 16 bytes for each request which can be later retrieved using the Nonce function.
 	// Eg: script-src $NONCE -> script-src 'nonce-a2ZobGFoZg=='
 	// CustomFrameOptionsValue allows the X-Frame-Options header value to be set with a custom value. This overrides the FrameDeny option. Default is "".
 	CustomFrameOptionsValue string
-	// PublicKey implements HPKP to prevent MITM attacks with forged certificates. Default is "".
-	// Deprecated: This feature is no longer recommended. Though some browsers might still support it, it may have already been removed from the relevant web standards, may be in the process of being dropped, or may only be kept for compatibility purposes. Avoid using it, and update existing code if possible.
-	PublicKey string
 	// ReferrerPolicy allows sites to control when browsers will pass the Referer header to other sites. Default is "".
 	ReferrerPolicy string
 	// FeaturePolicy allows to selectively enable and disable use of various browser features and APIs. Default is "".
@@ -95,6 +94,18 @@ type Options struct {
 	// CrossOriginOpenerPolicy allows you to ensure a top-level document does not share a browsing context group with cross-origin documents. Default is "".
 	// Reference: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cross-Origin-Opener-Policy
 	CrossOriginOpenerPolicy string
+	// CrossOriginResourcePolicy header blocks others from loading your resources cross-origin in some cases.
+	// Reference https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cross-Origin-Opener-Policy
+	CrossOriginResourcePolicy string
+	// CrossOriginEmbedderPolicy header helps control what resources can be loaded cross-origin.
+	// Reference https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cross-Origin-Embedder-Policy
+	CrossOriginEmbedderPolicy string
+	// XDNSPrefetchControl header helps control DNS prefetching, which can improve user privacy at the expense of performance.
+	// Reference: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-DNS-Prefetch-Control
+	XDNSPrefetchControl string
+	// XPermittedCrossDomainPolicies header tells some clients (mostly Adobe products) your domain's policy for loading cross-domain content.
+	// Reference: https://owasp.org/www-project-secure-headers/
+	XPermittedCrossDomainPolicies string
 	// SSLHost is the host name that is used to redirect http requests to https. Default is "", which indicates to use the same host.
 	SSLHost string
 	// AllowedHosts is a slice of fully qualified domain names that are allowed. Default is an empty slice, which allows any and all host names.
@@ -102,18 +113,16 @@ type Options struct {
 	// AllowedHostsAreRegex determines, if the provided `AllowedHosts` slice contains valid regular expressions. If this flag is set to true, every request's host will be checked against these expressions. Default is false.
 	AllowedHostsAreRegex bool
 	// AllowRequestFunc is a custom function that allows you to determine if the request should proceed or not based on your own custom logic. Default is nil.
-	AllowRequestFunc AllowRequestFunc
+	AllowRequestFunc AllowRequestFunc `json:"-" toml:"-" yaml:"-"`
 	// HostsProxyHeaders is a set of header keys that may hold a proxied hostname value for the request.
 	HostsProxyHeaders []string
 	// SSLHostFunc is a function pointer, the return value of the function is the host name that has same functionality as `SSHost`. Default is nil.
 	// If SSLHostFunc is nil, the `SSLHost` option will be used.
-	SSLHostFunc *SSLHostFunc
+	SSLHostFunc *SSLHostFunc `json:"-" toml:"-" yaml:"-"`
 	// SSLProxyHeaders is set of header keys with associated values that would indicate a valid https request. Useful when using Nginx: `map[string]string{"X-Forwarded-Proto": "https"}`. Default is blank map.
 	SSLProxyHeaders map[string]string
 	// STSSeconds is the max-age of the Strict-Transport-Security header. Default is 0, which would NOT include the header.
 	STSSeconds int64
-	// ExpectCTHeader allows the Expect-CT header value to be set with a custom value. Default is "".
-	ExpectCTHeader string
 	// SecureContextKey allows a custom key to be specified for context storage.
 	SecureContextKey string
 }
@@ -165,6 +174,7 @@ func New(options ...Options) *Secure {
 			if err != nil {
 				panic(fmt.Sprintf("Error parsing AllowedHost: %s", err))
 			}
+
 			s.cRegexAllowedHosts = append(s.cRegexAllowedHosts, regex)
 		}
 	}
@@ -211,8 +221,6 @@ func (s *Secure) HandlerForRequestOnly(h http.Handler) http.Handler {
 		// Let secure process the request. If it returns an error,
 		// that indicates the request should not continue.
 		responseHeader, r, err := s.processRequest(w, r)
-
-		// If there was an error, do not continue.
 		if err != nil {
 			return
 		}
@@ -299,9 +307,11 @@ func (s *Secure) processRequest(w http.ResponseWriter, r *http.Request) (http.He
 
 	// Resolve the host for the request, using proxy headers if present.
 	host := r.Host
+
 	for _, header := range s.opt.HostsProxyHeaders {
 		if h := r.Header.Get(header); h != "" {
 			host = h
+
 			break
 		}
 	}
@@ -309,10 +319,12 @@ func (s *Secure) processRequest(w http.ResponseWriter, r *http.Request) (http.He
 	// Allowed hosts check.
 	if len(s.opt.AllowedHosts) > 0 && !s.opt.IsDevelopment {
 		isGoodHost := false
+
 		if s.opt.AllowedHostsAreRegex {
 			for _, allowedHost := range s.cRegexAllowedHosts {
 				if match := allowedHost.MatchString(host); match {
 					isGoodHost = true
+
 					break
 				}
 			}
@@ -320,12 +332,15 @@ func (s *Secure) processRequest(w http.ResponseWriter, r *http.Request) (http.He
 			for _, allowedHost := range s.opt.AllowedHosts {
 				if strings.EqualFold(allowedHost, host) {
 					isGoodHost = true
+
 					break
 				}
 			}
 		}
+
 		if !isGoodHost {
 			s.badHostHandler.ServeHTTP(w, r)
+
 			return nil, nil, fmt.Errorf("bad host name: %s", host)
 		}
 	}
@@ -353,22 +368,25 @@ func (s *Secure) processRequest(w http.ResponseWriter, r *http.Request) (http.He
 		}
 
 		http.Redirect(w, r, url.String(), status)
+
 		return nil, nil, fmt.Errorf("redirecting to HTTPS")
 	}
 
 	if s.opt.SSLForceHost {
-		var SSLHost = host
+		tempSSLHost := host
+
 		if s.opt.SSLHostFunc != nil {
 			if h := (*s.opt.SSLHostFunc)(host); len(h) > 0 {
-				SSLHost = h
+				tempSSLHost = h
 			}
 		} else if len(s.opt.SSLHost) > 0 {
-			SSLHost = s.opt.SSLHost
+			tempSSLHost = s.opt.SSLHost
 		}
-		if SSLHost != host {
+
+		if tempSSLHost != host {
 			url := r.URL
 			url.Scheme = "https"
-			url.Host = SSLHost
+			url.Host = tempSSLHost
 
 			status := http.StatusMovedPermanently
 			if s.opt.SSLTemporaryRedirect {
@@ -376,6 +394,7 @@ func (s *Secure) processRequest(w http.ResponseWriter, r *http.Request) (http.He
 			}
 
 			http.Redirect(w, r, url.String(), status)
+
 			return nil, nil, fmt.Errorf("redirecting to HTTPS")
 		}
 	}
@@ -383,6 +402,7 @@ func (s *Secure) processRequest(w http.ResponseWriter, r *http.Request) (http.He
 	// If the AllowRequestFunc is set, call it and exit early if needed.
 	if s.opt.AllowRequestFunc != nil && !s.opt.AllowRequestFunc(r) {
 		s.badRequestHandler.ServeHTTP(w, r)
+
 		return nil, nil, fmt.Errorf("request not allowed")
 	}
 
@@ -423,11 +443,6 @@ func (s *Secure) processRequest(w http.ResponseWriter, r *http.Request) (http.He
 		responseHeader.Set(xssProtectionHeader, xssProtectionValue)
 	}
 
-	// HPKP header.
-	if len(s.opt.PublicKey) > 0 && ssl && !s.opt.IsDevelopment {
-		responseHeader.Set(hpkpHeader, s.opt.PublicKey)
-	}
-
 	// Content Security Policy header.
 	if len(s.opt.ContentSecurityPolicy) > 0 {
 		if s.opt.nonceEnabled {
@@ -466,9 +481,27 @@ func (s *Secure) processRequest(w http.ResponseWriter, r *http.Request) (http.He
 		responseHeader.Set(coopHeader, s.opt.CrossOriginOpenerPolicy)
 	}
 
-	// Expect-CT header.
-	if len(s.opt.ExpectCTHeader) > 0 {
-		responseHeader.Set(expectCTHeader, s.opt.ExpectCTHeader)
+	// Cross Origin Resource Policy header.
+	if len(s.opt.CrossOriginResourcePolicy) > 0 {
+		responseHeader.Set(corpHeader, s.opt.CrossOriginResourcePolicy)
+	}
+
+	// Cross-Origin-Embedder-Policy header.
+	if len(s.opt.CrossOriginEmbedderPolicy) > 0 {
+		responseHeader.Set(coepHeader, s.opt.CrossOriginEmbedderPolicy)
+	}
+
+	// X-DNS-Prefetch-Control header.
+	switch strings.ToLower(s.opt.XDNSPrefetchControl) {
+	case "on":
+		responseHeader.Set(dnsPreFetchControlHeader, "on")
+	case "off":
+		responseHeader.Set(dnsPreFetchControlHeader, "off")
+	}
+
+	// X-Permitted-Cross-Domain-Policies header.
+	if len(s.opt.XPermittedCrossDomainPolicies) > 0 {
+		responseHeader.Set(permittedCrossDomainPolicies, s.opt.XPermittedCrossDomainPolicies)
 	}
 
 	return responseHeader, r, nil
@@ -481,10 +514,12 @@ func (s *Secure) isSSL(r *http.Request) bool {
 		for k, v := range s.opt.SSLProxyHeaders {
 			if r.Header.Get(k) == v {
 				ssl = true
+
 				break
 			}
 		}
 	}
+
 	return ssl
 }
 
@@ -507,12 +542,14 @@ func (s *Secure) ModifyResponseHeaders(res *http.Response) error {
 
 		responseHeader := res.Request.Context().Value(s.ctxSecureHeaderKey)
 		if responseHeader != nil {
-			for header, values := range responseHeader.(http.Header) {
+			headers, _ := responseHeader.(http.Header)
+			for header, values := range headers {
 				if len(values) > 0 {
 					res.Header.Set(header, strings.Join(values, ","))
 				}
 			}
 		}
 	}
+
 	return nil
 }

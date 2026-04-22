@@ -3,15 +3,16 @@ package system
 import (
 	"context"
 	"errors"
-	"github.com/flipped-aurora/gin-vue-admin/server/config"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils"
-	"github.com/gofrs/uuid/v5"
+	"path/filepath"
+
+	"github.com/google/uuid"
 	"github.com/gookit/color"
+	"github.com/msean/csj/backend/config"
+	"github.com/msean/csj/backend/global"
+	"github.com/msean/csj/backend/model/system/request"
+	"github.com/msean/csj/backend/utils"
 	"gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
-	"path/filepath"
 )
 
 type MssqlInitHandler struct{}
@@ -28,11 +29,12 @@ func (h MssqlInitHandler) WriteConfig(ctx context.Context) error {
 	}
 	global.GVA_CONFIG.System.DbType = "mssql"
 	global.GVA_CONFIG.Mssql = c
-	global.GVA_CONFIG.JWT.SigningKey = uuid.Must(uuid.NewV4()).String()
+	global.GVA_CONFIG.JWT.SigningKey = uuid.New().String()
 	cs := utils.StructToMap(global.GVA_CONFIG)
 	for k, v := range cs {
 		global.GVA_VP.Set(k, v)
 	}
+	global.GVA_ACTIVE_DBNAME = &c.Dbname
 	return global.GVA_VP.WriteConfig()
 }
 

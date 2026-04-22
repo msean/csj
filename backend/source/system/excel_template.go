@@ -2,8 +2,9 @@ package system
 
 import (
 	"context"
-	sysModel "github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	"github.com/flipped-aurora/gin-vue-admin/server/service/system"
+
+	sysModel "github.com/msean/csj/backend/model/system"
+	"github.com/msean/csj/backend/service/system"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -17,7 +18,7 @@ func init() {
 	system.RegisterInit(initOrderExcelTemplate, &initExcelTemplate{})
 }
 
-func (i initExcelTemplate) InitializerName() string {
+func (i *initExcelTemplate) InitializerName() string {
 	return "sys_export_templates"
 }
 

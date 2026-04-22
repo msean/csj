@@ -3,8 +3,8 @@ package upload
 import (
 	"mime/multipart"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/huaweicloud/huaweicloud-sdk-go-obs/obs"
+	"github.com/msean/csj/backend/global"
 	"github.com/pkg/errors"
 )
 
@@ -30,7 +30,9 @@ func (o *Obs) UploadFile(file *multipart.FileHeader) (string, string, error) {
 				Bucket: global.GVA_CONFIG.HuaWeiObs.Bucket,
 				Key:    filename,
 			},
-			ContentType: file.Header.Get("content-type"),
+			HttpHeader: obs.HttpHeader{
+				ContentType: file.Header.Get("content-type"),
+			},
 		},
 		Body: open,
 	}

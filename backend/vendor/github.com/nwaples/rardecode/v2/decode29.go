@@ -1,6 +1,7 @@
 package rardecode
 
 import (
+	"bytes"
 	"errors"
 	"io"
 )
@@ -38,7 +39,7 @@ type decoder29 struct {
 func (d *decoder29) version() int { return decode29Ver }
 
 // init intializes the decoder for decoding a new file.
-func (d *decoder29) init(r byteReader, reset bool, size int64) {
+func (d *decoder29) init(r byteReader, reset bool, size int64, ver int) {
 	if d.br == nil {
 		d.br = newRarBitReader(r)
 	} else {
@@ -70,10 +71,10 @@ func readVMCode(br *rarBitReader) ([]byte, error) {
 		return nil, err
 	}
 	if n > maxCodeSize || n == 0 {
-		return nil, errInvalidFilter
+		return nil, ErrInvalidFilter
 	}
 	buf := make([]byte, n)
-	err = br.readFull(buf)
+	_, err = io.ReadFull(br, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -83,14 +84,14 @@ func readVMCode(br *rarBitReader) ([]byte, error) {
 	}
 	// simple xor checksum on data
 	if x != buf[0] {
-		return nil, errInvalidFilter
+		return nil, ErrInvalidFilter
 	}
 	return buf, nil
 }
 
 func (d *decoder29) parseVMFilter(buf []byte) (*filterBlock, error) {
 	flags := buf[0]
-	br := &rarBitReader{b: buf[1:]}
+	br := newRarBitReader(bytes.NewReader(buf[1:]))
 	fb := new(filterBlock)
 
 	// Find the filter number which is an index into d.filters.
@@ -105,10 +106,10 @@ func (d *decoder29) parseVMFilter(buf []byte) (*filterBlock, error) {
 		} else {
 			n--
 			if n > maxUniqueFilters {
-				return nil, errInvalidFilter
+				return nil, ErrInvalidFilter
 			}
 			if int(n) > len(d.filters) {
-				return nil, errInvalidFilter
+				return nil, ErrInvalidFilter
 			}
 		}
 		d.fnum = int(n)
@@ -178,10 +179,10 @@ func (d *decoder29) parseVMFilter(buf []byte) (*filterBlock, error) {
 			return nil, err
 		}
 		if n > vmGlobalSize-vmFixedGlobalSize {
-			return nil, errInvalidFilter
+			return nil, ErrInvalidFilter
 		}
 		g = make([]byte, n)
-		err = br.readFull(g)
+		_, err = io.ReadFull(br, g)
 		if err != nil {
 			return nil, err
 		}
@@ -204,7 +205,7 @@ func (d *decoder29) readBlockHeader() error {
 		if n > 0 {
 			d.isPPM = true
 			if d.ppm == nil {
-				d.ppm = new(ppm29Decoder)
+				d.ppm = newPPM29Decoder()
 			}
 			err = d.ppm.init(d.br)
 		} else {
@@ -216,7 +217,7 @@ func (d *decoder29) readBlockHeader() error {
 		}
 	}
 	if err == io.EOF {
-		err = errDecoderOutOfData
+		err = ErrDecoderOutOfData
 	}
 	d.hdrRead = true
 	return err
@@ -263,7 +264,7 @@ func (d *decoder29) fill(dr *decodeReader) error {
 			d.hdrRead = false
 			err = io.EOF
 		case io.EOF:
-			err = errDecoderOutOfData
+			err = ErrDecoderOutOfData
 		}
 		return err
 	}

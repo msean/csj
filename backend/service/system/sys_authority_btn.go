@@ -2,18 +2,21 @@ package system
 
 import (
 	"errors"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system/response"
+
+	"github.com/msean/csj/backend/global"
+	"github.com/msean/csj/backend/model/system"
+	"github.com/msean/csj/backend/model/system/request"
+	"github.com/msean/csj/backend/model/system/response"
 	"gorm.io/gorm"
 )
 
 type AuthorityBtnService struct{}
 
+var AuthorityBtnServiceApp = new(AuthorityBtnService)
+
 func (a *AuthorityBtnService) GetAuthorityBtn(req request.SysAuthorityBtnReq) (res response.SysAuthorityBtnRes, err error) {
 	var authorityBtn []system.SysAuthorityBtn
-	err = global.GVA_DB.Find(&authorityBtn, "authority_id = ? and sys_menu_id = ?", req.AuthorityId, req.MenuID).Error
+	err = global.GVA_MYSQL.Find(&authorityBtn, "authority_id = ? and sys_menu_id = ?", req.AuthorityId, req.MenuID).Error
 	if err != nil {
 		return
 	}
@@ -26,7 +29,7 @@ func (a *AuthorityBtnService) GetAuthorityBtn(req request.SysAuthorityBtnReq) (r
 }
 
 func (a *AuthorityBtnService) SetAuthorityBtn(req request.SysAuthorityBtnReq) (err error) {
-	return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
+	return global.GVA_MYSQL.Transaction(func(tx *gorm.DB) error {
 		var authorityBtn []system.SysAuthorityBtn
 		err = tx.Delete(&[]system.SysAuthorityBtn{}, "authority_id = ? and sys_menu_id = ?", req.AuthorityId, req.MenuID).Error
 		if err != nil {
@@ -50,7 +53,7 @@ func (a *AuthorityBtnService) SetAuthorityBtn(req request.SysAuthorityBtnReq) (e
 }
 
 func (a *AuthorityBtnService) CanRemoveAuthorityBtn(ID string) (err error) {
-	fErr := global.GVA_DB.First(&system.SysAuthorityBtn{}, "sys_base_menu_btn_id = ?", ID).Error
+	fErr := global.GVA_MYSQL.First(&system.SysAuthorityBtn{}, "sys_base_menu_btn_id = ?", ID).Error
 	if errors.Is(fErr, gorm.ErrRecordNotFound) {
 		return nil
 	}

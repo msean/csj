@@ -1,0 +1,4 @@
+/*! 
+ Build based on gin-vue-admin 
+ Time : 1776745549000 */
+import{_ as e}from"./087AC4D233B64EB0_plugin-vue_export-helper.BCo6x5W8.js";import{J as s,c as l,e as a,g as i}from"./087AC4D233B64EB0index.PUSIA8Zk.js";const o={class:"media"},r=["src"],p={key:1,class:"sticker-placeholder"},t=["src"],c=e({__name:"ChatMedia",props:{msg:Object},setup(e){const c=e,m=s(()=>"photo"===c.msg.fileType),d=s(()=>"video"===c.msg.fileType);s(()=>"voice"===c.msg.fileType),s(()=>"audio"===c.msg.fileType);const n=s(()=>"sticker"===c.msg.fileType);return(s,c)=>(a(),l("div",o,[m.value?(a(),l("img",{key:0,src:e.msg.fileUrl,class:"photo"},null,8,r)):n.value?(a(),l("div",p," <表情包> ")):d.value?(a(),l("video",{key:2,src:e.msg.fileUrl,controls:"",playsinline:"",preload:"metadata",class:"video"},null,8,t)):i("",!0)]))}},[["__scopeId","data-v-e54205e0"]]);export{c as default};

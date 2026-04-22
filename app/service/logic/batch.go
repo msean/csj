@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -109,16 +110,35 @@ func (logic *BatchLogic) Create() (err error) {
 	if err = model.Find(logic.runtime.DB, &_b, model.WhereSerialNoCond(model.SerioalNo(time.Now()))); err != nil {
 		return
 	}
-	// 当天只能创建一个批次
-	if _b.UID != "" {
+	// 当天只能创建一个批次 测试环境
+	if _b.UID != "" && global.Global.Env() != "test" {
 		err = common.BatchDuplicateErr
 		return
 	}
 
+	var batchGoods []model.Goods
+	var _goodsUIDList []string
+	goodsUIDMap := make(map[string]model.Goods)
+
+	for _, goods := range logic.GoodsListRelated {
+		_goodsUIDList = append(_goodsUIDList, goods.GoodsUUID)
+	}
+
+	if err = model.Find(logic.runtime.DB, &batchGoods, model.InUIDCondFromString(_goodsUIDList)); err != nil {
+		logic.runtime.Logger.Error("BatchLogic Create", zap.Any("_b", _b))
+		return
+	}
+
+	logic.runtime.Logger.Error("BatchLogic Create", zap.Any("batchGoods", batchGoods))
+	for _, goods := range batchGoods {
+		goodsUIDMap[goods.UID] = goods
+	}
 	logic.Default()
 	for _, goods := range logic.GoodsListRelated {
 		goods.SerialNo = logic.SerialNo
 		goods.OwnerUser = logic.OwnerUser
+		goods.GoodType = int(goodsUIDMap[goods.GoodsUUID].Typ)
+
 	}
 
 	return model.CreateObj(logic.runtime.DB, &logic.Batch)
@@ -169,6 +189,7 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 	}
 
 	surplusM, e := model.SetSurplusByBatch(logic.runtime.DB, logic.UID)
+
 	if e != nil {
 		err = e
 		return

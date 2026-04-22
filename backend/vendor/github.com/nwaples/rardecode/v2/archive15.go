@@ -6,7 +6,7 @@ import (
 	"errors"
 	"hash/crc32"
 	"io"
-	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +17,7 @@ const (
 	// block types
 	blockArc     = 0x73
 	blockFile    = 0x74
+	blockComment = 0x75
 	blockService = 0x7a
 	blockEnd     = 0x7b
 
@@ -25,6 +26,7 @@ const (
 
 	// archive block flags
 	arcVolume    = 0x0001
+	arcComment   = 0x0002
 	arcSolid     = 0x0008
 	arcNewNaming = 0x0010
 	arcEncrypted = 0x0080
@@ -50,7 +52,7 @@ const (
 )
 
 var (
-	errUnsupportedDecoder = errors.New("rardecode: unsupported decoder version")
+	ErrUnsupportedDecoder = errors.New("rardecode: unsupported decoder version")
 )
 
 type blockHeader15 struct {
@@ -60,11 +62,12 @@ type blockHeader15 struct {
 	dataSize int64   // size of extra block data
 }
 
-// archive15 implements fileBlockReader for RAR 1.5 file format archives
+// archive15 implements archiveBlockReader for RAR 1.5 file format archives
 type archive15 struct {
 	multi     bool // archive is multi-volume
 	solid     bool // archive is a solid archive
 	encrypted bool
+	oldNaming bool
 	pass      []uint16              // password in UTF-16
 	keyCache  [cacheSize30]struct { // cache of previously calculated decryption keys
 		salt []byte
@@ -73,10 +76,8 @@ type archive15 struct {
 	}
 }
 
-func (a *archive15) clone() fileBlockReader {
-	na := new(archive15)
-	*na = *a
-	return na
+func (a *archive15) useOldNaming() bool {
+	return a.oldNaming
 }
 
 // Calculates the key and iv for AES decryption given a password and salt.
@@ -233,7 +234,7 @@ func (a *archive15) getKeys(salt []byte) (key, iv []byte) {
 
 	// save a copy in the cache
 	copy(a.keyCache[1:], a.keyCache[:])
-	a.keyCache[0].salt = append([]byte(nil), salt...) // copy so byte slice can be reused
+	a.keyCache[0].salt = slices.Clone(salt) // copy so byte slice can be reused
 	a.keyCache[0].key = key
 	a.keyCache[0].iv = iv
 
@@ -248,14 +249,16 @@ func (a *archive15) parseFileHeader(h *blockHeader15) (*fileBlockHeader, error) 
 
 	f.Solid = h.flags&fileSolid > 0
 	f.arcSolid = a.solid
+	f.Encrypted = h.flags&fileEncrypted > 0
+	f.HeaderEncrypted = a.encrypted
 	f.IsDir = h.flags&fileWindowMask == fileWindowMask
 	if !f.IsDir {
-		f.winSize = uint(h.flags&fileWindowMask)>>5 + 16
+		f.winSize = 0x10000 << ((h.flags & fileWindowMask) >> 5)
 	}
 
 	b := h.data
 	if len(b) < 21 {
-		return nil, errCorruptFileHeader
+		return nil, ErrCorruptFileHeader
 	}
 
 	f.PackedSize = h.dataSize
@@ -264,7 +267,7 @@ func (a *archive15) parseFileHeader(h *blockHeader15) (*fileBlockHeader, error) 
 	if f.HostOS > HostOSBeOS {
 		f.HostOS = HostOSUnknown
 	}
-	f.sum = append([]byte(nil), b.bytes(4)...)
+	f.sum = slices.Clone(b.bytes(4))
 
 	f.ModificationTime = parseDosTime(b.uint32())
 	unpackver := b.byte()     // decoder version
@@ -273,7 +276,7 @@ func (a *archive15) parseFileHeader(h *blockHeader15) (*fileBlockHeader, error) 
 	f.Attributes = int64(b.uint32())
 	if h.flags&fileLargeData > 0 {
 		if len(b) < 8 {
-			return nil, errCorruptFileHeader
+			return nil, ErrCorruptFileHeader
 		}
 		_ = b.uint32() // already read large PackedSize in readBlockHeader
 		f.UnPackedSize |= int64(b.uint32()) << 32
@@ -283,7 +286,7 @@ func (a *archive15) parseFileHeader(h *blockHeader15) (*fileBlockHeader, error) 
 		f.UnPackedSize = -1
 	}
 	if len(b) < namesize {
-		return nil, errCorruptFileHeader
+		return nil, ErrCorruptFileHeader
 	}
 	name := b.bytes(namesize)
 	if h.flags&fileUnicode == 0 {
@@ -309,9 +312,9 @@ func (a *archive15) parseFileHeader(h *blockHeader15) (*fileBlockHeader, error) 
 	var salt []byte
 	if h.flags&fileSalt > 0 {
 		if len(b) < saltSize {
-			return nil, errCorruptFileHeader
+			return nil, ErrCorruptFileHeader
 		}
-		salt = b.bytes(saltSize)
+		salt = slices.Clone(b.bytes(saltSize))
 	}
 	if h.flags&fileExtTime > 0 {
 		readExtTimes(f, &b)
@@ -321,55 +324,81 @@ func (a *archive15) parseFileHeader(h *blockHeader15) (*fileBlockHeader, error) 
 		return f, nil
 	}
 	// fields only needed for first block in a file
-	if h.flags&fileEncrypted > 0 && len(salt) == saltSize {
+	if f.Encrypted && len(salt) == saltSize && a.pass != nil {
 		f.key, f.iv = a.getKeys(salt)
 	}
 	f.hash = newLittleEndianCRC32
 	if method != 0 {
 		switch unpackver {
 		case 15:
-			return nil, errUnsupportedDecoder
+			return nil, ErrUnsupportedDecoder
 		case 20, 26:
 			f.decVer = decode20Ver
 		case 29:
 			f.decVer = decode29Ver
 		default:
-			return nil, errUnknownDecoder
+			return nil, ErrUnknownDecoder
 		}
 	}
 	return f, nil
 }
 
+func (a *archive15) parseArcBlock(h *blockHeader15) error {
+	a.encrypted = h.flags&arcEncrypted > 0
+	a.multi = h.flags&arcVolume > 0
+	a.oldNaming = h.flags&arcNewNaming == 0
+	a.solid = h.flags&arcSolid > 0
+	if a.encrypted && a.pass == nil {
+		return ErrArchiveEncrypted
+	}
+	return nil
+}
+
 // readBlockHeader returns the next block header in the archive.
 // It will return io.EOF if there were no bytes read.
-func (a *archive15) readBlockHeader(r sliceReader) (*blockHeader15, error) {
+func (a *archive15) readBlockHeader(r byteReader) (*blockHeader15, error) {
 	if a.encrypted {
-		salt, err := r.readSlice(saltSize)
+		if a.pass == nil {
+			return nil, ErrArchiveEncrypted
+		}
+		salt := make([]byte, saltSize)
+		_, err := io.ReadFull(r, salt)
 		if err != nil {
 			return nil, err
 		}
 		key, iv := a.getKeys(salt)
-		r = newAesSliceReader(r, key, iv)
+		r, err = newAesDecryptReader(r, key, iv)
+		if err != nil {
+			return nil, err
+		}
 	}
-	var b readBuf
-	var err error
-	// peek to find the header size
-	b, err = r.peek(7)
+	sizeBuf := make([]byte, 7)
+	_, err := io.ReadFull(r, sizeBuf)
 	if err != nil {
 		if err == io.EOF && a.encrypted {
 			err = io.ErrUnexpectedEOF
 		}
 		return nil, err
 	}
+	b := readBuf(sizeBuf)
 	crc := b.uint16()
 	h := new(blockHeader15)
 	h.htype = b.byte()
 	h.flags = b.uint16()
 	size := int(b.uint16())
-	if size < 7 {
-		return nil, errCorruptHeader
+	if h.htype == blockArc && h.flags&arcComment > 0 {
+		// comment block embedded into archive block
+		if size < 13 {
+			return nil, ErrCorruptBlockHeader
+		}
+		size = 13
+	} else if size < 7 {
+		return nil, ErrCorruptBlockHeader
 	}
-	h.data, err = r.readSlice(size)
+
+	h.data = make([]byte, size)
+	copy(h.data, sizeBuf)
+	_, err = io.ReadFull(r, h.data[7:])
 	if err != nil {
 		if err == io.EOF {
 			err = io.ErrUnexpectedEOF
@@ -377,20 +406,27 @@ func (a *archive15) readBlockHeader(r sliceReader) (*blockHeader15, error) {
 		return nil, err
 	}
 	hash := crc32.NewIEEE()
-	_, _ = hash.Write(h.data[2:]) // Write should always succeed
+	if h.htype == blockComment {
+		if size < 13 {
+			return nil, ErrCorruptBlockHeader
+		}
+		_, _ = hash.Write(h.data[2:13])
+	} else {
+		_, _ = hash.Write(h.data[2:])
+	}
 	if crc != uint16(hash.Sum32()) {
-		return nil, errBadHeaderCrc
+		return nil, ErrBadHeaderCRC
 	}
 	h.data = h.data[7:]
 	if h.flags&blockHasData > 0 {
 		if len(h.data) < 4 {
-			return nil, errCorruptHeader
+			return nil, ErrCorruptBlockHeader
 		}
 		h.dataSize = int64(h.data.uint32())
 	}
 	if (h.htype == blockService || h.htype == blockFile) && h.flags&fileLargeData > 0 {
 		if len(h.data) < 25 {
-			return nil, errCorruptHeader
+			return nil, ErrCorruptBlockHeader
 		}
 		b := h.data[21:25]
 		h.dataSize |= int64(b.uint32()) << 32
@@ -398,56 +434,56 @@ func (a *archive15) readBlockHeader(r sliceReader) (*blockHeader15, error) {
 	return h, nil
 }
 
-// next advances to the next file block in the archive
-func (a *archive15) next(v *volume) (*fileBlockHeader, error) {
+func (a *archive15) init(br *bufVolumeReader) (int, error) {
+	a.encrypted = false // reset encryption when opening new volume file
+	h, err := a.readBlockHeader(br)
+	if err != nil {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	} else if h.htype != blockArc {
+		err = ErrNoArchiveBlock
+	} else {
+		err = a.parseArcBlock(h)
+	}
+	return -1, err
+}
+
+// nextBlock advances to the next file block in the archive
+func (a *archive15) nextBlock(br *bufVolumeReader) (*fileBlockHeader, error) {
 	for {
 		// could return an io.EOF here as 1.5 archives may not have an end block.
-		h, err := a.readBlockHeader(v)
+		h, err := a.readBlockHeader(br)
 		if err != nil {
-			// if reached end of file without an end block try to open next volume
 			if err == io.EOF {
-				a.encrypted = false // reset encryption when opening new volume file
-				err = v.next()
-				if err == nil {
-					continue
-				}
-				// new volume doesnt exist, assume end of archive
-				if os.IsNotExist(err) {
-					return nil, io.EOF
-				}
+				return nil, errVolumeOrArchiveEnd
 			}
 			return nil, err
 		}
 		switch h.htype {
 		case blockFile:
 			return a.parseFileHeader(h)
-		case blockArc:
-			a.encrypted = h.flags&arcEncrypted > 0
-			a.multi = h.flags&arcVolume > 0
-			if v.num == 0 {
-				v.old = h.flags&arcNewNaming == 0
-			}
-			a.solid = h.flags&arcSolid > 0
 		case blockEnd:
 			if h.flags&endArcNotLast == 0 || !a.multi {
 				return nil, io.EOF
 			}
-			a.encrypted = false // reset encryption when opening new volume file
-			err = v.next()
+			return nil, ErrMultiVolume
 		default:
 			if h.dataSize > 0 {
-				err = v.discard(h.dataSize) // skip over block data
+				err = br.Discard(h.dataSize) // skip over block data
+				if err != nil {
+					return nil, err
+				}
 			}
-		}
-		if err != nil {
-			return nil, err
 		}
 	}
 }
 
-// newArchive15 creates a new fileBlockReader for a Version 1.5 archive
-func newArchive15(password string) *archive15 {
-	a := new(archive15)
-	a.pass = utf16.Encode([]rune(password)) // convert to UTF-16
+// newArchive15 creates a new archiveBlockReader for a Version 1.5 archive
+func newArchive15(password *string) *archive15 {
+	a := &archive15{}
+	if password != nil {
+		a.pass = utf16.Encode([]rune(*password)) // convert to UTF-16
+	}
 	return a
 }

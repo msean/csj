@@ -3,49 +3,53 @@ package system
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	systemReq "github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils"
-	"github.com/xuri/excelize/v2"
-	"gorm.io/gorm"
 	"mime/multipart"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/msean/csj/backend/global"
+	"github.com/msean/csj/backend/model/common/request"
+	"github.com/msean/csj/backend/model/system"
+	systemReq "github.com/msean/csj/backend/model/system/request"
+	"github.com/msean/csj/backend/utils"
+	"github.com/xuri/excelize/v2"
+	"gorm.io/gorm"
 )
 
 type SysExportTemplateService struct {
 }
 
+var SysExportTemplateServiceApp = new(SysExportTemplateService)
+
 // CreateSysExportTemplate 创建导出模板记录
 // Author [piexlmax](https://github.com/piexlmax)
 func (sysExportTemplateService *SysExportTemplateService) CreateSysExportTemplate(sysExportTemplate *system.SysExportTemplate) (err error) {
-	err = global.GVA_DB.Create(sysExportTemplate).Error
+	err = global.GVA_MYSQL.Create(sysExportTemplate).Error
 	return err
 }
 
 // DeleteSysExportTemplate 删除导出模板记录
 // Author [piexlmax](https://github.com/piexlmax)
 func (sysExportTemplateService *SysExportTemplateService) DeleteSysExportTemplate(sysExportTemplate system.SysExportTemplate) (err error) {
-	err = global.GVA_DB.Delete(&sysExportTemplate).Error
+	err = global.GVA_MYSQL.Delete(&sysExportTemplate).Error
 	return err
 }
 
 // DeleteSysExportTemplateByIds 批量删除导出模板记录
 // Author [piexlmax](https://github.com/piexlmax)
 func (sysExportTemplateService *SysExportTemplateService) DeleteSysExportTemplateByIds(ids request.IdsReq) (err error) {
-	err = global.GVA_DB.Delete(&[]system.SysExportTemplate{}, "id in ?", ids.Ids).Error
+	err = global.GVA_MYSQL.Delete(&[]system.SysExportTemplate{}, "id in ?", ids.Ids).Error
 	return err
 }
 
 // UpdateSysExportTemplate 更新导出模板记录
 // Author [piexlmax](https://github.com/piexlmax)
 func (sysExportTemplateService *SysExportTemplateService) UpdateSysExportTemplate(sysExportTemplate system.SysExportTemplate) (err error) {
-	return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
+	return global.GVA_MYSQL.Transaction(func(tx *gorm.DB) error {
 		conditions := sysExportTemplate.Conditions
 		e := tx.Delete(&[]system.Condition{}, "template_id = ?", sysExportTemplate.TemplateID).Error
 		if e != nil {
@@ -83,7 +87,7 @@ func (sysExportTemplateService *SysExportTemplateService) UpdateSysExportTemplat
 // GetSysExportTemplate 根据id获取导出模板记录
 // Author [piexlmax](https://github.com/piexlmax)
 func (sysExportTemplateService *SysExportTemplateService) GetSysExportTemplate(id uint) (sysExportTemplate system.SysExportTemplate, err error) {
-	err = global.GVA_DB.Where("id = ?", id).Preload("JoinTemplate").Preload("Conditions").First(&sysExportTemplate).Error
+	err = global.GVA_MYSQL.Where("id = ?", id).Preload("JoinTemplate").Preload("Conditions").First(&sysExportTemplate).Error
 	return
 }
 
@@ -93,7 +97,7 @@ func (sysExportTemplateService *SysExportTemplateService) GetSysExportTemplateIn
 	limit := info.PageSize
 	offset := info.PageSize * (info.Page - 1)
 	// 创建db
-	db := global.GVA_DB.Model(&system.SysExportTemplate{})
+	db := global.GVA_MYSQL.Model(&system.SysExportTemplate{})
 	var sysExportTemplates []system.SysExportTemplate
 	// 如果有条件搜索 下方会自动创建搜索语句
 	if info.StartCreatedAt != nil && info.EndCreatedAt != nil {
@@ -124,8 +128,13 @@ func (sysExportTemplateService *SysExportTemplateService) GetSysExportTemplateIn
 // ExportExcel 导出Excel
 // Author [piexlmax](https://github.com/piexlmax)
 func (sysExportTemplateService *SysExportTemplateService) ExportExcel(templateID string, values url.Values) (file *bytes.Buffer, name string, err error) {
+	var params = values.Get("params")
+	paramsValues, err := url.ParseQuery(params)
+	if err != nil {
+		return nil, "", fmt.Errorf("解析 params 参数失败: %v", err)
+	}
 	var template system.SysExportTemplate
-	err = global.GVA_DB.Preload("Conditions").Preload("JoinTemplate").First(&template, "template_id = ?", templateID).Error
+	err = global.GVA_MYSQL.Preload("Conditions").Preload("JoinTemplate").First(&template, "template_id = ?", templateID).Error
 	if err != nil {
 		return nil, "", err
 	}
@@ -151,28 +160,59 @@ func (sysExportTemplateService *SysExportTemplateService) ExportExcel(templateID
 		return nil, "", err
 	}
 	var tableTitle []string
+	var selectKeyFmt []string
 	for _, key := range columns {
+		selectKeyFmt = append(selectKeyFmt, key)
 		tableTitle = append(tableTitle, templateInfoMap[key])
 	}
-	selects := strings.Join(columns, ", ")
+
+	selects := strings.Join(selectKeyFmt, ", ")
 	var tableMap []map[string]interface{}
-	db := global.GVA_DB
+	db := global.GVA_MYSQL
 	if template.DBName != "" {
 		db = global.MustGetGlobalDBByDBName(template.DBName)
 	}
 
 	if len(template.JoinTemplate) > 0 {
 		for _, join := range template.JoinTemplate {
-			db = db.Joins(join.JOINS + "`" + join.Table + "`" + " ON " + join.ON)
+			db = db.Joins(join.JOINS + " " + join.Table + " ON " + join.ON)
 		}
 	}
 
 	db = db.Select(selects).Table(template.TableName)
 
+	filterDeleted := false
+
+	filterParam := paramsValues.Get("filterDeleted")
+	if filterParam == "true" {
+		filterDeleted = true
+	}
+
+	if filterDeleted {
+		// 自动过滤主表的软删除
+		db = db.Where(fmt.Sprintf("%s.deleted_at IS NULL", template.TableName))
+
+		// 过滤关联表的软删除(如果有)
+		if len(template.JoinTemplate) > 0 {
+			for _, join := range template.JoinTemplate {
+				// 检查关联表是否有deleted_at字段
+				hasDeletedAt := sysExportTemplateService.hasDeletedAtColumn(join.Table)
+				if hasDeletedAt {
+					db = db.Where(fmt.Sprintf("%s.deleted_at IS NULL", join.Table))
+				}
+			}
+		}
+	}
+
 	if len(template.Conditions) > 0 {
 		for _, condition := range template.Conditions {
 			sql := fmt.Sprintf("%s %s ?", condition.Column, condition.Operator)
-			value := values.Get(condition.From)
+			value := paramsValues.Get(condition.From)
+
+			if condition.Operator == "IN" || condition.Operator == "NOT IN" {
+				sql = fmt.Sprintf("%s %s (?)", condition.Column, condition.Operator)
+			}
+
 			if value != "" {
 				if condition.Operator == "LIKE" {
 					value = "%" + value + "%"
@@ -182,7 +222,7 @@ func (sysExportTemplateService *SysExportTemplateService) ExportExcel(templateID
 		}
 	}
 	// 通过参数传入limit
-	limit := values.Get("limit")
+	limit := paramsValues.Get("limit")
 	if limit != "" {
 		l, e := strconv.Atoi(limit)
 		if e == nil {
@@ -190,12 +230,12 @@ func (sysExportTemplateService *SysExportTemplateService) ExportExcel(templateID
 		}
 	}
 	// 模板的默认limit
-	if limit == "" && template.Limit != 0 {
-		db = db.Limit(template.Limit)
+	if limit == "" && template.Limit != nil && *template.Limit != 0 {
+		db = db.Limit(*template.Limit)
 	}
 
 	// 通过参数传入offset
-	offset := values.Get("offset")
+	offset := paramsValues.Get("offset")
 	if offset != "" {
 		o, e := strconv.Atoi(offset)
 		if e == nil {
@@ -205,7 +245,7 @@ func (sysExportTemplateService *SysExportTemplateService) ExportExcel(templateID
 
 	// 获取当前表的所有字段
 	table := template.TableName
-	orderColumns, err := global.GVA_DB.Migrator().ColumnTypes(table)
+	orderColumns, err := db.Migrator().ColumnTypes(table)
 	if err != nil {
 		return nil, "", err
 	}
@@ -218,7 +258,7 @@ func (sysExportTemplateService *SysExportTemplateService) ExportExcel(templateID
 	}
 
 	// 通过参数传入order
-	order := values.Get("order")
+	order := paramsValues.Get("order")
 
 	if order == "" && template.Order != "" {
 		// 如果没有order入参，这里会使用模板的默认排序
@@ -248,9 +288,11 @@ func (sysExportTemplateService *SysExportTemplateService) ExportExcel(templateID
 	}
 	var rows [][]string
 	rows = append(rows, tableTitle)
-	for _, table := range tableMap {
+	for _, exTable := range tableMap {
 		var row []string
 		for _, column := range columns {
+			column = strings.ReplaceAll(column, "\"", "")
+			column = strings.ReplaceAll(column, "`", "")
 			if len(template.JoinTemplate) > 0 {
 				columnAs := strings.Split(column, " as ")
 				if len(columnAs) > 1 {
@@ -262,15 +304,30 @@ func (sysExportTemplateService *SysExportTemplateService) ExportExcel(templateID
 					}
 				}
 			}
-			row = append(row, fmt.Sprintf("%v", table[column]))
+			// 需要对时间类型特殊处理
+			if t, ok := exTable[column].(time.Time); ok {
+				row = append(row, t.Format("2006-01-02 15:04:05"))
+			} else {
+				row = append(row, fmt.Sprintf("%v", exTable[column]))
+			}
 		}
 		rows = append(rows, row)
 	}
 	for i, row := range rows {
 		for j, colCell := range row {
-			err := f.SetCellValue("Sheet1", fmt.Sprintf("%s%d", getColumnName(j+1), i+1), colCell)
-			if err != nil {
-				return nil, "", err
+			cell := fmt.Sprintf("%s%d", getColumnName(j+1), i+1)
+
+			var sErr error
+			if v, err := strconv.ParseFloat(colCell, 64); err == nil {
+				sErr = f.SetCellValue("Sheet1", cell, v)
+			} else if v, err := strconv.ParseInt(colCell, 10, 64); err == nil {
+				sErr = f.SetCellValue("Sheet1", cell, v)
+			} else {
+				sErr = f.SetCellValue("Sheet1", cell, colCell)
+			}
+
+			if sErr != nil {
+				return nil, "", sErr
 			}
 		}
 	}
@@ -287,7 +344,7 @@ func (sysExportTemplateService *SysExportTemplateService) ExportExcel(templateID
 // Author [piexlmax](https://github.com/piexlmax)
 func (sysExportTemplateService *SysExportTemplateService) ExportTemplate(templateID string) (file *bytes.Buffer, name string, err error) {
 	var template system.SysExportTemplate
-	err = global.GVA_DB.First(&template, "template_id = ?", templateID).Error
+	err = global.GVA_MYSQL.First(&template, "template_id = ?", templateID).Error
 	if err != nil {
 		return nil, "", err
 	}
@@ -331,11 +388,18 @@ func (sysExportTemplateService *SysExportTemplateService) ExportTemplate(templat
 	return file, template.Name, nil
 }
 
+// 辅助函数：检查表是否有deleted_at列
+func (s *SysExportTemplateService) hasDeletedAtColumn(tableName string) bool {
+	var count int64
+	global.GVA_MYSQL.Raw("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = 'deleted_at'", tableName).Count(&count)
+	return count > 0
+}
+
 // ImportExcel 导入Excel
 // Author [piexlmax](https://github.com/piexlmax)
 func (sysExportTemplateService *SysExportTemplateService) ImportExcel(templateID string, file *multipart.FileHeader) (err error) {
 	var template system.SysExportTemplate
-	err = global.GVA_DB.First(&template, "template_id = ?", templateID).Error
+	err = global.GVA_MYSQL.First(&template, "template_id = ?", templateID).Error
 	if err != nil {
 		return err
 	}
@@ -355,6 +419,9 @@ func (sysExportTemplateService *SysExportTemplateService) ImportExcel(templateID
 	if err != nil {
 		return err
 	}
+	if len(rows) < 2 {
+		return errors.New("Excel data is not enough.\nIt should contain title row and data")
+	}
 
 	var templateInfoMap = make(map[string]string)
 	err = json.Unmarshal([]byte(template.TemplateInfo), &templateInfoMap)
@@ -367,18 +434,24 @@ func (sysExportTemplateService *SysExportTemplateService) ImportExcel(templateID
 		titleKeyMap[title] = key
 	}
 
-	db := global.GVA_DB
+	db := global.GVA_MYSQL
 	if template.DBName != "" {
 		db = global.MustGetGlobalDBByDBName(template.DBName)
 	}
 
 	return db.Transaction(func(tx *gorm.DB) error {
 		excelTitle := rows[0]
+		for i, str := range excelTitle {
+			excelTitle[i] = strings.TrimSpace(str)
+		}
 		values := rows[1:]
 		items := make([]map[string]interface{}, 0, len(values))
 		for _, row := range values {
 			var item = make(map[string]interface{})
 			for ii, value := range row {
+				if _, ok := titleKeyMap[excelTitle[ii]]; !ok {
+					continue // excel中多余的标题，在模板信息中没有对应的字段，因此key为空，必须跳过
+				}
 				key := titleKeyMap[excelTitle[ii]]
 				item[key] = value
 			}

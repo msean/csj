@@ -8,9 +8,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
 	"github.com/gin-gonic/gin"
+	"github.com/msean/csj/backend/global"
+	"github.com/msean/csj/backend/model/common/response"
 )
 
 type LimitConfig struct {
@@ -27,7 +27,7 @@ type LimitConfig struct {
 func (l LimitConfig) LimitWithTime() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if err := l.CheckOrMark(l.GenerationKey(c), l.Expire, l.Limit); err != nil {
-			c.JSON(http.StatusOK, gin.H{"code": response.ERROR, "msg": err})
+			c.JSON(http.StatusOK, gin.H{"code": response.ERROR, "msg": err.Error()})
 			c.Abort()
 			return
 		} else {

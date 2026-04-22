@@ -2,7 +2,6 @@ package dbresolver
 
 import (
 	"errors"
-	"sync"
 
 	"gorm.io/gorm"
 )
@@ -47,6 +46,7 @@ func (dr *DBResolver) Register(config Config, datas ...interface{}) *DBResolver 
 	}
 
 	config.datas = datas
+
 	dr.configs = append(dr.configs, config)
 	if dr.DB != nil {
 		dr.compileConfig(config)
@@ -135,17 +135,12 @@ func (dr *DBResolver) convertToConnPool(dialectors []gorm.Dialector) (connPools 
 	config := *dr.DB.Config
 	for _, dialector := range dialectors {
 		if db, err := gorm.Open(dialector, &config); err == nil {
-			connPool := db.Config.ConnPool
+			connPool := db.ConnPool
 			if preparedStmtDB, ok := connPool.(*gorm.PreparedStmtDB); ok {
 				connPool = preparedStmtDB.ConnPool
 			}
 
-			dr.prepareStmtStore[connPool] = &gorm.PreparedStmtDB{
-				ConnPool:    db.Config.ConnPool,
-				Stmts:       map[string]*gorm.Stmt{},
-				Mux:         &sync.RWMutex{},
-				PreparedSQL: make([]string, 0, 100),
-			}
+			dr.prepareStmtStore[connPool] = gorm.NewPreparedStmtDB(db.ConnPool, dr.PrepareStmtMaxSize, dr.PrepareStmtTTL)
 
 			connPools = append(connPools, connPool)
 		} else {
@@ -157,35 +152,46 @@ func (dr *DBResolver) convertToConnPool(dialectors []gorm.Dialector) (connPools 
 }
 
 func (dr *DBResolver) resolve(stmt *gorm.Statement, op Operation) gorm.ConnPool {
+	if r := dr.getResolver(stmt); r != nil {
+		return r.resolve(stmt, op)
+	}
+	return stmt.ConnPool
+}
+
+func (dr *DBResolver) getResolver(stmt *gorm.Statement) *resolver {
 	if len(dr.resolvers) > 0 {
 		if u, ok := stmt.Clauses[usingName].Expression.(using); ok && u.Use != "" {
 			if r, ok := dr.resolvers[u.Use]; ok {
-				return r.resolve(stmt, op)
+				return r
 			}
 		}
 
 		if stmt.Table != "" {
 			if r, ok := dr.resolvers[stmt.Table]; ok {
-				return r.resolve(stmt, op)
+				return r
+			}
+		}
+
+		if stmt.Model != nil {
+			if err := stmt.Parse(stmt.Model); err == nil {
+				if r, ok := dr.resolvers[stmt.Table]; ok {
+					return r
+				}
 			}
 		}
 
 		if stmt.Schema != nil {
 			if r, ok := dr.resolvers[stmt.Schema.Table]; ok {
-				return r.resolve(stmt, op)
+				return r
 			}
 		}
 
 		if rawSQL := stmt.SQL.String(); rawSQL != "" {
 			if r, ok := dr.resolvers[getTableFromRawSQL(rawSQL)]; ok {
-				return r.resolve(stmt, op)
+				return r
 			}
 		}
 	}
 
-	if dr.global != nil {
-		return dr.global.resolve(stmt, op)
-	}
-
-	return stmt.ConnPool
+	return dr.global
 }

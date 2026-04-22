@@ -2,14 +2,14 @@ package model
 
 import (
 	"app/global"
-	"app/service/common"
+	"app/pkg/utils"
 	"fmt"
 	"time"
 
 	"gorm.io/gorm"
 )
 
-func MonthFinance(db *gorm.DB, ownerUser string) (amount, creditAmount float32, err error) {
+func MonthFinance(db *gorm.DB, ownerUser string) (amount, creditAmount float64, err error) {
 	now := time.Now()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	var bos []BatchOrder
@@ -31,7 +31,7 @@ func BillingCondByOwnerUser(db *gorm.DB, owneruser string, customers []Customer)
 	billingLatestDate = make(map[string]int)
 	customUUIDList := make([]string, 0)
 	for _, customer := range customers {
-		billingLatestDate[customer.UID] = common.DurationDays(customer.CreatedAt)
+		billingLatestDate[customer.UID] = utils.DurationDays(customer.CreatedAt)
 		customUUIDList = append(customUUIDList, customer.UID)
 	}
 	var results []struct {
@@ -48,7 +48,7 @@ func BillingCondByOwnerUser(db *gorm.DB, owneruser string, customers []Customer)
 	}
 
 	for _, result := range results {
-		billingLatestDate[result.UserUUID] = common.DurationDays(result.LatestOrderAt)
+		billingLatestDate[result.UserUUID] = utils.DurationDays(result.LatestOrderAt)
 	}
 
 	return

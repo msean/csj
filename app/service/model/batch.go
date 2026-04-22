@@ -29,9 +29,10 @@ type (
 		BatchUUID string  `gorm:"column:batch_uuid;comment:货品uuid" json:"batchUUID"`
 		SerialNo  string  `gorm:"column:serial_no;comment:批次序号" json:"serialNo"`
 		GoodsUUID string  `gorm:"column:goods_uuid;comment:货品uuid" json:"goodsUUID"`
-		Price     float32 `gorm:"column:price;type:decimal(10,2);comment:单价" json:"price"`
-		Weight    float32 `gorm:"column:weight;type:decimal(10,2);comment:重量" json:"weight"`
-		Mount     int32   `gorm:"column:mount;comment:数量" json:"mount"`
+		GoodType  int     `gorm:"column:goods_type;comment:货品类型" json:"goods_type"`
+		Price     float64 `gorm:"column:price;type:decimal(10,2);comment:单价" json:"price"`
+		Weight    float64 `gorm:"column:weight;type:decimal(10,2);comment:重量" json:"weight"`
+		Mount     int     `gorm:"column:mount;comment:数量" json:"mount"`
 		GoodsFeild
 		SurplusFeild
 	}

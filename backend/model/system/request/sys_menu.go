@@ -1,11 +1,11 @@
 package request
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
+	"github.com/msean/csj/backend/global"
+	"github.com/msean/csj/backend/model/system"
 )
 
-// Add menu authority info structure
+// AddMenuAuthorityInfo Add menu authority info structure
 type AddMenuAuthorityInfo struct {
 	Menus       []system.SysBaseMenu `json:"menus"`
 	AuthorityId uint                 `json:"authorityId"` // 角色ID

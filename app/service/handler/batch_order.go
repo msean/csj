@@ -2,6 +2,7 @@ package handler
 
 import (
 	"app/global"
+	"app/pkg/utils"
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
@@ -45,8 +46,8 @@ func BatchOrderTempCreate(c *gin.Context) {
 func BatchOrderCreate(c *gin.Context) {
 	type Form struct {
 		model.BatchOrder
-		FPayAmount    float32 `json:"payAmount"`    // 总计
-		FCreditAmount float32 `json:"creditAmount"` // 赊欠
+		FPayAmount    float64 `json:"payAmount"`    // 总计
+		FCreditAmount float64 `json:"creditAmount"` // 赊欠
 		PayType       int32   `json:"payType"`      // 支付方式
 	}
 	var form Form
@@ -60,7 +61,7 @@ func BatchOrderCreate(c *gin.Context) {
 	order.OwnerUser = common.GetUserUUID(c)
 	order.TotalAmount = order.BatchOrder.SetTotalAmount()
 	order.CreditAmount = form.FCreditAmount
-	if common.FloatEqual(order.TotalAmount, order.CreditAmount) || common.FloatGreat(order.CreditAmount, order.TotalAmount) {
+	if utils.FloatEqual(order.TotalAmount, order.CreditAmount) || utils.FloatGreat(order.CreditAmount, order.TotalAmount) {
 		order.Status = model.BatchOrderFinish
 	} else {
 		order.Status = model.BatchOrderedCredit
@@ -78,7 +79,7 @@ func BatchOrderCreate(c *gin.Context) {
 		return
 	}
 	tx.Commit()
-	if common.FloatGreat(0.0, form.FCreditAmount) {
+	if utils.FloatGreat(0.0, form.FCreditAmount) {
 		go order.Record(false, model.HistoryStepCash, model.PayFeild{
 			PayFee:  order.TotalAmount - order.CreditAmount,
 			PayType: form.PayType,

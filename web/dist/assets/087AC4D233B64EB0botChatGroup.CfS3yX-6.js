@@ -1,0 +1,4 @@
+/*! 
+ Build based on gin-vue-admin 
+ Time : 1776745549000 */
+import{s as t}from"./087AC4D233B64EB0index.PUSIA8Zk.js";const a=a=>t({url:"/botChatGroup/createBotChatGroup",method:"post",data:a}),o=a=>t({url:"/botChatGroup/deleteBotChatGroupByIds",method:"delete",params:a}),r=a=>t({url:"/botChatGroup/updateBotChatGroup",method:"put",data:a}),e=a=>t({url:"/botChatGroup/findBotChatGroup",method:"get",params:a}),s=a=>t({url:"/botChatGroup/getBotChatGroupList",method:"get",params:a}),h=a=>t({url:"/botChatGroup/chatHistory",method:"get",params:a}),u=a=>t({url:"/botChatGroup/getBotChatGroupClassifyList",method:"get",params:a}),p=a=>t({url:"/botChatGroup/saveBotChatGroupClassify",method:"post",data:a}),C=a=>t({url:"/botChatGroup/deleteBotChatGroupClassify",method:"delete",data:a}),d=a=>t({url:"/botChatGroup/chooseChatGroupClassify",method:"get",params:a});export{u as a,C as b,d as c,o as d,a as e,e as f,s as g,h,p as s,r as u};

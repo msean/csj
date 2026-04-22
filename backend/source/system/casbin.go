@@ -4,12 +4,12 @@ import (
 	"context"
 
 	adapter "github.com/casbin/gorm-adapter/v3"
-	"github.com/flipped-aurora/gin-vue-admin/server/service/system"
+	"github.com/msean/csj/backend/service/system"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
-const initOrderCasbin = initOrderApi + 1
+const initOrderCasbin = initOrderApiIgnore + 1
 
 type initCasbin struct{}
 
@@ -34,7 +34,7 @@ func (i *initCasbin) TableCreated(ctx context.Context) bool {
 	return db.Migrator().HasTable(&adapter.CasbinRule{})
 }
 
-func (i initCasbin) InitializerName() string {
+func (i *initCasbin) InitializerName() string {
 	var entity adapter.CasbinRule
 	return entity.TableName()
 }
@@ -54,6 +54,10 @@ func (i *initCasbin) InitializeData(ctx context.Context) (context.Context, error
 		{Ptype: "p", V0: "888", V1: "/api/updateApi", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/api/getAllApis", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/api/deleteApisByIds", V2: "DELETE"},
+		{Ptype: "p", V0: "888", V1: "/api/syncApi", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/api/getApiGroups", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/api/enterSyncApi", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/api/ignoreApi", V2: "POST"},
 
 		{Ptype: "p", V0: "888", V1: "/authority/copyAuthority", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/authority/updateAuthority", V2: "PUT"},
@@ -81,6 +85,7 @@ func (i *initCasbin) InitializeData(ctx context.Context) (context.Context, error
 		{Ptype: "p", V0: "888", V1: "/user/setUserAuthority", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/user/setUserAuthorities", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/user/resetPassword", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/user/setSelfSetting", V2: "PUT"},
 
 		{Ptype: "p", V0: "888", V1: "/fileUploadAndDownload/findFile", V2: "GET"},
 		{Ptype: "p", V0: "888", V1: "/fileUploadAndDownload/breakpointContinueFinish", V2: "POST"},
@@ -91,6 +96,7 @@ func (i *initCasbin) InitializeData(ctx context.Context) (context.Context, error
 		{Ptype: "p", V0: "888", V1: "/fileUploadAndDownload/deleteFile", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/fileUploadAndDownload/editFileName", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/fileUploadAndDownload/getFileList", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/fileUploadAndDownload/importURL", V2: "POST"},
 
 		{Ptype: "p", V0: "888", V1: "/casbin/updateCasbin", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/casbin/getPolicyPathByAuthorityId", V2: "POST"},
@@ -117,17 +123,26 @@ func (i *initCasbin) InitializeData(ctx context.Context) (context.Context, error
 		{Ptype: "p", V0: "888", V1: "/autoCode/delSysHistory", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/autoCode/getSysHistory", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/autoCode/createPackage", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/autoCode/getTemplates", V2: "GET"},
 		{Ptype: "p", V0: "888", V1: "/autoCode/getPackage", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/autoCode/delPackage", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/autoCode/createPlug", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/autoCode/installPlugin", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/autoCode/pubPlug", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/autoCode/addFunc", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/autoCode/mcp", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/autoCode/mcpTest", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/autoCode/mcpList", V2: "POST"},
 
 		{Ptype: "p", V0: "888", V1: "/sysDictionaryDetail/findSysDictionaryDetail", V2: "GET"},
 		{Ptype: "p", V0: "888", V1: "/sysDictionaryDetail/updateSysDictionaryDetail", V2: "PUT"},
 		{Ptype: "p", V0: "888", V1: "/sysDictionaryDetail/createSysDictionaryDetail", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/sysDictionaryDetail/getSysDictionaryDetailList", V2: "GET"},
 		{Ptype: "p", V0: "888", V1: "/sysDictionaryDetail/deleteSysDictionaryDetail", V2: "DELETE"},
+		{Ptype: "p", V0: "888", V1: "/sysDictionaryDetail/getDictionaryTreeList", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/sysDictionaryDetail/getDictionaryTreeListByType", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/sysDictionaryDetail/getDictionaryDetailsByParent", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/sysDictionaryDetail/getDictionaryPath", V2: "GET"},
 
 		{Ptype: "p", V0: "888", V1: "/sysDictionary/findSysDictionary", V2: "GET"},
 		{Ptype: "p", V0: "888", V1: "/sysDictionary/updateSysDictionary", V2: "PUT"},
@@ -143,6 +158,7 @@ func (i *initCasbin) InitializeData(ctx context.Context) (context.Context, error
 		{Ptype: "p", V0: "888", V1: "/sysOperationRecord/deleteSysOperationRecordByIds", V2: "DELETE"},
 
 		{Ptype: "p", V0: "888", V1: "/email/emailTest", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/email/sendEmail", V2: "POST"},
 
 		{Ptype: "p", V0: "888", V1: "/simpleUploader/upload", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/simpleUploader/checkFileMd5", V2: "GET"},
@@ -161,6 +177,32 @@ func (i *initCasbin) InitializeData(ctx context.Context) (context.Context, error
 		{Ptype: "p", V0: "888", V1: "/sysExportTemplate/exportExcel", V2: "GET"},
 		{Ptype: "p", V0: "888", V1: "/sysExportTemplate/exportTemplate", V2: "GET"},
 		{Ptype: "p", V0: "888", V1: "/sysExportTemplate/importExcel", V2: "POST"},
+
+		{Ptype: "p", V0: "888", V1: "/info/createInfo", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/info/deleteInfo", V2: "DELETE"},
+		{Ptype: "p", V0: "888", V1: "/info/deleteInfoByIds", V2: "DELETE"},
+		{Ptype: "p", V0: "888", V1: "/info/updateInfo", V2: "PUT"},
+		{Ptype: "p", V0: "888", V1: "/info/findInfo", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/info/getInfoList", V2: "GET"},
+
+		{Ptype: "p", V0: "888", V1: "/sysParams/createSysParams", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/sysParams/deleteSysParams", V2: "DELETE"},
+		{Ptype: "p", V0: "888", V1: "/sysParams/deleteSysParamsByIds", V2: "DELETE"},
+		{Ptype: "p", V0: "888", V1: "/sysParams/updateSysParams", V2: "PUT"},
+		{Ptype: "p", V0: "888", V1: "/sysParams/findSysParams", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/sysParams/getSysParamsList", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/sysParams/getSysParam", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/attachmentCategory/getCategoryList", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/attachmentCategory/addCategory", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/attachmentCategory/deleteCategory", V2: "POST"},
+
+		{Ptype: "p", V0: "888", V1: "/sysVersion/findSysVersion", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/sysVersion/getSysVersionList", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/sysVersion/downloadVersionJson", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/sysVersion/exportVersion", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/sysVersion/importVersion", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/sysVersion/deleteSysVersion", V2: "DELETE"},
+		{Ptype: "p", V0: "888", V1: "/sysVersion/deleteSysVersionByIds", V2: "DELETE"},
 
 		{Ptype: "p", V0: "8881", V1: "/user/admin_register", V2: "POST"},
 		{Ptype: "p", V0: "8881", V1: "/api/createApi", V2: "POST"},
@@ -189,6 +231,7 @@ func (i *initCasbin) InitializeData(ctx context.Context) (context.Context, error
 		{Ptype: "p", V0: "8881", V1: "/fileUploadAndDownload/getFileList", V2: "POST"},
 		{Ptype: "p", V0: "8881", V1: "/fileUploadAndDownload/deleteFile", V2: "POST"},
 		{Ptype: "p", V0: "8881", V1: "/fileUploadAndDownload/editFileName", V2: "POST"},
+		{Ptype: "p", V0: "8881", V1: "/fileUploadAndDownload/importURL", V2: "POST"},
 		{Ptype: "p", V0: "8881", V1: "/casbin/updateCasbin", V2: "POST"},
 		{Ptype: "p", V0: "8881", V1: "/casbin/getPolicyPathByAuthorityId", V2: "POST"},
 		{Ptype: "p", V0: "8881", V1: "/jwt/jsonInBlacklist", V2: "POST"},
@@ -230,6 +273,7 @@ func (i *initCasbin) InitializeData(ctx context.Context) (context.Context, error
 		{Ptype: "p", V0: "9528", V1: "/fileUploadAndDownload/getFileList", V2: "POST"},
 		{Ptype: "p", V0: "9528", V1: "/fileUploadAndDownload/deleteFile", V2: "POST"},
 		{Ptype: "p", V0: "9528", V1: "/fileUploadAndDownload/editFileName", V2: "POST"},
+		{Ptype: "p", V0: "9528", V1: "/fileUploadAndDownload/importURL", V2: "POST"},
 		{Ptype: "p", V0: "9528", V1: "/casbin/updateCasbin", V2: "POST"},
 		{Ptype: "p", V0: "9528", V1: "/casbin/getPolicyPathByAuthorityId", V2: "POST"},
 		{Ptype: "p", V0: "9528", V1: "/jwt/jsonInBlacklist", V2: "POST"},

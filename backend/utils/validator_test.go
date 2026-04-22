@@ -1,8 +1,9 @@
 package utils
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
 	"testing"
+
+	"github.com/msean/csj/backend/model/common/request"
 )
 
 type PageInfoTest struct {

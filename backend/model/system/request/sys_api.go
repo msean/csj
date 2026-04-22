@@ -1,8 +1,8 @@
 package request
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
+	"github.com/msean/csj/backend/model/common/request"
+	"github.com/msean/csj/backend/model/system"
 )
 
 // api分页条件查询及排序结构体

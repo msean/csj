@@ -1,0 +1,92 @@
+autocode:
+    web: web/src
+    root: /Users/msean/project/go/bot_manamger
+    server: server
+    module: github.com/msean/csj/backend
+    ai-path: ""
+captcha:
+    key-long: 6
+    img-width: 240
+    img-height: 80
+    open-captcha: 0
+    open-captcha-timeout: 3600
+cors:
+    mode: allow-all
+    whitelist:
+        - allow-origin: example1.com
+          allow-methods: POST, GET
+          allow-headers: Content-Type,AccessToken,X-CSRF-Token, Authorization, Token,X-Token,X-User-Id
+          expose-headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type
+          allow-credentials: true
+        - allow-origin: example2.com
+          allow-methods: GET, POST
+          allow-headers: content-type
+          expose-headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type
+          allow-credentials: true
+db-list: []
+disk-list:
+    - mount-point: 
+jwt:
+    signing-key: d5d61024-61bd-494c-b749-f339c6689702
+    expires-time: 7d
+    buffer-time: 1d
+    issuer: qmPlus
+local:
+    path: /uploads/file
+    store-path: /Users/msean/project/go/bot_manamger/server/uploads/file
+mysql:
+    prefix: ""
+    port: ""
+    config: charset=utf8mb4&parseTime=True&loc=Local
+    db-name: 
+    username: 
+    password: 
+    path: 
+    engine: ""
+    log-mode: info
+    max-idle-conns: 10
+    max-open-conns: 100
+    singular: false
+    log-zap: true
+pgsql:
+  path: 
+  port: ""
+  config: ""
+  db-name: 
+  username: 
+  password: 
+  max-idle-conns: 
+  max-open-conns: 
+  log-mode: ""
+  log-zap: true
+redis:
+    name: ""
+    addr: 127.0.0.1:6379
+    password: ""
+    db: 0
+    useCluster: false
+    clusterAddrs: []
+system:
+    db-type: mysql
+    oss-type: local
+    router-prefix: ""
+    addr: 8888
+    iplimit-count: 15000
+    iplimit-time: 3600
+    use-multipoint: false
+    use-redis: true
+    use-strict-auth: false
+    disable-auto-migrate: false
+    bot-webhook-prefix: "https://bot.eesjjss.vip/api"
+    domain: http://localhost:8888
+    un-match-payment: true
+zap:
+    level: info
+    prefix: ''
+    format: console
+    director: log
+    encode-level: LowercaseColorLevelEncoder
+    stacktrace-key: stacktrace
+    show-line: true
+    log-in-console: true
+    retention-day: -1

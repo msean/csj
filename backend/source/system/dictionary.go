@@ -2,8 +2,9 @@ package system
 
 import (
 	"context"
-	sysModel "github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	"github.com/flipped-aurora/gin-vue-admin/server/service/system"
+
+	sysModel "github.com/msean/csj/backend/model/system"
+	"github.com/msean/csj/backend/service/system"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -33,7 +34,7 @@ func (i *initDict) TableCreated(ctx context.Context) bool {
 	return db.Migrator().HasTable(&sysModel.SysDictionary{})
 }
 
-func (i initDict) InitializerName() string {
+func (i *initDict) InitializerName() string {
 	return sysModel.SysDictionary{}.TableName()
 }
 
