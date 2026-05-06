@@ -3,6 +3,7 @@ package model
 import (
 	"app/global"
 	"app/pkg/utils"
+	"app/service/common"
 	"fmt"
 	"time"
 
@@ -16,7 +17,7 @@ func MonthFinance(db *gorm.DB, ownerUser string) (amount, creditAmount float64, 
 	if err = db.
 		Where("owner_user=?", ownerUser).
 		Where("created_at>=?", monthStart).
-		Where("status not in (?)", []int32{BatchOrderReTurn, BatchOrderCancel, BatchOrderRefund}).
+		Where("status not in (?)", common.FinalBatchOrder).
 		Find(&bos).Error; err != nil {
 		global.Global.Logger.Error(fmt.Sprintf("[MonthFinance] %s %s", ownerUser, err))
 	}

@@ -46,9 +46,9 @@ func BatchOrderTempCreate(c *gin.Context) {
 func BatchOrderCreate(c *gin.Context) {
 	type Form struct {
 		model.BatchOrder
-		FPayAmount    float64 `json:"payAmount"`    // 总计
-		FCreditAmount float64 `json:"creditAmount"` // 赊欠
-		PayType       int32   `json:"payType"`      // 支付方式
+		FPayAmount float64 `json:"payAmount"` // 付款金额
+		// FCreditAmount float64 `json:"creditAmount"`
+		PayType int32 `json:"payType"` // 支付方式
 	}
 	var form Form
 	if err := c.ShouldBind(&form); err != nil {
@@ -59,37 +59,45 @@ func BatchOrderCreate(c *gin.Context) {
 	order := logic.NewBatchOrderLogic(c)
 	order.BatchOrder = form.BatchOrder // owner_user重置成了空字符串
 	order.OwnerUser = common.GetUserUUID(c)
-	order.TotalAmount = order.BatchOrder.SetTotalAmount()
-	order.CreditAmount = form.FCreditAmount
-	if utils.FloatEqual(order.TotalAmount, order.CreditAmount) || utils.FloatGreat(order.CreditAmount, order.TotalAmount) {
-		order.Status = model.BatchOrderFinish
-	} else {
-		order.Status = model.BatchOrderedCredit
+
+	// 计算total
+	if err := order.FillGoodsWeightWithTotal(global.Global.DB); err != nil {
+		common.Response(c, err, nil)
+		return
 	}
+
 	tx := global.Global.DB.Begin()
+	order.CreditAmount = order.TotalAmount - form.FPayAmount
+	if utils.FloatEqual(order.TotalAmount, form.FPayAmount) || utils.FloatGreat(form.FPayAmount, order.TotalAmount) {
+		order.Status = common.BatchOrderFinish
+	} else {
+		order.Status = common.BatchOrderedCredit
+	}
+
 	if err := order.Create(tx); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 	orderPay := logic.NewBatchOrderPayLogic(c)
 	orderPay.BatchOrderUUID = order.UID
-	orderPay.Amount = order.TotalAmount - order.CreditAmount
+	// orderPay.Amount = order.TotalAmount - order.CreditAmount
+	orderPay.Amount = form.FPayAmount
 	if err := orderPay.Create(tx, false); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 	tx.Commit()
-	if utils.FloatGreat(0.0, form.FCreditAmount) {
+	if utils.FloatGreat(0.0, order.CreditAmount) {
 		go order.Record(false, model.HistoryStepCash, model.PayFeild{
-			PayFee:  order.TotalAmount - order.CreditAmount,
+			PayFee:  utils.Violent2String(form.TotalAmount),
 			PayType: form.PayType,
-			PaidFee: order.TotalAmount - order.CreditAmount,
+			PaidFee: utils.Violent2String(form.FPayAmount),
 		})
 	} else {
 		go order.Record(false, model.HistoryStepCredit, model.PayFeild{
-			PayFee:  order.TotalAmount - order.CreditAmount,
+			PayFee:  utils.Violent2String(form.TotalAmount),
 			PayType: form.PayType,
-			PaidFee: order.TotalAmount - order.CreditAmount,
+			PaidFee: utils.Violent2String(form.FPayAmount),
 		})
 	}
 
@@ -97,16 +105,75 @@ func BatchOrderCreate(c *gin.Context) {
 }
 
 func BatchOrderUpdate(c *gin.Context) {
-	order := logic.NewBatchOrderLogic(c)
-	if err := c.ShouldBind(&order); err != nil {
+	type Form struct {
+		model.BatchOrder
+		FPayAmount float64 `json:"payAmount"` // 付款金额
+		PayType    int32   `json:"payType"`   // 支付方式
+	}
+	var err error
+	var form Form
+	if err = c.ShouldBind(&form); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if err := order.Update(); err != nil {
+	order := logic.NewBatchOrderLogic(c)
+	var old model.BatchOrder
+	if old, err = order.LoadSingle(form.UID); err != nil {
+		return
+	}
+	order.BatchOrder = form.BatchOrder // owner_user重置成了空字符串
+	order.BatchUUID = old.BatchUUID
+	order.OwnerUser = common.GetUserUUID(c)
+
+	// 计算total
+	if err := order.FillGoodsWeightWithTotal(global.Global.DB); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
+
+	tx := global.Global.DB.Begin()
+	order.CreditAmount = order.TotalAmount - form.FPayAmount
+	if utils.FloatEqual(order.TotalAmount, form.FPayAmount) || utils.FloatGreat(form.FPayAmount, order.TotalAmount) {
+		order.Status = common.BatchOrderFinish
+	} else {
+		order.Status = common.BatchOrderedCredit
+	}
+
+	// if err := order.Create(tx); err != nil {
+	// 	common.Response(c, err, nil)
+	// 	return
+	// }
+
+	if err := order.Update(tx); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	orderPay := logic.NewBatchOrderPayLogic(c)
+	orderPay.BatchOrderUUID = order.UID
+	// orderPay.Amount = order.TotalAmount - order.CreditAmount
+	orderPay.Amount = form.FPayAmount
+	if err := orderPay.Create(tx, false); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	tx.Commit()
+	if utils.FloatGreat(0.0, order.CreditAmount) {
+		go order.Record(false, model.HistoryStepCash, model.PayFeild{
+			PayFee:  utils.Violent2String(form.TotalAmount),
+			PayType: form.PayType,
+			PaidFee: utils.Violent2String(form.FPayAmount),
+		})
+	} else {
+		go order.Record(false, model.HistoryStepCredit, model.PayFeild{
+			PayFee:  utils.Violent2String(form.TotalAmount),
+			PayType: form.PayType,
+			PaidFee: utils.Violent2String(form.FPayAmount),
+		})
+	}
+
+	// order := logic.NewBatchOrderLogic(c)
+
 	common.Response(c, nil, order)
 }
 
@@ -139,13 +206,19 @@ func BatchOrderShared(c *gin.Context) {
 }
 
 func BatchOrderDetail(c *gin.Context) {
-	order := logic.NewBatchOrderLogic(c)
-	if err := c.ShouldBind(&order); err != nil {
+
+	type PayLoad struct {
+		UUID string `json:"uuid"`
+	}
+	var payLoad PayLoad
+
+	if err := c.ShouldBind(&payLoad); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if err := order.FromUUID(); err != nil {
+	order := logic.NewBatchOrderLogic(c)
+	if err := order.FromUUID(payLoad.UUID); err != nil {
 		common.Response(c, err, nil)
 		return
 	}

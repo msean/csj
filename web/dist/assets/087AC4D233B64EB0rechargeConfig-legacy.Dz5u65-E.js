@@ -1,0 +1,4 @@
+/*! 
+ Build based on gin-vue-admin 
+ Time : 1776855388000 */
+System.register(["./087AC4D233B64EB0index-legacy.ChnKfNzS.js"],function(e,r){"use strict";var t;return{setters:[function(e){t=e.s}],execute:function(){e("c",function(e){return t({url:"/rechargeConfig/createRechargeConfig",method:"post",data:e})}),e("d",function(e){return t({url:"/rechargeConfig/deleteRechargeConfig",method:"delete",params:e})}),e("a",function(e){return t({url:"/rechargeConfig/deleteRechargeConfigByIds",method:"delete",params:e})}),e("u",function(e){return t({url:"/rechargeConfig/updateRechargeConfig",method:"put",data:e})}),e("f",function(e){return t({url:"/rechargeConfig/findRechargeConfig",method:"get",params:e})}),e("g",function(e){return t({url:"/rechargeConfig/getRechargeConfigList",method:"get",params:e})})}}});

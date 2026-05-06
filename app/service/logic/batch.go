@@ -16,7 +16,6 @@ type (
 		context *gin.Context
 		runtime *global.RunTime
 		model.Batch
-		Date string `json:"date"`
 	}
 	BatchGoodsLogic struct {
 		model.BatchGoods
@@ -200,10 +199,10 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 	return
 }
 
-func (logic *BatchLogic) FromDate() (err error) {
+func (logic *BatchLogic) FromDate(date string) (err error) {
 	db := logic.runtime.DB
 	var batch model.Batch
-	if err = model.Find(db.Preload("GoodsListRelated"), &batch, model.WhereSerialNoCond(logic.Date), model.WhereOwnerUserCond(logic.OwnerUser)); err != nil {
+	if err = model.Find(db.Preload("GoodsListRelated"), &batch, model.WhereSerialNoCond(date), model.WhereOwnerUserCond(logic.OwnerUser)); err != nil {
 		return
 	}
 	if batch.UID == "" {
@@ -213,10 +212,10 @@ func (logic *BatchLogic) FromDate() (err error) {
 	return logic.SetGoodsFeild()
 }
 
-func (logic *BatchLogic) FromUUID() (err error) {
+func (logic *BatchLogic) FromUUID(uuid string) (err error) {
 	db := logic.runtime.DB
 	var batch model.Batch
-	if err = model.Find(db.Preload("GoodsListRelated"), &batch, model.WhereUIDCond(logic.OwnerUser)); err != nil {
+	if err = model.Find(db.Preload("GoodsListRelated"), &batch, model.WhereUIDCond(uuid)); err != nil {
 		return
 	}
 	if batch.UID == "" {
@@ -242,9 +241,9 @@ func (logic *BatchLogic) FromLatest() (err error) {
 	return logic.SetGoodsFeild()
 }
 
-func (logic *BatchGoodsLogic) FromUUID() (err error) {
+func (logic *BatchGoodsLogic) FromUUID(uuid string) (err error) {
 	var batchGoods model.BatchGoods
-	if err = model.Find(logic.runtime.DB, &batchGoods, model.WhereUIDCond(logic.UID)); err != nil {
+	if err = model.Find(logic.runtime.DB, &batchGoods, model.WhereUIDCond(uuid)); err != nil {
 		return
 	}
 	if batchGoods.UID == "" {
@@ -253,7 +252,7 @@ func (logic *BatchGoodsLogic) FromUUID() (err error) {
 	}
 	logic.BatchGoods = batchGoods
 	var goods []model.Goods
-	if err = model.Find(logic.runtime.DB, &goods, model.WhereUIDCond(logic.UID)); err != nil {
+	if err = model.Find(logic.runtime.DB, &goods, model.WhereUIDCond(logic.GoodsUUID)); err != nil {
 		return
 	}
 

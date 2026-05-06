@@ -63,7 +63,7 @@ func (logic *BatchOrderLogic) TempCreate() (err error) {
 	}
 
 	// 在创建前加这一行
-	if err = logic.fillGoodsWeight(logic.runtime.DB, logic.GoodsListRelated); err != nil {
+	if err = logic.FillGoodsWeightWithTotal(logic.runtime.DB); err != nil {
 		return
 	}
 
@@ -77,7 +77,9 @@ func (logic *BatchOrderLogic) TempCreate() (err error) {
 	return
 }
 
-func (logic *BatchOrderLogic) fillGoodsWeight(db *gorm.DB, list []*model.BatchOrderGoods) error {
+func (logic *BatchOrderLogic) FillGoodsWeightWithTotal(db *gorm.DB) error {
+	list := logic.GoodsListRelated
+
 	if len(list) == 0 {
 		return nil
 	}
@@ -87,6 +89,9 @@ func (logic *BatchOrderLogic) fillGoodsWeight(db *gorm.DB, list []*model.BatchOr
 	for _, item := range list {
 		if item.GoodsUUID != "" {
 			goodsUUIDs = append(goodsUUIDs, item.GoodsUUID)
+			item.BatchUUID = logic.BatchUUID
+			item.OwnerUser = logic.OwnerUser
+			item.UserUUID = logic.UserUUID
 		}
 	}
 
@@ -104,6 +109,8 @@ func (logic *BatchOrderLogic) fillGoodsWeight(db *gorm.DB, list []*model.BatchOr
 		goodsMap[g.UID] = g
 	}
 
+	var totalAmount float64
+
 	// 4. 计算 weight
 	for _, item := range list {
 		goods, ok := goodsMap[item.GoodsUUID]
@@ -111,16 +118,23 @@ func (logic *BatchOrderLogic) fillGoodsWeight(db *gorm.DB, list []*model.BatchOr
 			continue
 		}
 
+		item.GoodsTyp = goods.Typ
+		var subTotal float64
 		// 定装：weight = mount * goods.weight
 		if goods.Typ == common.GoodsTypeFix {
 			item.Weight = utils.FloatReserve(float64(item.Mount)*goods.Weight, 1)
+			subTotal = utils.FloatReserve(float64(item.Mount)*item.Price, 0)
 		}
 
 		// 将散装设置成0
 		if goods.Typ == common.GoodsTypeBulk {
 			item.Mount = 0
+			subTotal = utils.FloatReserve(item.Price*item.Weight, 0)
 		}
+		item.Total = subTotal
+		totalAmount += subTotal
 	}
+	logic.TotalAmount = totalAmount
 
 	return nil
 }
@@ -131,7 +145,7 @@ func (logic *BatchOrderLogic) Create(tx *gorm.DB) (err error) {
 		tx = logic.runtime.DB.Begin()
 		defer tx.Commit()
 	}
-	logic.BatchOrder.Shared = model.BatchOrderUnshare
+	logic.BatchOrder.Shared = common.BatchOrderUnshare
 
 	if logic.BatchUUID == "" {
 		return common.BatchUUIDRequireErr
@@ -144,11 +158,6 @@ func (logic *BatchOrderLogic) Create(tx *gorm.DB) (err error) {
 		goods.OwnerUser = logic.OwnerUser
 		goods.BatchUUID = logic.BatchUUID
 		goods.UserUUID = logic.UserUUID
-	}
-
-	// ✅ 计算 weight（核心复用）
-	if err = logic.fillGoodsWeight(tx, logic.GoodsListRelated); err != nil {
-		return
 	}
 
 	if err = model.CreateObj(tx, &logic.BatchOrder); err != nil {
@@ -172,17 +181,21 @@ func (logic *BatchOrderLogic) UpdateStatus() (err error) {
 		return
 	}
 	switch logic.Status {
-	case model.BatchOrderedCredit:
+	case common.BatchOrderedCredit:
 		logic.Record(true, model.HistoryStepCredit, model.PayFeild{})
-	case model.BatchOrderCancel, model.BatchOrderRefund:
+	case common.BatchOrderCancel, common.BatchOrderRefund:
 		logic.Record(true, model.HistoryStepCrash, model.PayFeild{})
 	}
 	return
 }
 
-func (logic *BatchOrderLogic) Update() (err error) {
-	tx := logic.runtime.DB.Begin()
+// 更新单次
+func (logic *BatchOrderLogic) Update(tx *gorm.DB) (err error) {
 	if err = tx.Delete(&model.BatchOrderGoods{}, "batch_order_uuid=?", logic.UID).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err = tx.Delete(&model.BatchOrderPay{}, "batch_order_uuid=?", logic.UID).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -192,22 +205,29 @@ func (logic *BatchOrderLogic) Update() (err error) {
 		goods.UserUUID = logic.UserUUID
 		goods.BatchOrderUID = logic.UID
 	}
-	if err = tx.Save(&logic.BatchOrder).Error; err != nil {
+	if err = tx.Omit("created_at").Save(&logic.BatchOrder).Error; err != nil {
 		tx.Rollback()
 		return
 	}
 
-	logic.SetFeilds()
-	logic.Record(false, model.HistoryStepOrderFix, model.PayFeild{})
+	// logic.SetFeilds()
+	// logic.Record(false, model.HistoryStepOrderFix, model.PayFeild{})
 	return
 }
 
-func (logic *BatchOrderLogic) FromUUID() (err error) {
-	if err = model.Find(logic.runtime.DB.Preload("GoodsListRelated"), &logic.BatchOrder); err != nil {
+func (logic *BatchOrderLogic) FromUUID(uuid string) (err error) {
+	if err = model.Find(logic.runtime.DB.Preload("GoodsListRelated"), &logic.BatchOrder, model.WhereUIDCond(uuid)); err != nil {
 		return
 	}
 	logic.LoadHistory()
 	logic.SetFeilds()
+	// logic.SetTotal()
+	return
+}
+
+func (logic *BatchOrderLogic) LoadSingle(uuid string) (batchOrder model.BatchOrder, err error) {
+	err = model.Find(logic.runtime.DB, &batchOrder, model.WhereUIDCond(uuid))
+	// logic.SetTotal()
 	return
 }
 
@@ -257,6 +277,7 @@ func (logic *BatchOrderLogic) SetGoodsFeild() (err error) {
 	for _, goods := range logic.GoodsListRelated {
 		goods.GoodsName = goodsM[goods.GoodsUUID].GoodsName
 		goods.GoodsTyp = goodsM[goods.GoodsUUID].GoodsTyp
+		goods.GoodsWeight = goodsM[goods.GoodsUUID].GoodsWeight
 	}
 
 	return
@@ -284,6 +305,8 @@ func (logic *BatchOrderLogic) List(userUUID string, startTime, endTime int64, st
 	}
 	if status != 0 {
 		conds = append(conds, model.NewWhereCond("status", status))
+	} else {
+		// conds = append(conds, model.NewInCondFromInt("status", common.ExCludeTempBatchOrder))
 	}
 	conds = append(conds, model.CreatedOrderDescCond())
 	if err = model.Find(logic.runtime.DB.Preload("GoodsListRelated"), &orderList, conds...); err != nil {
@@ -329,6 +352,12 @@ func (logic *BatchOrderLogic) BatchFeilds(orderList []*model.BatchOrder) {
 	wg.Wait()
 }
 
+// func (logic *BatchOrderLogic) SetTotal() {
+// 	for _, g := range logic.GoodsListRelated {
+// 		logic.TotalAmount += g.SetTotal()
+// 	}
+// }
+
 func (logic *BatchOrderLogic) BatchSetFeilds(orders []model.BatchOrder) {
 	wg := sync.WaitGroup{}
 	wg.Add(2)
@@ -342,6 +371,20 @@ func (logic *BatchOrderLogic) BatchSetFeilds(orders []model.BatchOrder) {
 	}()
 	wg.Wait()
 }
+
+// func (logic *BatchOrderLogic) BatchSetFeilds(orders []model.BatchOrder) {
+// 	wg := sync.WaitGroup{}
+// 	wg.Add(2)
+// 	go func() {
+// 		logic.SetCustomerFeild()
+// 		wg.Done()
+// 	}()
+// 	go func() {
+// 		logic.SetGoodsFeild()
+// 		wg.Done()
+// 	}()
+// 	wg.Wait()
+// }
 
 func (logic *BatchOrderLogic) SetFeilds() {
 	wg := sync.WaitGroup{}

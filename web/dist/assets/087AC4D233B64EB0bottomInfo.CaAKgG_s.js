@@ -1,4 +1,0 @@
-/*! 
- Build based on gin-vue-admin 
- Time : 1776745549000 */
-import{c as t,a as e,Q as s,e as a}from"./087AC4D233B64EB0index.PUSIA8Zk.js";const l={class:"flex flex-col md:flex-row gap-2 items-center text-sm text-slate-700 dark:text-slate-500 justify-center py-2"},o=Object.assign({name:"BottomInfo"},{__name:"bottomInfo",setup:o=>(o,n)=>(a(),t("div",l,[n[0]||(n[0]=e("div",{class:"text-center"},[e("span",{class:"mr-1"},"Powered by"),e("span",null,[e("a",{class:"font-bold text-active",href:"https://github.com/flipped-aurora/gin-vue-admin"},"Gin-Vue-Admin")])],-1)),s(o.$slots,"default"),n[1]||(n[1]=e("div",{class:"text-center"},[e("span",{class:"mr-1"},"Copyright"),e("span",null,[e("a",{class:"font-bold text-active",href:"https://github.com/flipped-aurora"},"flipped-aurora团队")])],-1))]))});export{o as _};

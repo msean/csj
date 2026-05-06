@@ -1,6 +1,7 @@
 package model
 
 import (
+	"app/service/common"
 	"fmt"
 	"time"
 
@@ -67,8 +68,8 @@ func (b *Batch) Default() {
 }
 
 func (b *BatchOrder) DefaultSet() {
-	b.Status = BatchOrderTemp
-	b.Shared = BatchOrderUnshare
+	b.Status = common.BatchOrderTemp
+	b.Shared = common.BatchOrderUnshare
 }
 
 func (bg *BatchGoods) Update(db *gorm.DB) error {

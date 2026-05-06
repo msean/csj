@@ -2,26 +2,9 @@ package model
 
 import (
 	"app/pkg/utils"
-	"math"
+	"app/service/common"
 
 	"gorm.io/gorm"
-)
-
-const (
-	BatchOrderTemp     int32 = 1   // 暂存单
-	BatchOrderedCredit int32 = 2   // 赊欠单
-	BatchOrderFinish   int32 = 3   // 已结算
-	BatchOrderCancel   int32 = 100 //作废
-	BatchOrderRefund   int32 = 101 // 退款
-	BatchOrderReTurn   int32 = 102 // 退货
-
-	BatchOrderUnshare = 1 // 未分享
-	BatchOrderShared  = 2 // 已分享
-
-	PayTypeWx   = 1 // 微信
-	PayTypeZFB  = 2 // 支付宝
-	PayTypeBank = 3 // 银行
-	PayTypeCash = 4 // 现金
 )
 
 type (
@@ -31,9 +14,9 @@ type (
 		BatchUUID        string             `gorm:"column:batch_uuid;comment:批次uuid" json:"batchUUID"`
 		OwnerUser        string             `gorm:"column:owner_user;comment:所属用户;index" json:"ownerUser"`
 		UserUUID         string             `gorm:"column:user_uuid;comment:开单uuid" json:"customerUUID"`
-		Shared           int32              `gorm:"column:shared;comment:是否分享单" json:"shared"`
-		SharedTime       int32              `gorm:"column:share_time;comment:分享时间" json:"sharedTime"`
-		Status           int32              `gorm:"column:status;comment:状态" json:"status"`
+		Shared           int                `gorm:"column:shared;comment:是否分享单" json:"shared"`
+		SharedTime       int                `gorm:"column:share_time;comment:分享时间" json:"sharedTime"`
+		Status           int                `gorm:"column:status;comment:状态" json:"status"`
 		TotalAmount      float64            `gorm:"column:amount;comment:金额" json:"totalAmount"`
 		CreditAmount     float64            `gorm:"column:credit_amount;comment:赊欠金额" json:"creditAmount"`
 		GoodsListRelated []*BatchOrderGoods `gorm:"foreignKey:BatchOrderUID;references:UID" json:"goodsList"`
@@ -50,8 +33,8 @@ type (
 		SerialNo      string  `gorm:"column:serial_no;comment:批次序号" json:"serialNo"`
 		Price         float64 `gorm:"column:price;type:decimal(10,2);comment:单价" json:"price"`
 		Weight        float64 `gorm:"column:weight;type:decimal(10,2);comment:重量" json:"weight"`
-		Mount         int     `gorm:"column:mount;comment:数量" json:"mount"` // 定装 件数 散装 斤数
-		Total         float64 `gorm:"-" json:"total"`                       // 小记
+		Mount         int     `gorm:"column:mount;comment:数量" json:"mount"`                    // 定装 件数 散装 斤数
+		Total         float64 `gorm:"column:total;type:decimal(10,2);comment:小计" json:"total"` // 小记
 		CustomerFeild
 		GoodsFeild
 	}
@@ -73,19 +56,19 @@ type (
 	}
 )
 
-func (bo *BatchOrder) UpdateStatus(db *gorm.DB, status int32) error {
+func (bo *BatchOrder) UpdateStatus(db *gorm.DB, status int) error {
 	return WhereUIDCond(bo.UID).Cond(db).Model(&BatchOrder{}).Update("status", status).Error
 }
 
 func (bo *BatchOrder) UpdateShare(db *gorm.DB) error {
 	return WhereUIDCond(bo.UID).Cond(db).Updates(&BatchOrder{
-		Shared: BatchOrderShared,
+		Shared: common.BatchOrderShared,
 	}).Error
 }
 
 func (bo *BatchOrder) Update(db *gorm.DB) error {
 	return WhereUIDCond(bo.UID).Cond(db).Updates(&BatchOrder{
-		Shared: BatchOrderShared,
+		Shared: common.BatchOrderShared,
 	}).Error
 }
 
@@ -112,23 +95,24 @@ func (b *BatchOrderGoods) Amount() float64 {
 	return b.Price * float64(b.Mount)
 }
 
-func (b *BatchOrder) SetTotalAmount() float64 {
-	var t float64
-	for _, batchGoods := range b.GoodsListRelated {
-		t += batchGoods.Amount()
-	}
-	return float64(math.Round(float64(t)))
-}
+// func (b *BatchOrder) SetTotalAmount() float64 {
+// 	var t float64
+// 	for _, batchGoods := range b.GoodsListRelated {
+// 		t += batchGoods.Amount()
+// 	}
+// 	return float64(math.Round(float64(t)))
+// }
 
-func (b *BatchOrder) SetCreditAmount(pay float64) {
-	b.CreditAmount -= pay
-}
+// func (b *BatchOrder) SetCreditAmount(pay float64) {
+// 	b.CreditAmount -= pay
+// }
 
 // 设置小计件
-func (b *BatchOrderGoods) SetTotal() {
+func (b *BatchOrderGoods) SetTotal() float64 {
 	if b.Mount == 0 {
-		b.Total = utils.FloatReserve(b.Price*b.Weight, 1)
+		b.Total = utils.FloatReserve(b.Price*b.Weight, 0)
 	} else {
-		b.Total = utils.FloatReserve(float64(b.Mount)*b.Price, 1)
+		b.Total = utils.FloatReserve(float64(b.Mount)*b.Price, 0)
 	}
+	return b.Total
 }

@@ -82,14 +82,20 @@ func BatchUpdateStatus(c *gin.Context) {
 }
 
 func BatchDetail(c *gin.Context) {
-	batchLogic := logic.NewBatchLogic(c)
-	if err := c.ShouldBind(&batchLogic); err != nil {
+	type PayLoad struct {
+		UUID string `json:"uuid"`
+		Date string `json:"date"`
+	}
+	var payLoad PayLoad
+	if err := c.ShouldBind(&payLoad); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
+
+	batchLogic := logic.NewBatchLogic(c)
 	var err error
-	if batchLogic.UID != "" {
-		err = batchLogic.FromUUID()
+	if payLoad.UUID != "" {
+		err = batchLogic.FromUUID(payLoad.UUID)
 		if err != nil {
 			common.Response(c, err, nil)
 			return
@@ -98,8 +104,8 @@ func BatchDetail(c *gin.Context) {
 		return
 	}
 
-	if batchLogic.Date != "" {
-		err = batchLogic.FromDate()
+	if payLoad.Date != "" {
+		err = batchLogic.FromDate(payLoad.Date)
 		if err != nil {
 			common.Response(c, err, nil)
 			return
@@ -117,13 +123,18 @@ func BatchDetail(c *gin.Context) {
 }
 
 func BatchGoodsDetail(c *gin.Context) {
-	batchGoods := logic.NewBatchGoodsLogic(c)
-	if err := c.ShouldBind(&batchGoods); err != nil {
+	type PayLoad struct {
+		UUID string `json:"uuid"`
+	}
+	var payLoad PayLoad
+
+	if err := c.ShouldBind(&payLoad); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if err := batchGoods.FromUUID(); err != nil {
+	batchGoods := logic.NewBatchGoodsLogic(c)
+	if err := batchGoods.FromUUID(payLoad.UUID); err != nil {
 		common.Response(c, err, nil)
 		return
 	}

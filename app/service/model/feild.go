@@ -21,13 +21,14 @@ type (
 		CustomerPhone string `gorm:"-"  json:"customerPhone"`
 	}
 	GoodsFeild struct {
-		GoodsName string `gorm:"-" json:"name"`
-		GoodsTyp  int32  `gorm:"-" json:"type"`
+		GoodsName   string  `gorm:"-" json:"name"`
+		GoodsTyp    int32   `gorm:"-" json:"type"`
+		GoodsWeight float64 `gorm:"-" json:"goodsWeight"` // 定装是多少斤
 	}
 	PayFeild struct {
-		PayFee  float64 `gorm:"-"  json:"payFee"`
-		PayType int32   `gorm:"-"  json:"payType"`
-		PaidFee float64 `gorm:"-"  json:"paidFee"`
+		PayFee  string `gorm:"-"  json:"payFee"`
+		PayType int32  `gorm:"-"  json:"payType"`
+		PaidFee string `gorm:"-"  json:"paidFee"`
 	}
 )
 
@@ -62,8 +63,9 @@ func GoodsFeildSet(db *gorm.DB, uuid, ownerUser string) (c GoodsFeild, err error
 		return
 	}
 	c = GoodsFeild{
-		GoodsName: _goods.Name,
-		GoodsTyp:  _goods.Typ,
+		GoodsName:   _goods.Name,
+		GoodsTyp:    _goods.Typ,
+		GoodsWeight: _goods.Weight,
 	}
 	return
 }
@@ -76,8 +78,9 @@ func BatchGoodsFeildSet(db *gorm.DB, uuidList []string, ownerUser string) (goods
 	}
 	for _, c := range _goodsList {
 		goodsM[c.UID] = GoodsFeild{
-			GoodsName: c.Name,
-			GoodsTyp:  c.Typ,
+			GoodsName:   c.Name,
+			GoodsTyp:    c.Typ,
+			GoodsWeight: c.Weight,
 		}
 	}
 	return
@@ -91,7 +94,6 @@ func SetSurplusByBatch(db *gorm.DB, batchUUID string) (goodsM map[string]*Surplu
 		return
 	}
 
-	global.Global.Logger.Info(">>>>>>", zap.Any(">>>", _bgs))
 	for _, _bg := range _bgs {
 		goodsM[_bg.GoodsUUID] = &SurplusFeild{
 			Weight: _bg.Weight,
@@ -99,14 +101,23 @@ func SetSurplusByBatch(db *gorm.DB, batchUUID string) (goodsM map[string]*Surplu
 			Type:   _bg.GoodType,
 		}
 	}
-	global.Global.Logger.Debug("SetSurplusByBatch _bgs", zap.Any("_bgs", _bgs))
+	global.Global.Logger.Debug("SetSurplusByBatch _bgs", zap.Any("goodsM", goodsM))
 	var _bos []BatchOrderGoods
-	if err = Find(db, &_bos, NewWhereCond("batch_uuid", batchUUID)); err != nil {
-		return
-	}
-	global.Global.Logger.Debug("SetSurplusByBatch _bos", zap.Any("_bos", _bos))
+	err = db.
+		Table("batch_order_goods AS bog").
+		Joins("JOIN batch_orders AS bo ON bo.uid = bog.batch_order_uuid").
+		Where("bog.batch_uuid = ?", batchUUID).
+		Where("bo.status IN (?)", common.ValidOrder).
+		Find(&_bos).Error
 	for _, _bo := range _bos {
 		if _, ok := goodsM[_bo.GoodsUUID]; ok {
+			global.Global.Logger.Debug("SetSurplusByBatch _bo",
+				zap.Any("_bo.GoodsUUID", _bo.GoodsUUID),
+				zap.Any("goodsM[_bo.GoodsUUID].Weight", goodsM[_bo.GoodsUUID].Weight),
+				zap.Any("goodsM[_bo.GoodsUUID].Mount", goodsM[_bo.GoodsUUID].Mount),
+				zap.Any("_bo.Weight", _bo.Weight),
+				zap.Any("_bo.Mount", _bo.Mount),
+			)
 			goodsM[_bo.GoodsUUID] = &SurplusFeild{
 				Weight: goodsM[_bo.GoodsUUID].Weight - _bo.Weight,
 				Mount:  goodsM[_bo.GoodsUUID].Mount - _bo.Mount,
@@ -115,9 +126,14 @@ func SetSurplusByBatch(db *gorm.DB, batchUUID string) (goodsM map[string]*Surplu
 		}
 	}
 
-	global.Global.Logger.Info(">>>>>>", zap.Any(">>>", goodsM))
+	global.Global.Logger.Info("SetSurplusByBatch", zap.Any("goodsM", goodsM))
 	for _, surplus := range goodsM {
-		global.Global.Logger.Info(">>>>>>", zap.Any(">>>", surplus))
+		global.Global.Logger.Info("SetSurplusByBatch",
+			zap.Any("surplus Weight", surplus.Weight),
+			zap.Any("surplus Mount", surplus.Mount),
+			zap.Any("surplus Surplus", surplus.Surplus),
+			zap.Any("surplus Type", surplus.Type),
+		)
 		surplus.Set()
 	}
 	return

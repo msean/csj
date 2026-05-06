@@ -80,7 +80,7 @@ func UpdateOrderPay(db *gorm.DB, payFee float64, payType int32, batchOrderUUID s
 
 	order.CreditAmount = order.CreditAmount - payFee
 	if utils.FloatGreat(0.0, order.CreditAmount) {
-		order.Status = model.BatchOrderFinish
+		order.Status = common.BatchOrderFinish
 	}
 	if err = model.WhereUIDCond(order.UID).Cond(db).Updates(&model.BatchOrder{
 		CreditAmount: order.CreditAmount,

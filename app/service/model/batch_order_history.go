@@ -73,6 +73,7 @@ func (bo *BatchOrder) NewHistoryStep(stepType int32, pay PayFeild) (step Step) {
 		})
 	}
 	s.CreditAmount = fmt.Sprintf("%.f", bo.CreditAmount)
+	s.OrderAmount = fmt.Sprintf("%.f", bo.TotalAmount)
 	s.PayFeild = pay
 	// if !common.Float32IsZero(pay.PaidFee) && pay.PaidFee > 0.0 {
 	// 	s.CreditAmount = common.Float32Preserve((_orderAmount - pay.PaidFee), 32)
