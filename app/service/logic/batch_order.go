@@ -5,6 +5,8 @@ import (
 	"app/pkg/utils"
 	"app/service/common"
 	"app/service/model"
+	"app/service/model/request"
+	"app/service/model/response"
 	"errors"
 	"fmt"
 	"sync"
@@ -39,6 +41,7 @@ func NewBatchOrderLogic(context *gin.Context) *BatchOrderLogic {
 		runtime: global.Global,
 	}
 	logic.OwnerUser = common.GetUserUUID(context)
+	fmt.Println(">>>>>>>>>>>>>logic.OwnerUser", logic.OwnerUser)
 	return logic
 }
 
@@ -181,7 +184,7 @@ func (logic *BatchOrderLogic) UpdateStatus() (err error) {
 		return
 	}
 	switch logic.Status {
-	case common.BatchOrderedCredit:
+	case common.BatchOrderTemp:
 		logic.Record(true, model.HistoryStepCredit, model.PayFeild{})
 	case common.BatchOrderCancel, common.BatchOrderRefund:
 		logic.Record(true, model.HistoryStepCrash, model.PayFeild{})
@@ -422,5 +425,42 @@ func (logic *BatchOrderLogic) LoadHistory() (err error) {
 	if history.UID != "" {
 		logic.History = history
 	}
+	return
+}
+
+func (logic *BatchOrderLogic) GoodsList(req request.BatchGoodsListReq) (rsp []*response.BatchGoodsGroupItem, err error) {
+	rsp = make([]*response.BatchGoodsGroupItem, 0)
+	var storages []model.BatchOrderGoods
+	db := logic.runtime.DB
+
+	conds := []model.Cond{
+		model.NewWhereCond("batch_uuid", req.BatchUUID),
+		model.NewWhereCond("goods_uuid", req.GoodsUUID),
+	}
+
+	conds = append(conds, model.CreatedOrderDescCond())
+	if err = model.Find(db, &storages, conds...); err != nil {
+		logic.runtime.Logger.Error("BatchLogic List FindBatch", zap.Any("req", req), zap.Error(err))
+		return
+	}
+
+	var customerUUIDList []string
+	for _, storage := range storages {
+		customerUUIDList = append(customerUUIDList, storage.UserUUID)
+	}
+
+	_cm, _ := model.BatchCustomerFeildSet(logic.runtime.DB, customerUUIDList, logic.OwnerUser)
+
+	for _, storage := range storages {
+		rsp = append(rsp, &response.BatchGoodsGroupItem{
+			SellTime:     storage.CreatedAt.Format("2006-01-02 15:04:05"),
+			SellPrice:    utils.FloatReserveStr(storage.Price, 1), //
+			SellAmount:   utils.FloatReserveStr(storage.Amount(), 1),
+			CustomerName: _cm[storage.UserUUID].CustomerName,
+			SellTotall:   utils.FloatReserveStr(float64(storage.Price)*storage.Amount(), 1),
+			GoodType:     storage.GType(),
+		})
+	}
+
 	return
 }

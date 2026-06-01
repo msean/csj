@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math/rand"
 	"time"
+
+	cryptorand "crypto/rand"
 
 	"github.com/oklog/ulid/v2"
 	"gorm.io/driver/mysql"
@@ -47,6 +48,14 @@ func First(db *gorm.DB, dst interface{}, conds ...Cond) (err error) {
 	return
 }
 
+func FirstWithPreload(db *gorm.DB, dst interface{}, preload string, conds ...Cond) (err error) {
+	for _, cond := range conds {
+		db = cond.Cond(db)
+	}
+	err = db.First(dst).Preload(preload).Error
+	return
+}
+
 // func (m *BaseModel) BeforeCreate(tx *gorm.DB) error {
 // 	if m.UID == "" {
 // 		id, _ := uuid.NewV4()
@@ -56,11 +65,21 @@ func First(db *gorm.DB, dst interface{}, conds ...Cond) (err error) {
 // }
 
 func (m *BaseModel) BeforeCreate(tx *gorm.DB) error {
-	if m.UID == "" {
-		t := time.Now()
-		entropy := ulid.Monotonic(rand.New(rand.NewSource(t.UnixNano())), 0)
-		m.UID = ulid.MustNew(ulid.Timestamp(t), entropy).String()
+	// if m.UID == "" {
+	// 	t := time.Now()
+	// 	entropy := ulid.Monotonic(rand.New(rand.NewSource(t.UnixNano())), 0)
+	// 	m.UID = ulid.MustNew(ulid.Timestamp(t), entropy).String()
+	// }
+	// return nil
+
+	if m.UID != "" {
+		return nil
 	}
+
+	// 使用 crypto/rand 作为熵源，更安全
+	entropy := ulid.Monotonic(cryptorand.Reader, 0)
+	t := time.Now()
+	m.UID = ulid.MustNew(ulid.Timestamp(t), entropy).String()
 	return nil
 }
 

@@ -95,6 +95,14 @@ func (b *BatchOrderGoods) Amount() float64 {
 	return b.Price * float64(b.Mount)
 }
 
+func (b *BatchOrderGoods) GType() int {
+	// 件数量为0 则是散装
+	if b.Mount == 0 {
+		return common.GoodsTypeBulk
+	}
+	return common.GoodsTypeFix
+}
+
 // func (b *BatchOrder) SetTotalAmount() float64 {
 // 	var t float64
 // 	for _, batchGoods := range b.GoodsListRelated {
@@ -116,3 +124,12 @@ func (b *BatchOrderGoods) SetTotal() float64 {
 	}
 	return b.Total
 }
+
+// func (bg *BatchOrderGoods) Amount() (amount string) {
+// 	if bg.Type == common.GoodsTypeFix {
+// 		amount = fmt.Sprintf("%d", bg.Mount)
+// 		return
+// 	}
+// 	amount = fmt.Sprintf("%.2f", bg.Mount)
+// 	return
+// }

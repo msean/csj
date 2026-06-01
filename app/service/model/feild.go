@@ -11,10 +11,15 @@ import (
 
 type (
 	SurplusFeild struct {
-		Weight  float64 `gorm:"-" json:"-"`
-		Mount   int     `gorm:"-" json:"-"`
-		Surplus string  `gorm:"-" json:"surplus"`
-		Type    int     `gorm:"-" json:"-"`
+		Weight          float64 `gorm:"-" json:"-"`
+		Mount           int     `gorm:"-" json:"-"`
+		SellMount       int     `gorm:"-" json:"-"`
+		SellWeight      float64 `gorm:"-" json:"-"`
+		Surplus         string  `gorm:"-" json:"surplus"` // 剩余
+		Type            int     `gorm:"-" json:"-"`
+		SellAmount      string  `gorm:"-" json:"sellAmount"`      // 销量 件数/均价
+		SellAvgPrice    string  `gorm:"-" json:"sellAvgPrice"`    // 销售均价
+		SellTotalAmount string  `gorm:"-" json:"sellTotalAmount"` // 销售货款总金额
 	}
 	CustomerFeild struct {
 		CustomerName  string `gorm:"-"  json:"customerName"`
@@ -29,6 +34,12 @@ type (
 		PayFee  string `gorm:"-"  json:"payFee"`
 		PayType int32  `gorm:"-"  json:"payType"`
 		PaidFee string `gorm:"-"  json:"paidFee"`
+	}
+	BatchStatFeild struct {
+		StatMount     int `json:"statMount"`     // 总件数
+		StatWeight    int `json:"statWeight"`    // 总重量
+		StatInventory int `json:"StatInventory"` // 库存
+		// StatInventory int `json:"StatInventory"` // 库存
 	}
 )
 
@@ -96,9 +107,10 @@ func SetSurplusByBatch(db *gorm.DB, batchUUID string) (goodsM map[string]*Surplu
 
 	for _, _bg := range _bgs {
 		goodsM[_bg.GoodsUUID] = &SurplusFeild{
-			Weight: _bg.Weight,
-			Mount:  _bg.Mount,
-			Type:   _bg.GoodType,
+			Weight:     _bg.Weight,
+			Mount:      _bg.Mount,
+			Type:       _bg.GoodType,
+			SellAmount: "0",
 		}
 	}
 	global.Global.Logger.Debug("SetSurplusByBatch _bgs", zap.Any("goodsM", goodsM))
@@ -119,9 +131,11 @@ func SetSurplusByBatch(db *gorm.DB, batchUUID string) (goodsM map[string]*Surplu
 				zap.Any("_bo.Mount", _bo.Mount),
 			)
 			goodsM[_bo.GoodsUUID] = &SurplusFeild{
-				Weight: goodsM[_bo.GoodsUUID].Weight - _bo.Weight,
-				Mount:  goodsM[_bo.GoodsUUID].Mount - _bo.Mount,
-				Type:   goodsM[_bo.GoodsUUID].Type,
+				Weight:     goodsM[_bo.GoodsUUID].Weight - _bo.Weight,
+				Mount:      goodsM[_bo.GoodsUUID].Mount - _bo.Mount,
+				Type:       goodsM[_bo.GoodsUUID].Type,
+				SellWeight: goodsM[_bo.GoodsUUID].SellWeight + _bo.Weight,
+				SellMount:  goodsM[_bo.GoodsUUID].Mount + _bo.Mount,
 			}
 		}
 	}
@@ -142,7 +156,9 @@ func SetSurplusByBatch(db *gorm.DB, batchUUID string) (goodsM map[string]*Surplu
 func (s *SurplusFeild) Set() {
 	if s.Type == common.GoodsTypeFix {
 		s.Surplus = fmt.Sprintf("%d", s.Mount)
+		s.SellAmount = fmt.Sprintf("%d", s.SellMount)
 		return
 	}
 	s.Surplus = fmt.Sprintf("%.2f", s.Weight)
+	s.SellAmount = fmt.Sprintf("%.2f", s.SellWeight)
 }

@@ -7,6 +7,7 @@ import (
 	"app/service/handler/middleware"
 	"app/service/logic"
 	"app/service/model"
+	"app/service/model/request"
 
 	"github.com/gin-gonic/gin"
 )
@@ -71,7 +72,7 @@ func BatchOrderCreate(c *gin.Context) {
 	if utils.FloatEqual(order.TotalAmount, form.FPayAmount) || utils.FloatGreat(form.FPayAmount, order.TotalAmount) {
 		order.Status = common.BatchOrderFinish
 	} else {
-		order.Status = common.BatchOrderedCredit
+		order.Status = common.BatchOrderTemp
 	}
 
 	if err := order.Create(tx); err != nil {
@@ -137,7 +138,7 @@ func BatchOrderUpdate(c *gin.Context) {
 	if utils.FloatEqual(order.TotalAmount, form.FPayAmount) || utils.FloatGreat(form.FPayAmount, order.TotalAmount) {
 		order.Status = common.BatchOrderFinish
 	} else {
-		order.Status = common.BatchOrderedCredit
+		order.Status = common.BatchOrderTemp
 	}
 
 	// if err := order.Create(tx); err != nil {
@@ -267,4 +268,19 @@ func BatchOrderGoodsList(c *gin.Context) {
 		return
 	}
 	common.Response(c, nil, goodPriceObjs)
+}
+
+func BatchGoodsOrderList(c *gin.Context) {
+	var payLoad request.BatchGoodsListReq
+	if err := c.ShouldBind(&payLoad); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	logic := logic.NewBatchOrderLogic(c)
+	rsp, err := logic.GoodsList(payLoad)
+	if err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	common.Response(c, nil, rsp)
 }

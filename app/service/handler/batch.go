@@ -5,6 +5,7 @@ import (
 	"app/service/handler/middleware"
 	"app/service/logic"
 	"app/service/model"
+	"app/service/model/request"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,19 +17,23 @@ func batchRouter(g *gin.RouterGroup) {
 		batchGroup.POST("/detail", BatchDetail)
 		batchGroup.POST("/create", BatchCreate)
 		batchGroup.POST("/update", BatchUpdate)
+		batchGroup.POST("/preCreate", BatchPrecreate)
+		batchGroup.POST("/list", BatchList)
 		batchGroup.POST("/update/status", BatchUpdateStatus)
 	}
 	batchGoodsGroup := g.Group("/batch/goods")
 	{
 		batchGoodsGroup.POST("/update", BatchGoodsUpdate)
 		batchGoodsGroup.POST("/detail", BatchGoodsDetail)
+		batchGoodsGroup.POST("/list", BatchGoodsOrderList)
 	}
+
 }
 
 func BatchSurplus(c *gin.Context) {
 	var batchGoodsList []logic.BatchGoodsLogic
 	var err error
-	batchGoodsList, err = logic.NewBatchLogic(c).CalSurplus(common.GetUserUUID(c))
+	batchGoodsList, err = logic.NewBatchLogic(c).CalSurplus()
 	if err != nil {
 		common.Response(c, err, nil)
 		return
@@ -67,6 +72,36 @@ func BatchUpdate(c *gin.Context) {
 	common.Response(c, nil, batchLogic)
 }
 
+func BatchPrecreate(c *gin.Context) {
+	batchLogic := logic.NewBatchLogic(c)
+	if err := c.ShouldBind(&batchLogic); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	rsp, err := batchLogic.Precreate()
+	if err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	common.Response(c, nil, rsp)
+}
+
+func BatchList(c *gin.Context) {
+	var payload request.BatchListReq
+	if err := c.ShouldBind(&payload); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	batchLogic := logic.NewBatchLogic(c)
+	list, err := batchLogic.List(payload)
+	if err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+
+	common.Response(c, nil, list)
+}
+
 func BatchUpdateStatus(c *gin.Context) {
 	batchLogic := logic.NewBatchLogic(c)
 	if err := c.ShouldBind(&batchLogic); err != nil {
@@ -82,11 +117,7 @@ func BatchUpdateStatus(c *gin.Context) {
 }
 
 func BatchDetail(c *gin.Context) {
-	type PayLoad struct {
-		UUID string `json:"uuid"`
-		Date string `json:"date"`
-	}
-	var payLoad PayLoad
+	var payLoad request.BatchDetailReq
 	if err := c.ShouldBind(&payLoad); err != nil {
 		common.Response(c, err, nil)
 		return

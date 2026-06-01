@@ -1,77 +1,26 @@
 package main
 
-import (
-	"encoding/base64"
-	"fmt"
-	"math/rand"
-	"reflect"
-	"strconv"
-	"time"
-)
+import "fmt"
 
-func Inslice(val interface{}, slice interface{}) bool {
-	sliceValue := reflect.ValueOf(slice)
-	if sliceValue.Kind() != reflect.Slice && sliceValue.Kind() != reflect.Array {
-		return val == slice
-	}
+func bubbleSort(arr []int) {
+	n := len(arr)
 
-	for i := 0; i < sliceValue.Len(); i++ {
-		_val := sliceValue.Index(i).Interface()
-		if val == _val {
-			return true
+	// 外层循环：需要比较 n-1 轮
+	for i := 0; i < n-1; i++ {
+		// 内层循环：每轮比较相邻元素
+		// n-i-1：每轮结束后，末尾已经有序，不需要再比较
+		for j := 0; j < n-i-1; j++ {
+			// 如果前一个大于后一个，交换
+			if arr[j] > arr[j+1] {
+				arr[j], arr[j+1] = arr[j+1], arr[j]
+			}
 		}
 	}
-
-	return false
 }
-
-const API_KEY = "a2c903cc-b31e-4547-9299-b6d07b7631ab"
-
-var s int64 = 1111111111111
-
-// 1. key位移（前8位移到后面）
-func encryptApiKey() string {
-	t := API_KEY
-	if len(t) <= 8 {
-		return t
-	}
-	return t[8:] + t[:8]
-}
-
-// 2. 时间处理 + 随机数
-func encryptTime(t int64) string {
-	val := strconv.FormatInt(t+s, 10)
-
-	// 3个随机数
-	n := rand.Intn(10)
-	r := rand.Intn(10)
-	i := rand.Intn(10)
-
-	return val + strconv.Itoa(n) + strconv.Itoa(r) + strconv.Itoa(i)
-}
-
-// 3. 拼接 + base64
-func comb(t, e string) string {
-	raw := t + "|" + e
-	return base64.StdEncoding.EncodeToString([]byte(raw))
-}
-
-// 4. 总函数
-func getApiKey(ts int64) string {
-	e := encryptApiKey()
-	tEnc := encryptTime(ts)
-	return comb(e, tEnc)
-}
-
 func main() {
-	// 初始化随机种子（很重要）
-	rand.Seed(time.Now().UnixNano())
+	arr := []int{64, 34, 25, 12, 22, 11, 90}
+	fmt.Println("排序前:", arr)
 
-	// 毫秒时间戳
-	ts := time.Now().UnixMilli()
-
-	apiKey := getApiKey(ts)
-
-	fmt.Println("生成的 x-apikey:")
-	fmt.Println(apiKey)
+	bubbleSort(arr)
+	fmt.Println("排序后:", arr)
 }
