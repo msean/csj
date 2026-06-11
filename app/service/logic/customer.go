@@ -2,7 +2,9 @@ package logic
 
 import (
 	"app/global"
+	"app/pkg/utils"
 	"app/service/common"
+	"app/service/dao"
 	"app/service/model"
 
 	"github.com/gin-gonic/gin"
@@ -27,7 +29,7 @@ func NewCustomerLogic(context *gin.Context) *CustomerLogic {
 
 func (logic *CustomerLogic) Check() (duplicate bool, err error) {
 	var _c model.Customer
-	if err = model.Find(logic.runtime.DB, &_c, model.WhereNameCond(logic.Name), model.WhereUIDCond(logic.UID)); err != nil {
+	if err = utils.Find(logic.runtime.DB, &_c, utils.WhereNameCond(logic.Name), utils.WhereUIDCond(logic.UID)); err != nil {
 		return
 	}
 	if _c.UID != "" && _c.UID != logic.UID {
@@ -37,23 +39,23 @@ func (logic *CustomerLogic) Check() (duplicate bool, err error) {
 }
 
 func (logic *CustomerLogic) Create() (err error) {
-	return model.CreateObj(logic.runtime.DB, &logic.Customer)
+	return utils.CreateObj(logic.runtime.DB, &logic.Customer)
 }
 
 func (logic *CustomerLogic) Update() (err error) {
-	return logic.Customer.Update(logic.runtime.DB)
+	return dao.CustomerDao.Update(logic.runtime.DB, logic.Customer)
 }
 
-func (logic *CustomerLogic) ListCustomersByOwnerUser(searchvalue string, conds ...model.Cond) (customers []CustomerLogic, err error) {
+func (logic *CustomerLogic) ListCustomersByOwnerUser(searchvalue string, conds ...utils.Cond) (customers []CustomerLogic, err error) {
 	var _customers []model.Customer
-	conds = append(conds, []model.Cond{
-		model.NewWhereCond("owner_user", logic.OwnerUser),
-		model.NewOrderCond("Convert(name USING gbk)"),
+	conds = append(conds, []utils.Cond{
+		utils.NewWhereCond("owner_user", logic.OwnerUser),
+		utils.NewOrderCond("Convert(name USING gbk)"),
 	}...)
 	if searchvalue != "" {
-		conds = append(conds, model.NewOrLikeCond(searchvalue, model.LikeTypeBetween, "name", "phone"))
+		conds = append(conds, utils.NewOrLikeCond(searchvalue, utils.LikeTypeBetween, "name", "phone"))
 	}
-	if err = model.Find(logic.runtime.DB, &_customers, conds...); err != nil {
+	if err = utils.Find(logic.runtime.DB, &_customers, conds...); err != nil {
 		return
 	}
 
@@ -70,7 +72,7 @@ func (logic *CustomerLogic) ListCustomersByOwnerUser(searchvalue string, conds .
 func LoadCustomerByUUIDList(db *gorm.DB, UUIDList []string, ownerUser string) (customerM map[string]model.Customer, err error) {
 	var _customers []model.Customer
 	customerM = make(map[string]model.Customer)
-	if err = model.Find(db, &_customers, model.NewWhereCond("owner_user", ownerUser)); err != nil {
+	if err = utils.Find(db, &_customers, utils.NewWhereCond("owner_user", ownerUser)); err != nil {
 		return
 	}
 	for _, customer := range _customers {

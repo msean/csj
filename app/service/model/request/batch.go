@@ -1,9 +1,9 @@
 package request
 
-import "app/service/model"
+import "app/pkg/utils"
 
 type BatchListReq struct {
-	model.LimitCond
+	utils.LimitCond
 	Status    int    `json:"status"`
 	StartDate string `json:"startDate"`
 	EndDate   string `json:"endDate"`

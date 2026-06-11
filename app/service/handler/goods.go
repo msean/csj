@@ -1,10 +1,11 @@
 package handler
 
 import (
+	"app/pkg/utils"
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
-	"app/service/model"
+	"app/service/model/request"
 
 	"github.com/gin-gonic/gin"
 )
@@ -53,7 +54,7 @@ func GoodsCategorySave(c *gin.Context) {
 func GoodsCategoryList(c *gin.Context) {
 	type Body struct {
 		Brief bool `json:"brief"`
-		model.LimitCond
+		utils.LimitCond
 	}
 	var body Body
 	if err := c.ShouldBind(&body); err != nil {
@@ -92,18 +93,13 @@ func GoodsCategoryDelete(c *gin.Context) {
 }
 
 func GoodsList(c *gin.Context) {
-
-	type Form struct {
-		SearchKey string `json:"searchName"`
-		model.LimitCond
-	}
-	var form Form
+	var form request.GoodsListReq
 	if err := c.ShouldBind(&form); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	goods, err := logic.NewGoodsLogic(c).LoadGoods(common.GetUserUUID(c), form.SearchKey, form.LimitCond)
+	goods, err := logic.NewGoodsLogic(c).LoadGoods(form)
 
 	if err != nil {
 		common.Response(c, err, nil)

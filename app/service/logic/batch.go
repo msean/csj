@@ -3,7 +3,9 @@ package logic
 import (
 	"app/global"
 	"app/pkg/utils"
+	"app/service/cache"
 	"app/service/common"
+	"app/service/dao"
 	"app/service/model"
 	"app/service/model/request"
 	"app/service/model/response"
@@ -50,11 +52,11 @@ func (logic *BatchLogic) CalSurplus() (surplusGoodsList []BatchGoodsLogic, err e
 	db := logic.runtime.DB
 	// 找到上一批
 	var preBatch model.Batch
-	conds := []model.Cond{
-		model.NewOrderCond("serial_no desc"),
-		model.NewWhereCond("owner_user", logic.OwnerUser),
+	conds := []utils.Cond{
+		utils.NewOrderCond("serial_no desc"),
+		utils.NewWhereCond("owner_user", logic.OwnerUser),
 	}
-	err = model.Find(db, &preBatch, conds...)
+	err = utils.Find(db, &preBatch, conds...)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return
 	}
@@ -64,7 +66,7 @@ func (logic *BatchLogic) CalSurplus() (surplusGoodsList []BatchGoodsLogic, err e
 	}
 
 	var preBatchGoodsList []model.BatchGoods
-	if err = model.Find(db, &preBatchGoodsList, model.WhereOwnerUserCond(logic.OwnerUser), model.NewWhereCond("batch_uuid", preBatch.UID)); err != nil {
+	if err = utils.Find(db, &preBatchGoodsList, utils.WhereOwnerUserCond(logic.OwnerUser), utils.NewWhereCond("batch_uuid", preBatch.UID)); err != nil {
 		return
 	}
 	// key 是goodsUUID
@@ -79,24 +81,23 @@ func (logic *BatchLogic) CalSurplus() (surplusGoodsList []BatchGoodsLogic, err e
 
 	// 上一批开单的
 	var batchOrderedGoodsList []model.BatchOrderGoods
-	if err = model.Find(db, &batchOrderedGoodsList, model.NewWhereCond("batch_uuid", preBatch.UID)); err != nil {
+	if err = utils.Find(db, &batchOrderedGoodsList, utils.NewWhereCond("batch_uuid", preBatch.UID)); err != nil {
 		return
 	}
 	for _, batchOrdered := range batchOrderedGoodsList {
 		if _, InpreCountM := preCountM[batchOrdered.GoodsUUID]; InpreCountM {
 			preCountM[batchOrdered.GoodsUUID].Mount -= batchOrdered.Mount
 			preCountM[batchOrdered.GoodsUUID].Weight -= batchOrdered.Weight
-			preCountM[batchOrdered.GoodsUUID].SurplusFeild = model.SurplusFeild{
+			preCountM[batchOrdered.GoodsUUID].BatchGoodsStatFeild = model.BatchGoodsStatFeild{
 				Mount:  preCountM[batchOrdered.GoodsUUID].Mount,
 				Weight: preCountM[batchOrdered.GoodsUUID].Weight,
 			}
-			preCountM[batchOrdered.GoodsUUID].SurplusFeild.Set()
+			preCountM[batchOrdered.GoodsUUID].BatchGoodsStatFeild.Set()
 		}
 	}
 
-	goodsM, e := model.BatchGoodsFeildSet(logic.runtime.DB, preGoodsList, logic.OwnerUser)
-	if e != nil {
-		err = e
+	goodsM := make(map[string]model.GoodsFeild, 0)
+	if goodsM, err = cache.GoodsCache.BatchGoodsFeildSet(preGoodsList, logic.OwnerUser); err != nil {
 		return
 	}
 
@@ -110,14 +111,14 @@ func (logic *BatchLogic) CalSurplus() (surplusGoodsList []BatchGoodsLogic, err e
 
 func (logic *BatchLogic) Create() (err error) {
 	var _b model.Batch
-	if err = model.Find(logic.runtime.DB, &_b, model.WhereSerialNoCond(model.SerioalNo(time.Now()))); err != nil {
-		return
-	}
+	// if err = dao.Find(logic.runtime.DB, &_b); err != nil {
+	// 	return
+	// }
 	// 当天只能创建一个批次 测试环境
-	if _b.UID != "" && global.Global.Env() != "test" {
-		err = common.BatchDuplicateErr
-		return
-	}
+	// if _b.UID != "" && global.Global.Env() != "test" {
+	// 	err = common.BatchDuplicateErr
+	// 	return
+	// }
 
 	var batchGoods []model.Goods
 	var _goodsUIDList []string
@@ -127,7 +128,7 @@ func (logic *BatchLogic) Create() (err error) {
 		_goodsUIDList = append(_goodsUIDList, goods.GoodsUUID)
 	}
 
-	if err = model.Find(logic.runtime.DB, &batchGoods, model.InUIDCondFromString(_goodsUIDList)); err != nil {
+	if err = utils.Find(logic.runtime.DB, &batchGoods, utils.InUIDCondFromString(_goodsUIDList)); err != nil {
 		logic.runtime.Logger.Error("BatchLogic Create", zap.Any("_b", _b))
 		return
 	}
@@ -144,13 +145,13 @@ func (logic *BatchLogic) Create() (err error) {
 
 	}
 
-	return model.CreateObj(logic.runtime.DB, &logic.Batch)
+	return utils.CreateObj(logic.runtime.DB, &logic.Batch)
 }
 
 // withBatchGoods 是否更新批次下的物品信息
 func (logic *BatchLogic) Update(withBatchGoods bool) (err error) {
 	var storage model.Batch
-	if err = model.First(logic.runtime.DB, &storage, model.WhereUIDCond(logic.UID)); err != nil {
+	if err = utils.First(logic.runtime.DB, &storage, utils.WhereUIDCond(logic.UID)); err != nil {
 		logic.runtime.Logger.Error("BatchLogic Update", zap.Error(err))
 		return
 	}
@@ -202,9 +203,8 @@ func (logic *BatchLogic) Update(withBatchGoods bool) (err error) {
 					}
 				}
 
-				goodsM, e := model.BatchGoodsFeildSet(logic.runtime.DB, orderedGoodsUUIDs, logic.OwnerUser)
-				if e != nil {
-					err = e
+				goodsM := make(map[string]model.GoodsFeild, 0)
+				if goodsM, err = cache.GoodsCache.BatchGoodsFeildSet(orderedGoodsUUIDs, logic.OwnerUser); err != nil {
 					return
 				}
 
@@ -230,7 +230,7 @@ func (logic *BatchLogic) Update(withBatchGoods bool) (err error) {
 			_goodsUIDList = append(_goodsUIDList, goods.GoodsUUID)
 		}
 
-		if err = model.Find(logic.runtime.DB, &batchGoods, model.InUIDCondFromString(_goodsUIDList)); err != nil {
+		if err = utils.Find(logic.runtime.DB, &batchGoods, utils.InUIDCondFromString(_goodsUIDList)); err != nil {
 			logic.runtime.Logger.Error("BatchLogic Create", zap.Any("_b", logic.Batch))
 			return
 		}
@@ -255,46 +255,111 @@ func (logic *BatchLogic) Update(withBatchGoods bool) (err error) {
 		logic.SetGoodsFeild()
 
 	case false:
-		logic.Batch.Update(logic.runtime.DB)
+		// logic.Batch.Update(logic.runtime.DB)
+		dao.BatchDao.Update(logic.runtime.DB, logic.Batch)
 	}
 	return
 }
 
-// SetGoodsFeild 设置批次下货品的名称、类型以及剩余信息
+// SetGoodsFeild 设置批次下货品的名称、类型、剩余信息以及统计批次总体数据
 func (logic *BatchLogic) SetGoodsFeild() (err error) {
+	// 1. 收集货品UUID列表
 	var goodsUUIDList []string
 	for _, goods := range logic.GoodsListRelated {
 		goodsUUIDList = append(goodsUUIDList, goods.GoodsUUID)
 	}
 
-	goodsM, e := model.BatchGoodsFeildSet(logic.runtime.DB, goodsUUIDList, logic.OwnerUser)
+	goodsM := make(map[string]model.GoodsFeild, 0)
+	if goodsM, err = cache.GoodsCache.BatchGoodsFeildSet(goodsUUIDList, logic.OwnerUser); err != nil {
+		return
+	}
+
+	// 3. 为每个货品设置名称和类型
+	for _, goods := range logic.GoodsListRelated {
+		goods.GoodsFeild = goodsM[goods.GoodsUUID]
+	}
+
+	// 4. 获取批次剩余库存和销售数据
+	surplusM, e := BatchGoodsStat(logic.runtime.DB, logic.UID)
 	if e != nil {
 		err = e
 		return
 	}
 
+	// 5. 为每个货品设置剩余库存和销售数量，同时统计总体数据
+	var totalMount float64       // 总件数（定装）
+	var totalWeight float64      // 总重量（散装）
+	var inventoryMount int       // 库存件数
+	var inventoryWeight float64  // 库存重量
+	var totalSalesAmount float64 // 总销售金额
+
 	for _, goods := range logic.GoodsListRelated {
-		goods.GoodsName = goodsM[goods.GoodsUUID].GoodsName
-		goods.GoodsTyp = goodsM[goods.GoodsUUID].GoodsTyp
+		if surplus, ok := surplusM[goods.GoodsUUID]; ok {
+			goods.BatchGoodsStatFeild = *surplus
+			// 统计总销售金额（卖出的总金额）
+			totalSalesAmount += surplus.SellTotal
+
+			// 根据货品类型统计总数和库存
+			if goods.GoodsTyp == common.GoodsTypeFix {
+				// 定装：统计件数
+				totalMount += float64(goods.Mount)
+				inventoryMount += surplus.Mount
+			} else if goods.GoodsTyp == common.GoodsTypeBulk {
+				// 散装：统计重量
+				totalWeight += goods.Weight
+				inventoryWeight += surplus.Weight
+			}
+		}
 	}
 
-	surplusM, e := model.SetSurplusByBatch(logic.runtime.DB, logic.UID)
+	// 6. 填充批次统计数据
+	logic.BatchStatFeild = model.BatchStatFeild{
+		StatMount:           utils.FloatReserveStr(totalMount, 1),
+		StatWeight:          utils.FloatReserveStr(totalWeight, 1),
+		StatInventoryMount:  fmt.Sprintf("%d", inventoryMount),
+		StatInventoryWeight: utils.FloatReserveStr(inventoryWeight, 1),
+		StatSalesAmount:     utils.FloatReserveStr(totalSalesAmount, 1),
+	}
 
-	if e != nil {
-		err = e
-		return
-	}
-	for _, goods := range logic.GoodsListRelated {
-		goods.Surplus = surplusM[goods.GoodsUUID].Surplus
-		goods.SellAmount = surplusM[goods.GoodsUUID].SellAmount
-	}
-	return
+	return nil
 }
+
+// // SetGoodsFeild 设置批次下货品的名称、类型以及剩余信息
+// func (logic *BatchLogic) SetGoodsFeild() (err error) {
+// 	var goodsUUIDList []string
+// 	for _, goods := range logic.GoodsListRelated {
+// 		goodsUUIDList = append(goodsUUIDList, goods.GoodsUUID)
+// 	}
+
+// 	goodsM, e := model.BatchGoodsFeildSet(logic.runtime.DB, goodsUUIDList, logic.OwnerUser)
+// 	if e != nil {
+// 		logic.runtime.Logger.Error("BatchLogic SetGoodsFeild", zap.Error(e))
+// 		err = e
+// 		return
+// 	}
+
+// 	for _, goods := range logic.GoodsListRelated {
+// 		goods.GoodsName = goodsM[goods.GoodsUUID].GoodsName
+// 		goods.GoodsTyp = goodsM[goods.GoodsUUID].GoodsTyp
+// 	}
+
+// 	surplusM, e := model.SetSurplusByBatch(logic.runtime.DB, logic.UID)
+
+// 	if e != nil {
+// 		err = e
+// 		return
+// 	}
+// 	for _, goods := range logic.GoodsListRelated {
+// 		goods.Surplus = surplusM[goods.GoodsUUID].Surplus
+// 		goods.SellAmount = surplusM[goods.GoodsUUID].SellAmount
+// 	}
+// 	return
+// }
 
 func (logic *BatchLogic) FromDate(date string) (err error) {
 	db := logic.runtime.DB
 	var batch model.Batch
-	if err = model.Find(db.Preload("GoodsListRelated"), &batch, model.WhereSerialNoCond(date), model.WhereOwnerUserCond(logic.OwnerUser)); err != nil {
+	if err = utils.Find(db.Preload("GoodsListRelated"), &batch, utils.WhereSerialNoCond(date), utils.WhereOwnerUserCond(logic.OwnerUser)); err != nil {
 		return
 	}
 	if batch.UID == "" {
@@ -307,7 +372,7 @@ func (logic *BatchLogic) FromDate(date string) (err error) {
 func (logic *BatchLogic) FromUUID(uuid string) (err error) {
 	db := logic.runtime.DB
 	var batch model.Batch
-	if err = model.Find(db.Preload("GoodsListRelated"), &batch, model.WhereUIDCond(uuid)); err != nil {
+	if err = utils.Find(db.Preload("GoodsListRelated"), &batch, utils.WhereUIDCond(uuid)); err != nil {
 		return
 	}
 	if batch.UID == "" {
@@ -320,7 +385,7 @@ func (logic *BatchLogic) FromUUID(uuid string) (err error) {
 func (logic *BatchLogic) FromLatest() (err error) {
 	db := logic.runtime.DB
 	var batch model.Batch
-	if err = model.First(db.Preload("GoodsListRelated"), &batch, model.CreatedOrderDescCond(), model.NewWhereCond("owner_user", logic.OwnerUser)); err != nil {
+	if err = utils.First(db.Preload("GoodsListRelated"), &batch, utils.CreatedOrderDescCond(), utils.NewWhereCond("owner_user", logic.OwnerUser)); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			batch.GoodsListRelated = []*model.BatchGoods{}
 			err = nil
@@ -335,7 +400,7 @@ func (logic *BatchLogic) FromLatest() (err error) {
 
 func (logic *BatchGoodsLogic) FromUUID(uuid string) (err error) {
 	var batchGoods model.BatchGoods
-	if err = model.Find(logic.runtime.DB, &batchGoods, model.WhereUIDCond(uuid)); err != nil {
+	if err = utils.Find(logic.runtime.DB, &batchGoods, utils.WhereUIDCond(uuid)); err != nil {
 		return
 	}
 	if batchGoods.UID == "" {
@@ -344,7 +409,7 @@ func (logic *BatchGoodsLogic) FromUUID(uuid string) (err error) {
 	}
 	logic.BatchGoods = batchGoods
 	var goods []model.Goods
-	if err = model.Find(logic.runtime.DB, &goods, model.WhereUIDCond(logic.GoodsUUID)); err != nil {
+	if err = utils.Find(logic.runtime.DB, &goods, utils.WhereUIDCond(logic.GoodsUUID)); err != nil {
 		return
 	}
 
@@ -357,7 +422,7 @@ func (logic *BatchGoodsLogic) FromUUID(uuid string) (err error) {
 }
 
 func (logic *BatchGoodsLogic) Update() (err error) {
-	return logic.BatchGoods.Update(logic.runtime.DB)
+	return dao.BatchDao.UpdateBatchGoods(logic.runtime.DB, logic.BatchGoods)
 }
 
 func (logic *BatchLogic) List(req request.BatchListReq) (rsp []response.BatchListItem, err error) {
@@ -371,9 +436,9 @@ func (logic *BatchLogic) List(req request.BatchListReq) (rsp []response.BatchLis
 		return
 	}
 
-	conds := []model.Cond{
+	conds := []utils.Cond{
 		req.LimitCond,
-		model.NewWhereCond("owner_user", logic.OwnerUser),
+		utils.NewWhereCond("owner_user", logic.OwnerUser),
 	}
 
 	if req.StartDate != "" {
@@ -382,7 +447,7 @@ func (logic *BatchLogic) List(req request.BatchListReq) (rsp []response.BatchLis
 			logic.runtime.Logger.Error("BatchLogic List startTime", zap.Any("req", req), zap.Error(err))
 			return nil, fmt.Errorf("开始日期格式错误: %v", err)
 		}
-		conds = append(conds, model.NewCmpCond("created_at", ">=", startTime))
+		conds = append(conds, utils.NewCmpCond("created_at", ">=", startTime))
 	}
 
 	if req.EndDate != "" {
@@ -393,15 +458,15 @@ func (logic *BatchLogic) List(req request.BatchListReq) (rsp []response.BatchLis
 		}
 		// 设置为当天的 23:59:59
 		endTime = endTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		conds = append(conds, model.NewCmpCond("created_at", "<", endTime))
+		conds = append(conds, utils.NewCmpCond("created_at", "<", endTime))
 	}
 
 	if req.Status != 0 {
-		conds = append(conds, model.NewWhereCond("status", req.Status))
+		conds = append(conds, utils.NewWhereCond("status", req.Status))
 	}
 
-	conds = append(conds, model.CreatedOrderDescCond())
-	if err = model.Find(db, &batches, conds...); err != nil {
+	conds = append(conds, utils.CreatedOrderDescCond())
+	if err = utils.Find(db, &batches, conds...); err != nil {
 		logic.runtime.Logger.Error("BatchLogic List FindBatch", zap.Any("req", req), zap.Error(err))
 		return
 	}
@@ -413,10 +478,11 @@ func (logic *BatchLogic) List(req request.BatchListReq) (rsp []response.BatchLis
 		}
 		t := time.Unix(batch.StorageTime, 0)
 		rsp = append(rsp, response.BatchListItem{
-			Status: int(batch.Status),
-			Time:   t.Format("2006-01-02 15:04:05"),
-			UID:    batch.UID,
-			Title:  fmt.Sprintf("%s %d", name, batch.SerialID),
+			Status:   int(batch.Status),
+			Time:     t.Format("2006-01-02 15:04:05"),
+			UID:      batch.UID,
+			Title:    name,
+			SerialID: batch.SerialID,
 		})
 	}
 	return

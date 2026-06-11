@@ -21,13 +21,12 @@ func batchRouter(g *gin.RouterGroup) {
 		batchGroup.POST("/list", BatchList)
 		batchGroup.POST("/update/status", BatchUpdateStatus)
 	}
-	batchGoodsGroup := g.Group("/batch/goods")
+	batchGoodsGroup := g.Group("/batch/goods", middleware.AuthMiddleware())
 	{
 		batchGoodsGroup.POST("/update", BatchGoodsUpdate)
 		batchGoodsGroup.POST("/detail", BatchGoodsDetail)
 		batchGoodsGroup.POST("/list", BatchGoodsOrderList)
 	}
-
 }
 
 func BatchSurplus(c *gin.Context) {

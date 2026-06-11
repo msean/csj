@@ -22,6 +22,12 @@ const (
 	PayTypeCash = 4 // 现金
 )
 
+const (
+	BatchStatusOnSellering = 1 // 在售
+	BatchStatusOffShelf    = 2 // 售罄
+	BatchStatusSettled     = 3 // 已结算
+)
+
 var ExCludeTempBatchOrder = []int{
 	BatchOrderedCredit, BatchOrderFinish, BatchOrderCancel, BatchOrderRefund, BatchOrderReTurn,
 }

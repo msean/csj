@@ -91,11 +91,11 @@ func InitRunTime(configfile string) (err error) {
 	Global.DB, err = NewMysql(dbconf)
 
 	// redis 初始化
-	// GlobalRunTime.Redis = NewRedis(RedisConf{
-	// 	Addr:     GlobalRunTime.Viper.GetString("redis.addr"),
-	// 	Password: GlobalRunTime.Viper.GetString("redis.password"), // 密码
-	// 	DB:       1,
-	// })
+	Global.Redis = NewRedis(RedisConf{
+		Addr:     Global.Viper.GetString("redis.addr"),
+		Password: Global.Viper.GetString("redis.password"), // 密码
+		DB:       1,
+	})
 
 	// sms 初始化
 	Global.Sms = &sms.AliPlatfrom{

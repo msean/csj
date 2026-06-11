@@ -1,10 +1,10 @@
 package handler
 
 import (
+	"app/pkg/utils"
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
-	"app/service/model"
 
 	"github.com/gin-gonic/gin"
 )
@@ -53,7 +53,7 @@ func CustomerSave(c *gin.Context) {
 func CustomerList(c *gin.Context) {
 
 	type Form struct {
-		model.LimitCond
+		utils.LimitCond
 		SearchKey string `json:"searchName"`
 	}
 	var form Form

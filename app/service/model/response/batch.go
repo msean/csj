@@ -2,10 +2,11 @@ package response
 
 type (
 	BatchListItem struct {
-		UID    string `json:"uuid"`
-		Time   string `json:"time"`
-		Status int    `json:"status"`
-		Title  string `json:"title"`
+		UID      string `json:"uuid"`
+		Time     string `json:"time"`
+		Status   int    `json:"status"`
+		Title    string `json:"title"`
+		SerialID int    `json:"serialID"`
 	}
 )
 
@@ -23,5 +24,7 @@ type BatchGoodsGroupItem struct {
 }
 
 type BatchGoodsGroupRsp struct {
-	Items []BatchGoodsGroupItem `json:"items"`
+	Items   []*BatchGoodsGroupItem `json:"items"`
+	Profits string                 `json:"profits"` // 利润
+	Surplus string                 `json:"surplus"`
 }

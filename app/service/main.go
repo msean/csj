@@ -2,6 +2,7 @@ package service
 
 import (
 	"app/global"
+	"app/service/cache"
 	"app/service/handler"
 	"app/service/model"
 	"os"
@@ -16,6 +17,7 @@ func Run(cfgFilepath string) {
 	}
 	handler.InitEngine(global.Global.Engine)
 	model.Migrate()
+	cache.Init()
 
 	defer global.Global.Close()
 	go func() { global.Global.Run(global.Global.Engine) }()

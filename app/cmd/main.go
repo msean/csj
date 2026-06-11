@@ -2,6 +2,10 @@ package main
 
 import (
 	"app/service"
+	"log"
+
+	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/spf13/pflag"
 )
@@ -13,5 +17,9 @@ var (
 
 func main() {
 	pflag.Parse()
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 	service.Run(*cfg)
+
 }

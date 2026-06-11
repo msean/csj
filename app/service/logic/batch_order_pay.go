@@ -6,6 +6,7 @@ import (
 	"app/global"
 	"app/pkg/utils"
 	"app/service/common"
+	"app/service/dao"
 	"app/service/model"
 
 	"github.com/gin-gonic/gin"
@@ -37,7 +38,7 @@ func (logic *BatchOrderPayLogic) Create(tx *gorm.DB, toUpdateOrder bool) (err er
 		tx = logic.runtime.DB.Begin()
 		useTxOut = false
 	}
-	if err = model.CreateObj(tx, &logic.BatchOrderPay); err != nil {
+	if err = utils.CreateObj(tx, &logic.BatchOrderPay); err != nil {
 		tx.Rollback()
 		return
 	}
@@ -58,7 +59,7 @@ func (logic *BatchOrderPayLogic) Create(tx *gorm.DB, toUpdateOrder bool) (err er
 
 func (logic *BatchOrderPayLogic) Update() (err error) {
 	tx := logic.runtime.DB.Begin()
-	if err = logic.BatchOrderPay.Update(tx); err != nil {
+	if err = dao.OrderDao.UpdateOrderPay(tx, logic.BatchOrderPay); err != nil {
 		tx.Rollback()
 		return
 	}
@@ -74,7 +75,7 @@ func (logic *BatchOrderPayLogic) Update() (err error) {
 // 查询该批次的单次是否结算完成，若完成，则需修改单次的状态
 func UpdateOrderPay(db *gorm.DB, payFee float64, payType int32, batchOrderUUID string, ctx *gin.Context) (err error) {
 	var order model.BatchOrder
-	if err = model.Find(db, &order, model.WhereUIDCond(batchOrderUUID)); err != nil {
+	if err = utils.Find(db, &order, utils.WhereUIDCond(batchOrderUUID)); err != nil {
 		return
 	}
 
@@ -82,7 +83,7 @@ func UpdateOrderPay(db *gorm.DB, payFee float64, payType int32, batchOrderUUID s
 	if utils.FloatGreat(0.0, order.CreditAmount) {
 		order.Status = common.BatchOrderFinish
 	}
-	if err = model.WhereUIDCond(order.UID).Cond(db).Updates(&model.BatchOrder{
+	if err = utils.WhereUIDCond(order.UID).Cond(db).Updates(&model.BatchOrder{
 		CreditAmount: order.CreditAmount,
 		Status:       order.Status,
 	}).Error; err != nil {
@@ -93,5 +94,5 @@ func UpdateOrderPay(db *gorm.DB, payFee float64, payType int32, batchOrderUUID s
 }
 
 func (logic *BatchOrderPayLogic) FromUUID() (err error) {
-	return model.Find(logic.runtime.DB, &logic.BatchOrderPay)
+	return utils.Find(logic.runtime.DB, &logic.BatchOrderPay)
 }

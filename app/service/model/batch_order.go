@@ -3,8 +3,6 @@ package model
 import (
 	"app/pkg/utils"
 	"app/service/common"
-
-	"gorm.io/gorm"
 )
 
 type (
@@ -22,7 +20,6 @@ type (
 		GoodsListRelated []*BatchOrderGoods `gorm:"foreignKey:BatchOrderUID;references:UID" json:"goodsList"`
 		CustomerFeild
 	}
-	// todo,假如是散装一定要将Mount置为0
 	BatchOrderGoods struct {
 		BaseModel
 		BatchOrderUID string  `gorm:"column:batch_order_uuid;comment:批次uuid" json:"batchOrderUUID"`
@@ -30,7 +27,7 @@ type (
 		GoodsUUID     string  `gorm:"column:goods_uuid;comment:货品uuid" json:"goodsUUID"`
 		OwnerUser     string  `gorm:"column:owner_user;comment:所属用户;index" json:"ownerUser"`
 		UserUUID      string  `gorm:"column:user_uuid;comment:开单uuid" json:"customerUUID"`
-		SerialNo      string  `gorm:"column:serial_no;comment:批次序号" json:"serialNo"`
+		GoodType      int     `gorm:"column:good_type;comment:批次序号" json:"-"`
 		Price         float64 `gorm:"column:price;type:decimal(10,2);comment:单价" json:"price"`
 		Weight        float64 `gorm:"column:weight;type:decimal(10,2);comment:重量" json:"weight"`
 		Mount         int     `gorm:"column:mount;comment:数量" json:"mount"`                    // 定装 件数 散装 斤数
@@ -56,52 +53,34 @@ type (
 	}
 )
 
-func (bo *BatchOrder) UpdateStatus(db *gorm.DB, status int) error {
-	return WhereUIDCond(bo.UID).Cond(db).Model(&BatchOrder{}).Update("status", status).Error
-}
-
-func (bo *BatchOrder) UpdateShare(db *gorm.DB) error {
-	return WhereUIDCond(bo.UID).Cond(db).Updates(&BatchOrder{
-		Shared: common.BatchOrderShared,
-	}).Error
-}
-
-func (bo *BatchOrder) Update(db *gorm.DB) error {
-	return WhereUIDCond(bo.UID).Cond(db).Updates(&BatchOrder{
-		Shared: common.BatchOrderShared,
-	}).Error
-}
-
-func (b *BatchOrderGoods) Update(db *gorm.DB) error {
-	return WhereUIDCond(b.UID).Cond(db).Updates(&BatchOrderGoods{
-		Price:  b.Price,
-		Mount:  b.Mount,
-		Weight: b.Weight,
-	}).Error
-}
-
-func (b *BatchOrderPay) Update(db *gorm.DB) error {
-	return WhereUIDCond(b.UID).Cond(db).Updates(&BatchOrderPay{
-		PayType: b.PayType,
-		Amount:  b.Amount,
-	}).Error
+func (b *BatchOrder) DefaultSet() {
+	b.Status = common.BatchOrderTemp
+	b.Shared = common.BatchOrderUnshare
 }
 
 func (b *BatchOrderGoods) Amount() float64 {
 	// 件数量为0 则是散装
-	if b.Mount == 0 {
+	if b.GoodType == common.GoodsTypeBulk {
 		return b.Price * float64(b.Weight)
 	}
 	return b.Price * float64(b.Mount)
 }
 
-func (b *BatchOrderGoods) GType() int {
+func (b *BatchOrderGoods) Sell() float64 {
 	// 件数量为0 则是散装
-	if b.Mount == 0 {
-		return common.GoodsTypeBulk
+	if b.GoodType == common.GoodsTypeBulk {
+		return b.Weight
 	}
-	return common.GoodsTypeFix
+	return float64(b.Mount)
 }
+
+// func (b *BatchOrderGoods) GType() int {
+// 	// 件数量为0 则是散装
+// 	if b.Mount == 0 {
+// 		return common.GoodsTypeBulk
+// 	}
+// 	return common.GoodsTypeFix
+// }
 
 // func (b *BatchOrder) SetTotalAmount() float64 {
 // 	var t float64
@@ -117,7 +96,7 @@ func (b *BatchOrderGoods) GType() int {
 
 // 设置小计件
 func (b *BatchOrderGoods) SetTotal() float64 {
-	if b.Mount == 0 {
+	if b.GoodType == common.GoodsTypeBulk {
 		b.Total = utils.FloatReserve(b.Price*b.Weight, 0)
 	} else {
 		b.Total = utils.FloatReserve(float64(b.Mount)*b.Price, 0)

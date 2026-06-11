@@ -2,17 +2,8 @@ package model
 
 import (
 	"app/service/common"
-	"fmt"
-	"time"
 
 	"gorm.io/gorm"
-)
-
-const (
-	BatchStatusOnSellering = 1 // 在售
-	BatchStatusOffShelf    = 2 // 售罄
-	BatchStatusSettled     = 3 // 已结算
-
 )
 
 type (
@@ -24,6 +15,7 @@ type (
 		Status           int32         `gorm:"column:status;comment:状态" json:"status"`
 		GoodsListRelated []*BatchGoods `gorm:"foreignKey:BatchUUID;references:UID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"goodsList"`
 		SerialID         int           `gorm:"column:serial_id;comment:ownerUserr自增ID" json:"serialID"`
+		BatchStatFeild
 	}
 	BatchGoods struct {
 		BaseModel
@@ -36,7 +28,7 @@ type (
 		Weight    float64 `gorm:"column:weight;type:decimal(10,2);comment:重量" json:"weight"`
 		Mount     int     `gorm:"column:mount;comment:数量" json:"mount"`
 		GoodsFeild
-		SurplusFeild
+		BatchGoodsStatFeild
 	}
 )
 
@@ -58,20 +50,6 @@ func (b *Batch) BeforeCreate(tx *gorm.DB) (err error) {
 
 func (Batch) TableName() string { return "batches" }
 
-func (b *Batch) Update(db *gorm.DB) (err error) {
-	toUpdates := make(map[string]any)
-	if b.StorageTime != 0 {
-		toUpdates["storage_time"] = b.StorageTime
-	}
-	if b.Status != 0 {
-		toUpdates["status"] = b.Status
-	}
-	if len(toUpdates) > 0 {
-		return WhereUIDCond(b.UID).Cond(db).Model(&Batch{}).Updates(toUpdates).Error
-	}
-	return
-}
-
 func (b *Batch) GenerateSerialID(tx *gorm.DB) (maxID int, err error) {
 	if err = tx.Model(&Batch{}).
 		Where("owner_user = ?", b.OwnerUser).
@@ -83,36 +61,16 @@ func (b *Batch) GenerateSerialID(tx *gorm.DB) (maxID int, err error) {
 	return
 }
 
-func SerioalNo(dt time.Time) string {
-	if dt.IsZero() {
-		dt = time.Now()
-	}
-	return fmt.Sprintf("%d-%d-%d", dt.Year(), dt.Month(), dt.Day())
-}
-
 func (b *Batch) Default() {
-	b.Status = BatchStatusOnSellering
-	b.SerialNo = SerioalNo(time.Time{})
+	b.Status = common.BatchStatusOnSellering
+	// b.SerialNo = SerioalNo(time.Time{})
 }
 
-func (b *BatchOrder) DefaultSet() {
-	b.Status = common.BatchOrderTemp
-	b.Shared = common.BatchOrderUnshare
-}
-
-func (bg *BatchGoods) Update(db *gorm.DB) error {
-	return WhereUIDCond(bg.UID).Cond(db).Updates(&BatchGoods{
-		Price:  bg.Price,
-		Weight: bg.Weight,
-		Mount:  bg.Mount,
-	}).Error
-}
-
-func (bg *BatchGoods) Amount() (amount string) {
-	if bg.Type == common.GoodsTypeFix {
-		amount = fmt.Sprintf("%d", bg.Mount)
-		return
-	}
-	amount = fmt.Sprintf("%.2f", bg.Mount)
-	return
-}
+// func (bg *BatchGoods) Amount() (amount string) {
+// 	if bg.Type == common.GoodsTypeFix {
+// 		amount = fmt.Sprintf("%d", bg.Mount)
+// 		return
+// 	}
+// 	amount = fmt.Sprintf("%.2f", bg.Weight)
+// 	return
+// }

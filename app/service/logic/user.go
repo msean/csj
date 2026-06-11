@@ -2,7 +2,9 @@ package logic
 
 import (
 	"app/global"
+	"app/pkg/utils"
 	"app/service/common"
+	"app/service/dao"
 	"app/service/model"
 	"fmt"
 
@@ -48,7 +50,7 @@ func (logic *UserLogic) Register() (err error) {
 		return common.VerifyCodeErr
 	}
 
-	err = model.Find(logic.runTime.DB, &logic.User, logic.WherePhoneCond())
+	err = utils.Find(logic.runTime.DB, &logic.User, dao.UserDao.WherePhoneCond(logic.User))
 	if err != nil {
 		return
 	}
@@ -61,11 +63,11 @@ func (logic *UserLogic) Register() (err error) {
 		Phone: logic.Phone,
 	}
 	tx := logic.runTime.DB.Begin()
-	if err = model.CreateObj(tx, &user); err != nil {
+	if err = utils.CreateObj(tx, &user); err != nil {
 		tx.Rollback()
 		return
 	}
-	if err = model.NewTempCustomer(user.UID, logic.runTime.DB); err != nil {
+	if err = dao.CustomerDao.NewTempCustomer(user.UID, tx); err != nil {
 		tx.Rollback()
 		return
 	}
@@ -87,7 +89,7 @@ func (logic *UserLogic) Login() (err error) {
 		return common.VerifyCodeErr
 	}
 
-	err = model.Find(logic.runTime.DB, &logic.User, logic.WherePhoneCond())
+	err = utils.Find(logic.runTime.DB, &logic.User, dao.UserDao.WherePhoneCond(logic.User))
 	if err != nil {
 		return
 	}
@@ -100,7 +102,7 @@ func (logic *UserLogic) Login() (err error) {
 }
 
 func (logic *UserLogic) FromUUID(userUUID string) (user model.User, err error) {
-	err = model.Find(logic.runTime.DB, &user, model.WhereUIDCond(userUUID))
+	err = utils.Find(logic.runTime.DB, &user, utils.WhereUIDCond(userUUID))
 	if err != nil {
 		return
 	}
@@ -114,7 +116,7 @@ func (logic *UserLogic) FromUUID(userUUID string) (user model.User, err error) {
 func (logic *UserLogic) Update() (err error) {
 	if logic.Phone != "" {
 		var _u model.User
-		e := model.Find(logic.runTime.DB, &_u, logic.WherePhoneCond())
+		e := utils.Find(logic.runTime.DB, &_u, dao.UserDao.WherePhoneCond(logic.User))
 		if e != nil {
 			err = e
 			return
@@ -124,5 +126,5 @@ func (logic *UserLogic) Update() (err error) {
 			return
 		}
 	}
-	return logic.User.Update(logic.runTime.DB)
+	return dao.UserDao.Update(logic.runTime.DB, logic.User)
 }

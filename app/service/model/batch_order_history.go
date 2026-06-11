@@ -45,14 +45,14 @@ type (
 
 func (bo *BatchOrder) Record(db *gorm.DB, stepType int32, pay PayFeild) (err error) {
 	var boh BatchOrderHistory
-	if err = Find(db, &boh, NewWhereCond("batch_order_uuid", bo.UID)); err != nil {
+	if err = utils.Find(db, &boh, utils.NewWhereCond("batch_order_uuid", bo.UID)); err != nil {
 		return
 	}
 	step := bo.NewHistoryStep(stepType, pay)
 	boh.History = append(boh.History, step)
 	boh.BatchOrderUID = bo.UID
 	if boh.UID == "" {
-		return CreateObj(db, &boh)
+		return utils.CreateObj(db, &boh)
 	}
 	return db.Save(&boh).Error
 }

@@ -28,33 +28,25 @@ type BaseModel struct {
 }
 
 // object must be an pointer type
-func CreateObj(db *gorm.DB, object interface{}) (err error) {
-	return db.Create(object).Error
-}
+// func CreateObj(db *gorm.DB, object interface{}) (err error) {
+// 	return db.Create(object).Error
+// }
 
-func Find(db *gorm.DB, dst interface{}, conds ...Cond) (err error) {
-	for _, cond := range conds {
-		db = cond.Cond(db)
-	}
-	err = db.Find(dst).Error
-	return
-}
+// func Find(db *gorm.DB, dst interface{}, conds ...Cond) (err error) {
+// 	for _, cond := range conds {
+// 		db = cond.Cond(db)
+// 	}
+// 	err = db.Find(dst).Error
+// 	return
+// }
 
-func First(db *gorm.DB, dst interface{}, conds ...Cond) (err error) {
-	for _, cond := range conds {
-		db = cond.Cond(db)
-	}
-	err = db.First(dst).Error
-	return
-}
-
-func FirstWithPreload(db *gorm.DB, dst interface{}, preload string, conds ...Cond) (err error) {
-	for _, cond := range conds {
-		db = cond.Cond(db)
-	}
-	err = db.First(dst).Preload(preload).Error
-	return
-}
+// func First(db *gorm.DB, dst interface{}, conds ...Cond) (err error) {
+// 	for _, cond := range conds {
+// 		db = cond.Cond(db)
+// 	}
+// 	err = db.First(dst).Error
+// 	return
+// }
 
 // func (m *BaseModel) BeforeCreate(tx *gorm.DB) error {
 // 	if m.UID == "" {

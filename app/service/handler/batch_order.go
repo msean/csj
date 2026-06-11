@@ -15,7 +15,7 @@ import (
 func batchOrderRouter(g *gin.RouterGroup) {
 	batchOrderGroup := g.Group("/batch_order", middleware.AuthMiddleware())
 	{
-		// 码单
+		// 记账单
 		batchOrderGroup.POST("/temp/create", BatchOrderTempCreate)
 		// 下单
 		batchOrderGroup.POST("/create", BatchOrderCreate)
@@ -51,6 +51,7 @@ func BatchOrderCreate(c *gin.Context) {
 		// FCreditAmount float64 `json:"creditAmount"`
 		PayType int32 `json:"payType"` // 支付方式
 	}
+
 	var form Form
 	if err := c.ShouldBind(&form); err != nil {
 		common.Response(c, err, nil)
@@ -74,7 +75,6 @@ func BatchOrderCreate(c *gin.Context) {
 	} else {
 		order.Status = common.BatchOrderTemp
 	}
-
 	if err := order.Create(tx); err != nil {
 		common.Response(c, err, nil)
 		return
@@ -248,7 +248,7 @@ func BatchOrderGoodsLatest(c *gin.Context) {
 
 func BatchOrderGoodsList(c *gin.Context) {
 	type PayLoad struct {
-		model.LimitCond
+		utils.LimitCond
 		Status    int32  `json:"status"`
 		UserUUID  string `json:"userUUID"`
 		StartTime int64  `json:"startTime"`
@@ -262,7 +262,7 @@ func BatchOrderGoodsList(c *gin.Context) {
 		return
 	}
 
-	goodPriceObjs, err := order.List(payload.UserUUID, payload.StartTime, payload.EndTime, payload.Status, model.DefaultSetLimitCond(payload.LimitCond))
+	goodPriceObjs, err := order.List(payload.UserUUID, payload.StartTime, payload.EndTime, payload.Status, utils.DefaultSetLimitCond(payload.LimitCond))
 	if err != nil {
 		common.Response(c, err, nil)
 		return
@@ -277,6 +277,7 @@ func BatchGoodsOrderList(c *gin.Context) {
 		return
 	}
 	logic := logic.NewBatchOrderLogic(c)
+
 	rsp, err := logic.GoodsList(payLoad)
 	if err != nil {
 		common.Response(c, err, nil)
