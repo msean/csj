@@ -29,47 +29,36 @@ func NewBatchOrderPayLogic(context *gin.Context) *BatchOrderPayLogic {
 }
 
 func (logic *BatchOrderPayLogic) Create(tx *gorm.DB, toUpdateOrder bool) (err error) {
-	useTxOut := true
-	if logic.BatchOrderUUID == "" {
-		return common.BatchOrderUUIDRequireErr
-	}
-
 	if tx == nil {
-		tx = logic.runtime.DB.Begin()
-		useTxOut = false
+		tx = logic.runtime.DB
+		defer func() {
+			if err != nil {
+				tx.Rollback()
+			} else {
+				tx.Commit()
+			}
+		}()
 	}
 	if err = utils.CreateObj(tx, &logic.BatchOrderPay); err != nil {
-		tx.Rollback()
 		return
 	}
 
 	if toUpdateOrder {
 		if err = UpdateOrderPay(tx, logic.Amount, logic.PayType, logic.BatchOrderUUID, logic.context); err != nil {
-			tx.Rollback()
 			return
 		}
 	}
-
-	if !useTxOut {
-		tx.Commit()
-	}
-
 	return
 }
 
 func (logic *BatchOrderPayLogic) Update() (err error) {
-	tx := logic.runtime.DB.Begin()
-	if err = dao.OrderDao.UpdateOrderPay(tx, logic.BatchOrderPay); err != nil {
-		tx.Rollback()
+	return logic.runtime.DB.Transaction(func(tx *gorm.DB) (err error) {
+		if err = dao.OrderDao.UpdateOrderPay(tx, logic.BatchOrderPay); err != nil {
+			return
+		}
+		err = UpdateOrderPay(tx, logic.Amount, logic.PayType, logic.BatchOrderUUID, logic.context)
 		return
-	}
-	if err = UpdateOrderPay(tx, logic.Amount, logic.PayType, logic.BatchOrderUUID, logic.context); err != nil {
-		tx.Rollback()
-		return
-	}
-
-	tx.Commit()
-	return
+	})
 }
 
 // 查询该批次的单次是否结算完成，若完成，则需修改单次的状态

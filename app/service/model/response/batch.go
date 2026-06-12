@@ -8,23 +8,24 @@ type (
 		Title    string `json:"title"`
 		SerialID int    `json:"serialID"`
 	}
+	PrecreateRsp struct {
+		SerialID int `json:"serialID"`
+	}
+	BatchOrderGoodsOrderRsp struct {
+		GoodsUUID string  `json:"goodsUUID"`
+		Price     float64 `json:"price"`
+	}
+	BatchGoodsGroupItem struct {
+		SellTime     string `json:"sellTime"`
+		CustomerName string `json:"customerName"`
+		SellPrice    string `json:"sellPrice"`
+		SellAmount   string `json:"sellAmount"`
+		SellTotall   string `json:"sellTotal"`
+		GoodType     int    `json:"goodType"`
+	}
+	BatchGoodsGroupRsp struct {
+		Items   []*BatchGoodsGroupItem `json:"items"`
+		Profits string                 `json:"profits"` // 利润
+		Surplus string                 `json:"surplus"`
+	}
 )
-
-type PrecreateRsp struct {
-	SerialID int `json:"serialID"`
-}
-
-type BatchGoodsGroupItem struct {
-	SellTime     string `json:"sellTime"`
-	CustomerName string `json:"customerName"`
-	SellPrice    string `json:"sellPrice"`
-	SellAmount   string `json:"sellAmount"`
-	SellTotall   string `json:"sellTotal"`
-	GoodType     int    `json:"goodType"`
-}
-
-type BatchGoodsGroupRsp struct {
-	Items   []*BatchGoodsGroupItem `json:"items"`
-	Profits string                 `json:"profits"` // 利润
-	Surplus string                 `json:"surplus"`
-}

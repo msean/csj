@@ -41,6 +41,14 @@ func (logic *CustomerLogic) Check() (duplicate bool, err error) {
 }
 
 func (logic *CustomerLogic) Create() (err error) {
+	var dup bool
+	if dup, err = logic.Check(); err != nil {
+		return
+	}
+	if dup {
+		err = common.CustomerDuplicateErr
+		return
+	}
 	return utils.CreateObj(logic.runtime.DB, &logic.Customer)
 }
 

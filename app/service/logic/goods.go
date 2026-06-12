@@ -112,6 +112,9 @@ func (logic *GoodsCategoryLogic) Check() (err error) {
 }
 
 func (logic *GoodsCategoryLogic) Create() (err error) {
+	if err = logic.Check(); err != nil {
+		return
+	}
 	return utils.CreateObj(logic.runtime.DB, &logic.GoodsCategory)
 }
 
@@ -137,6 +140,9 @@ func (logic *GoodsLogic) Check() (err error) {
 }
 
 func (logic *GoodsLogic) Create() (err error) {
+	if err = logic.Check(); err != nil {
+		return
+	}
 	return utils.CreateObj(logic.runtime.DB, &logic.Goods)
 }
 

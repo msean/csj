@@ -31,10 +31,6 @@ type (
 		runtime *global.RunTime
 		*model.BatchOrderGoods
 	}
-	BatchOrderGoodsOrder struct {
-		GoodsUUID string  `json:"goodsUUID"`
-		Price     float64 `json:"price"`
-	}
 )
 
 func NewBatchOrderLogic(context *gin.Context) *BatchOrderLogic {
@@ -156,11 +152,19 @@ func (logic *BatchOrderLogic) FillGoodsWeightWithTotal(db *gorm.DB) (err error) 
 }
 
 // 下单
-func (logic *BatchOrderLogic) Create(tx *gorm.DB) (err error) {
-	if tx == nil {
-		tx = logic.runtime.DB.Begin()
-		defer tx.Commit()
+func (logic *BatchOrderLogic) Create(orderReq request.OrderReq) (err error) {
+	// 计算total
+	if err = logic.FillGoodsWeightWithTotal(global.Global.DB); err != nil {
+		return
 	}
+
+	logic.CreditAmount = logic.TotalAmount - orderReq.FPayAmount
+	if utils.FloatEqual(logic.TotalAmount, orderReq.FPayAmount) || utils.FloatGreat(orderReq.FPayAmount, logic.TotalAmount) {
+		logic.Status = common.BatchOrderFinish
+	} else {
+		logic.Status = common.BatchOrderTemp
+	}
+
 	logic.BatchOrder.Shared = common.BatchOrderUnshare
 
 	if logic.BatchUUID == "" {
@@ -176,9 +180,33 @@ func (logic *BatchOrderLogic) Create(tx *gorm.DB) (err error) {
 		goods.UserUUID = logic.UserUUID
 	}
 
+	tx := logic.runtime.DB.Begin()
 	if err = utils.CreateObj(tx, &logic.BatchOrder); err != nil {
 		tx.Rollback()
 		return
+	}
+
+	orderPay := NewBatchOrderPayLogic(logic.context)
+	orderPay.BatchOrderUUID = logic.UID
+	// orderPay.Amount = order.TotalAmount - order.CreditAmount
+	orderPay.Amount = orderReq.FPayAmount
+	if err = orderPay.Create(tx, false); err != nil {
+		tx.Rollback()
+		return
+	}
+	tx.Commit()
+	if utils.FloatGreat(0.0, logic.CreditAmount) {
+		go logic.Record(false, model.HistoryStepCash, model.PayFeild{
+			PayFee:  utils.Violent2String(orderReq.TotalAmount),
+			PayType: orderReq.PayType,
+			PaidFee: utils.Violent2String(orderReq.FPayAmount),
+		})
+	} else {
+		go logic.Record(false, model.HistoryStepCredit, model.PayFeild{
+			PayFee:  utils.Violent2String(orderReq.TotalAmount),
+			PayType: orderReq.PayType,
+			PaidFee: utils.Violent2String(orderReq.FPayAmount),
+		})
 	}
 	logic.SetFeilds()
 	return
@@ -206,7 +234,27 @@ func (logic *BatchOrderLogic) UpdateStatus() (err error) {
 }
 
 // 更新单次
-func (logic *BatchOrderLogic) Update(tx *gorm.DB) (err error) {
+func (logic *BatchOrderLogic) Update(orderReq request.OrderReq) (err error) {
+	var old model.BatchOrder
+	if old, err = logic.LoadSingle(orderReq.UID); err != nil {
+		return
+	}
+	logic.BatchOrder = orderReq.BatchOrder // owner_user重置成了空字符串
+	logic.BatchUUID = old.BatchUUID
+
+	// 计算total
+	if err = logic.FillGoodsWeightWithTotal(global.Global.DB); err != nil {
+		return
+	}
+
+	logic.CreditAmount = logic.TotalAmount - orderReq.FPayAmount
+	if utils.FloatEqual(logic.TotalAmount, orderReq.FPayAmount) || utils.FloatGreat(orderReq.FPayAmount, logic.TotalAmount) {
+		logic.Status = common.BatchOrderFinish
+	} else {
+		logic.Status = common.BatchOrderTemp
+	}
+
+	tx := logic.runtime.DB.Begin()
 	if err = tx.Delete(&model.BatchOrderGoods{}, "batch_order_uuid=?", logic.UID).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -224,6 +272,28 @@ func (logic *BatchOrderLogic) Update(tx *gorm.DB) (err error) {
 	if err = tx.Omit("created_at").Save(&logic.BatchOrder).Error; err != nil {
 		tx.Rollback()
 		return
+	}
+
+	orderPay := NewBatchOrderPayLogic(logic.context)
+	orderPay.BatchOrderUUID = logic.UID
+	// orderPay.Amount = order.TotalAmount - order.CreditAmount
+	orderPay.Amount = orderReq.FPayAmount
+	if err = orderPay.Create(tx, false); err != nil {
+		return
+	}
+	tx.Commit()
+	if utils.FloatGreat(0.0, logic.CreditAmount) {
+		go logic.Record(false, model.HistoryStepCash, model.PayFeild{
+			PayFee:  utils.Violent2String(orderReq.TotalAmount),
+			PayType: orderReq.PayType,
+			PaidFee: utils.Violent2String(orderReq.FPayAmount),
+		})
+	} else {
+		go logic.Record(false, model.HistoryStepCredit, model.PayFeild{
+			PayFee:  utils.Violent2String(orderReq.TotalAmount),
+			PayType: orderReq.PayType,
+			PaidFee: utils.Violent2String(orderReq.FPayAmount),
+		})
 	}
 
 	// logic.SetFeilds()
@@ -247,7 +317,7 @@ func (logic *BatchOrderLogic) LoadSingle(uuid string) (batchOrder model.BatchOrd
 	return
 }
 
-func (logic *BatchOrderLogic) FindLatestGoods(goodsUUIDList []string) (goodsOrderList []BatchOrderGoodsOrder, err error) {
+func (logic *BatchOrderLogic) FindLatestGoods(goodsUUIDList []string) (goodsOrderList []response.BatchOrderGoodsOrderRsp, err error) {
 	for _, goodsUUID := range goodsUUIDList {
 		conds := []utils.Cond{
 			utils.NewWhereCond("goods_uuid", goodsUUID),
@@ -269,7 +339,7 @@ func (logic *BatchOrderLogic) FindLatestGoods(goodsUUIDList []string) (goodsOrde
 		} else {
 			_price = goodsOrder.Price
 		}
-		goodsOrderList = append(goodsOrderList, BatchOrderGoodsOrder{
+		goodsOrderList = append(goodsOrderList, response.BatchOrderGoodsOrderRsp{
 			GoodsUUID: goodsUUID,
 			Price:     _price,
 		})

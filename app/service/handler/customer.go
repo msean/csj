@@ -19,50 +19,32 @@ func customerRouter(g *gin.RouterGroup) {
 
 func CustomerSave(c *gin.Context) {
 	customerLogic := logic.NewCustomerLogic(c)
-	if err := c.ShouldBind(&customerLogic); err != nil {
+	var err error
+	if err = c.ShouldBind(&customerLogic); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 	// 增加客户
 	if customerLogic.UID == "" {
-		dup, err := customerLogic.Check()
-		if err != nil {
-			common.Response(c, err, nil)
-			return
-		}
-		if dup {
-			common.Response(c, common.CustomerDuplicateErr, nil)
-			return
-		}
-		if err := customerLogic.Create(); err != nil {
-			common.Response(c, err, nil)
-			return
-		}
-		common.Response(c, nil, customerLogic)
+		err = customerLogic.Create()
+		common.Response(c, err, customerLogic)
 		return
 	}
 
 	// 修改客户
-	if err := customerLogic.Update(); err != nil {
-		common.Response(c, err, nil)
-		return
-	}
-	common.Response(c, nil, customerLogic)
+	err = customerLogic.Update()
+	common.Response(c, err, customerLogic)
 }
 
 func CustomerList(c *gin.Context) {
 	var form request.CustomerListReq
-	if err := c.ShouldBind(&form); err != nil {
-		common.Response(c, err, nil)
-		return
-	}
-
-	var _customers []logic.CustomerLogic
 	var err error
-	_customers, err = logic.NewCustomerLogic(c).ListCustomersByOwnerUser(form)
-	if err != nil {
+	if err = c.ShouldBind(&form); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, _customers)
+	var _customers []logic.CustomerLogic
+
+	_customers, err = logic.NewCustomerLogic(c).ListCustomersByOwnerUser(form)
+	common.Response(c, err, _customers)
 }

@@ -6,6 +6,7 @@ import (
 	"app/service/logic"
 	"app/service/model"
 	"app/service/model/request"
+	"app/service/model/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -60,59 +61,50 @@ func BatchCreate(c *gin.Context) {
 
 func BatchUpdate(c *gin.Context) {
 	batchLogic := logic.NewBatchLogic(c)
-	if err := c.ShouldBind(&batchLogic); err != nil {
+	var err error
+	if err = c.ShouldBind(&batchLogic); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	if err := batchLogic.Update(true); err != nil {
-		common.Response(c, err, nil)
-		return
-	}
-	common.Response(c, nil, batchLogic)
+	err = batchLogic.Update(true)
+	common.Response(c, err, batchLogic)
 }
 
 func BatchPrecreate(c *gin.Context) {
 	batchLogic := logic.NewBatchLogic(c)
-	if err := c.ShouldBind(&batchLogic); err != nil {
+	var err error
+	if err = c.ShouldBind(&batchLogic); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	rsp, err := batchLogic.Precreate()
-	if err != nil {
-		common.Response(c, err, nil)
-		return
-	}
-	common.Response(c, nil, rsp)
+	var rsp response.PrecreateRsp
+	rsp, err = batchLogic.Precreate()
+	common.Response(c, err, rsp)
 }
 
 func BatchList(c *gin.Context) {
 	var payload request.BatchListReq
-	if err := c.ShouldBind(&payload); err != nil {
-		common.Response(c, err, nil)
-		return
-	}
-	batchLogic := logic.NewBatchLogic(c)
-	list, err := batchLogic.List(payload)
-	if err != nil {
+	var err error
+	if err = c.ShouldBind(&payload); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	common.Response(c, nil, list)
+	batchLogic := logic.NewBatchLogic(c)
+	var list []response.BatchListItem
+	list, err = batchLogic.List(payload)
+	common.Response(c, err, list)
 }
 
 func BatchUpdateStatus(c *gin.Context) {
 	batchLogic := logic.NewBatchLogic(c)
-	if err := c.ShouldBind(&batchLogic); err != nil {
+	var err error
+	if err = c.ShouldBind(&batchLogic); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	batchLogic.OwnerUser = common.GetUserUUID(c)
-	if err := batchLogic.Update(false); err != nil {
-		common.Response(c, err, nil)
-		return
-	}
-	common.Response(c, nil, nil)
+	err = batchLogic.Update(false)
+	common.Response(c, err, nil)
 }
 
 func BatchDetail(c *gin.Context) {
@@ -157,6 +149,7 @@ func BatchGoodsDetail(c *gin.Context) {
 		UUID string `json:"uuid"`
 	}
 	var payLoad PayLoad
+	var err error
 
 	if err := c.ShouldBind(&payLoad); err != nil {
 		common.Response(c, err, nil)
@@ -164,23 +157,18 @@ func BatchGoodsDetail(c *gin.Context) {
 	}
 
 	batchGoods := logic.NewBatchGoodsLogic(c)
-	if err := batchGoods.FromUUID(payLoad.UUID); err != nil {
-		common.Response(c, err, nil)
-		return
-	}
-	common.Response(c, nil, batchGoods)
+	err = batchGoods.FromUUID(payLoad.UUID)
+	common.Response(c, err, batchGoods)
 }
 
 func BatchGoodsUpdate(c *gin.Context) {
 	batchGoods := logic.NewBatchGoodsLogic(c)
-	if err := c.ShouldBind(&batchGoods); err != nil {
+	var err error
+	if err = c.ShouldBind(&batchGoods); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	if err := batchGoods.Update(); err != nil {
-		common.Response(c, err, nil)
-		return
-	}
-	common.Response(c, nil, batchGoods)
+	err = batchGoods.Update()
+	common.Response(c, err, batchGoods)
 }

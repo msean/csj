@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"app/pkg/utils"
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
+	"app/service/model"
 	"app/service/model/request"
 
 	"github.com/gin-gonic/gin"
@@ -25,22 +25,16 @@ func goodsRouter(g *gin.RouterGroup) {
 }
 
 func GoodsCategorySave(c *gin.Context) {
+	var err error
 	goodsCategoryLogic := logic.NewGoodsCategoryLogic(c)
-	if err := c.ShouldBind(&goodsCategoryLogic); err != nil {
+	if err = c.ShouldBind(&goodsCategoryLogic); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
 	if goodsCategoryLogic.UID == "" {
-		if err := goodsCategoryLogic.Check(); err != nil {
-			common.Response(c, err, nil)
-			return
-		}
-		if err := goodsCategoryLogic.Create(); err != nil {
-			common.Response(c, err, nil)
-			return
-		}
-		common.Response(c, nil, goodsCategoryLogic)
+		err = goodsCategoryLogic.Create()
+		common.Response(c, err, goodsCategoryLogic)
 		return
 	}
 
@@ -52,11 +46,7 @@ func GoodsCategorySave(c *gin.Context) {
 }
 
 func GoodsCategoryList(c *gin.Context) {
-	type Body struct {
-		Brief bool `json:"brief"`
-		utils.LimitCond
-	}
-	var body Body
+	var body request.GoodsCategoryListReq
 	if err := c.ShouldBind(&body); err != nil {
 		common.Response(c, err, nil)
 		return
@@ -72,9 +62,9 @@ func GoodsCategoryList(c *gin.Context) {
 }
 
 func GoodsCategoryDelete(c *gin.Context) {
-
+	var err error
 	goodCategoryLogic := logic.NewGoodsCategoryLogic(c)
-	if err := c.ShouldBind(&goodCategoryLogic); err != nil {
+	if err = c.ShouldBind(&goodCategoryLogic); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
@@ -84,33 +74,25 @@ func GoodsCategoryDelete(c *gin.Context) {
 		return
 	}
 
-	if err := goodCategoryLogic.Delete(); err != nil {
-		common.Response(c, err, nil)
-		return
-	}
-
-	common.Response(c, nil, nil)
+	err = goodCategoryLogic.Delete()
+	common.Response(c, err, nil)
 }
 
 func GoodsList(c *gin.Context) {
+	var err error
 	var form request.GoodsListReq
-	if err := c.ShouldBind(&form); err != nil {
+	if err = c.ShouldBind(&form); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	goods, err := logic.NewGoodsLogic(c).LoadGoods(form)
-
-	if err != nil {
-		common.Response(c, err, nil)
-		return
-	}
-
-	common.Response(c, nil, goods)
+	var goods []model.Goods
+	goods, err = logic.NewGoodsLogic(c).LoadGoods(form)
+	common.Response(c, err, goods)
 }
 
 func GoodsSave(c *gin.Context) {
-
+	var err error
 	goodLogic := logic.NewGoodsLogic(c)
 	if err := c.ShouldBind(&goodLogic); err != nil {
 		common.Response(c, err, nil)
@@ -118,21 +100,11 @@ func GoodsSave(c *gin.Context) {
 	}
 
 	if goodLogic.UID == "" {
-		if err := goodLogic.Check(); err != nil {
-			common.Response(c, err, nil)
-			return
-		}
-		if err := goodLogic.Create(); err != nil {
-			common.Response(c, err, nil)
-			return
-		}
-		common.Response(c, nil, goodLogic)
+		err = goodLogic.Create()
+		common.Response(c, err, goodLogic)
 		return
 	}
 
-	if err := goodLogic.Update(); err != nil {
-		common.Response(c, err, nil)
-		return
-	}
-	common.Response(c, nil, goodLogic)
+	err = goodLogic.Update()
+	common.Response(c, err, goodLogic)
 }

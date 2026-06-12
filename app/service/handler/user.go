@@ -5,9 +5,10 @@ import (
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
-	"fmt"
+	"app/service/model/request"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func userRouter(g *gin.RouterGroup) {
@@ -24,11 +25,7 @@ func userRouter(g *gin.RouterGroup) {
 func UserInfo(c *gin.Context) {
 	logic := logic.NewUser(c)
 	rsp, err := logic.Profile(common.GetUserUUID(c))
-	if err != nil {
-		common.Response(c, err, nil)
-		return
-	}
-	common.Response(c, nil, rsp)
+	common.Response(c, err, rsp)
 }
 
 func Register(c *gin.Context) {
@@ -47,49 +44,17 @@ func Register(c *gin.Context) {
 }
 
 func SenderVerifyCode(c *gin.Context) {
-	type Payload struct {
-		Phone string `json:"phone"`
-		Typ   int    `json:"type"`
-	}
-	var payload Payload
+	var payload request.SendVerifyCodeReq
 	var err error
 	if err = c.ShouldBind(&payload); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	// over 判断是否超限
-	var over bool
-	over, err = logic.SmsTodayCountCheck(global.Global.DB, payload.Phone)
-	if err != nil {
-		common.Response(c, err, nil)
-		return
-	}
-	if over {
-		common.Response(c, fmt.Errorf("发送验证码当日超限"), nil)
-		return
-	}
-	var tempCode string
-	// 注册
-	if payload.Typ == 1 {
-		tempCode = global.Global.SmsRegisterTemp()
-	}
-	// 登陆
-	if payload.Typ == 2 {
-		tempCode = global.Global.SmsLoginTemp()
-	}
-
-	// 设置验证码并存储
-	var code string
-	if code, err = logic.SmsVerifyCodeSet(global.Global.DB, payload.Phone); err != nil {
-		common.Response(c, err, nil)
-		return
-	}
 	// 发送验证码
-	if err = logic.SmsLoginAndRegister(global.Global.Sms, payload.Phone, code, tempCode); err != nil {
-		common.Response(c, err, nil)
-		return
+	if err = logic.SmsLoginAndRegister(global.Global.Sms, payload); err != nil {
+		global.Global.Logger.Error("SenderVerifyCode SmsLoginAndRegister", zap.Any("request", payload), zap.Error(err))
 	}
-	common.Response(c, nil, nil)
+	common.Response(c, err, nil)
 }
 
 func Login(c *gin.Context) {
