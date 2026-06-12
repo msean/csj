@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -69,25 +70,49 @@ func (dao *orderDao) LatestOrderByCustomers(db *gorm.DB, owneruser string, custo
 	return
 }
 
-func (dao *orderDao) MonthFinance(db *gorm.DB, ownerUser string) (amount, creditAmount float64, err error) {
+func (dao *orderDao) MonthSales(db *gorm.DB, ownerUser string) (amount float64, err error) {
 	now := time.Now()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-	var bos []model.BatchOrder
-	if err = db.
-		Where("owner_user=?", ownerUser).
-		Where("created_at>=?", monthStart).
-		Where("status not in (?)", common.FinalBatchOrder).
-		Find(&bos).Error; err != nil {
-		global.Global.Logger.Error(fmt.Sprintf("[MonthFinance] %s %s", ownerUser, err))
+
+	// 使用数据库聚合查询直接求和
+	err = db.Model(&model.BatchOrder{}).
+		Where("owner_user = ?", ownerUser).
+		Where("created_at >= ?", monthStart).
+		Where("status IN (?)", common.ValidOrder).
+		Select("COALESCE(SUM(total_amount), 0)").
+		Scan(&amount).Error
+
+	if err != nil {
+		global.Global.Logger.Error("[MonthFinance] 统计月度金额失败",
+			zap.String("ownerUser", ownerUser),
+			zap.Error(err))
+		return 0, err
 	}
-	for _, bo := range bos {
-		amount += bo.TotalAmount
-		creditAmount += bo.CreditAmount
-	}
-	return
+
+	global.Global.Logger.Debug("[MonthFinance] 月度统计",
+		zap.String("ownerUser", ownerUser),
+		zap.Float64("totalAmount", amount))
+
+	return amount, nil
 }
 
 func (dao *orderDao) ListByBatchUUIDIn(db *gorm.DB, batchUUID string, goodsUUIDList []string) (objects []model.BatchOrderGoods, err error) {
 	err = utils.Find(db, objects, utils.NewWhereCond("batch_uuid", batchUUID), utils.NewInCondFromString("goods_uuid", goodsUUIDList))
 	return
+}
+
+// 仅统计赊欠总额度（使用聚合查询，效率更高）
+func (dao *orderDao) CreditAmountTotal(db *gorm.DB, ownerUser string) (creditAmount float64, err error) {
+	err = db.Model(&model.BatchOrder{}).
+		Where("owner_user = ?", ownerUser).
+		Where("status IN (?)", common.ValidOrder).
+		Select("COALESCE(SUM(credit_amount), 0)").
+		Scan(&creditAmount).Error
+
+	if err != nil {
+		global.Global.Logger.Error(fmt.Sprintf("[CreditAmountTotal] 统计赊欠总额失败 %s: %s", ownerUser, err))
+		return 0, err
+	}
+
+	return creditAmount, nil
 }

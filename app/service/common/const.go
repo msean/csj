@@ -32,10 +32,6 @@ var ExCludeTempBatchOrder = []int{
 	BatchOrderedCredit, BatchOrderFinish, BatchOrderCancel, BatchOrderRefund, BatchOrderReTurn,
 }
 
-var FinalBatchOrder = []int{
-	BatchOrderReTurn, BatchOrderCancel, BatchOrderRefund,
-}
-
 var ValidOrder = []int{
 	BatchOrderTemp, BatchOrderedCredit, BatchOrderFinish,
 }

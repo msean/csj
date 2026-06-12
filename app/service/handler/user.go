@@ -2,9 +2,7 @@ package handler
 
 import (
 	"app/global"
-	"app/pkg/utils"
 	"app/service/common"
-	"app/service/dao"
 	"app/service/handler/middleware"
 	"app/service/logic"
 	"fmt"
@@ -24,21 +22,13 @@ func userRouter(g *gin.RouterGroup) {
 }
 
 func UserInfo(c *gin.Context) {
-	user, err := dao.UserDao.FromUUID(global.Global.DB, common.GetUserUUID(c))
-
+	logic := logic.NewUser(c)
+	rsp, err := logic.Profile(common.GetUserUUID(c))
 	if err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-
-	amount, creditAmount, _ := dao.OrderDao.MonthFinance(global.Global.DB, common.GetUserUUID(c))
-	common.Response(c, nil, map[string]any{
-		"name":          user.Name,
-		"phone":         user.Phone,
-		"customerDebt":  utils.FloatReserveStr(creditAmount, 2),
-		"monthSales":    utils.FloatReserveStr(amount, 2),
-		"vipRemainDays": 0,
-	})
+	common.Response(c, nil, rsp)
 }
 
 func Register(c *gin.Context) {
@@ -47,18 +37,10 @@ func Register(c *gin.Context) {
 		common.Response(c, err, nil)
 		return
 	}
-	e := userlogic.Register()
-	if e != nil {
-		common.Response(c, e, nil)
-		return
-	}
-	token, e := middleware.SetToken(userlogic.Phone, userlogic.UID)
-	if e != nil {
-		common.Response(c, e, nil)
-		return
-	}
-
-	common.Response(c, e, map[string]any{
+	var err error
+	var token string
+	token, err = userlogic.Register()
+	common.Response(c, err, map[string]any{
 		"token": token,
 		"uuid":  userlogic.UID,
 	})

@@ -5,7 +5,9 @@ import (
 	"app/pkg/utils"
 	"app/service/common"
 	"app/service/dao"
+	"app/service/handler/middleware"
 	"app/service/model"
+	"app/service/model/response"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -37,7 +39,7 @@ func (logic *UserLogic) CheckVerifyCode() (right bool, err error) {
 	}
 }
 
-func (logic *UserLogic) Register() (err error) {
+func (logic *UserLogic) Register() (token string, err error) {
 	if logic.Phone == "" {
 		err = common.PhoneCannotBeBlankErr
 		return
@@ -47,7 +49,8 @@ func (logic *UserLogic) Register() (err error) {
 		return
 	}
 	if !right {
-		return common.VerifyCodeErr
+		err = common.VerifyCodeErr
+		return
 	}
 
 	var userModel model.User
@@ -73,6 +76,8 @@ func (logic *UserLogic) Register() (err error) {
 	}
 	logic.User = user
 	tx.Commit()
+
+	token, err = middleware.SetToken(logic.User.Phone, logic.User.UID)
 	return
 }
 
@@ -113,4 +118,18 @@ func (logic *UserLogic) Update() (err error) {
 		}
 	}
 	return dao.UserDao.Update(logic.runTime.DB, logic.User)
+}
+
+func (logic *UserLogic) Profile(userUID string) (rsp response.UserProfileRsp, err error) {
+	var user model.User
+	if user, err = dao.UserDao.FromUUID(global.Global.DB, userUID); err != nil {
+		return
+	}
+
+	amount, _ := dao.OrderDao.MonthSales(global.Global.DB, userUID)
+	creditAmount, _ := dao.OrderDao.CreditAmountTotal(global.Global.DB, userUID)
+	rsp.User = user
+	rsp.CreditAmount = utils.FloatReserveStr(creditAmount, 1)
+	rsp.MonthSales = utils.FloatReserveStr(amount, 1)
+	return
 }
