@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"app/pkg/utils"
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
+	"app/service/model/request"
 
 	"github.com/gin-gonic/gin"
 )
@@ -51,12 +51,7 @@ func CustomerSave(c *gin.Context) {
 }
 
 func CustomerList(c *gin.Context) {
-
-	type Form struct {
-		utils.LimitCond
-		SearchKey string `json:"searchName"`
-	}
-	var form Form
+	var form request.CustomerListReq
 	if err := c.ShouldBind(&form); err != nil {
 		common.Response(c, err, nil)
 		return
@@ -64,7 +59,7 @@ func CustomerList(c *gin.Context) {
 
 	var _customers []logic.CustomerLogic
 	var err error
-	_customers, err = logic.NewCustomerLogic(c).ListCustomersByOwnerUser(form.SearchKey, form.LimitCond)
+	_customers, err = logic.NewCustomerLogic(c).ListCustomersByOwnerUser(form)
 	if err != nil {
 		common.Response(c, err, nil)
 		return

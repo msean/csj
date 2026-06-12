@@ -50,11 +50,11 @@ func (logic *UserLogic) Register() (err error) {
 		return common.VerifyCodeErr
 	}
 
-	err = utils.Find(logic.runTime.DB, &logic.User, dao.UserDao.WherePhoneCond(logic.User))
-	if err != nil {
+	var userModel model.User
+	if userModel, err = dao.UserDao.FindByPhone(logic.runTime.DB, logic.Phone); err != nil {
 		return
 	}
-	if logic.UID != "" {
+	if userModel.UID != "" {
 		logic.runTime.Logger.Error(fmt.Sprintf("[UserLogic] [Register] phone: %s uid: %s", logic.Phone, logic.UID))
 		err = common.PhoneObejectExistErr
 		return
@@ -67,7 +67,7 @@ func (logic *UserLogic) Register() (err error) {
 		tx.Rollback()
 		return
 	}
-	if err = dao.CustomerDao.NewTempCustomer(user.UID, tx); err != nil {
+	if err = dao.CustomerDao.NewTempCustomer(tx, user.UID); err != nil {
 		tx.Rollback()
 		return
 	}
@@ -89,11 +89,11 @@ func (logic *UserLogic) Login() (err error) {
 		return common.VerifyCodeErr
 	}
 
-	err = utils.Find(logic.runTime.DB, &logic.User, dao.UserDao.WherePhoneCond(logic.User))
-	if err != nil {
+	var userModel model.User
+	if userModel, err = dao.UserDao.FindByPhone(logic.runTime.DB, logic.Phone); err != nil {
 		return
 	}
-	if logic.UID == "" {
+	if userModel.UID == "" {
 		logic.runTime.Logger.Error(fmt.Sprintf("[UserLogic] [Login] phone: %s", logic.Phone))
 		err = common.PhoneUnRegisterErr
 		return
@@ -101,24 +101,10 @@ func (logic *UserLogic) Login() (err error) {
 	return
 }
 
-func (logic *UserLogic) FromUUID(userUUID string) (user model.User, err error) {
-	err = utils.Find(logic.runTime.DB, &user, utils.WhereUIDCond(userUUID))
-	if err != nil {
-		return
-	}
-	if user.UID == "" {
-		logic.runTime.Logger.Error(fmt.Sprintf("[UserLogic] [Login] uid: %s", logic.UID))
-		err = common.UnRegisterErr
-	}
-	return
-}
-
 func (logic *UserLogic) Update() (err error) {
 	if logic.Phone != "" {
 		var _u model.User
-		e := utils.Find(logic.runTime.DB, &_u, dao.UserDao.WherePhoneCond(logic.User))
-		if e != nil {
-			err = e
+		if _u, err = dao.UserDao.FindByPhone(logic.runTime.DB, logic.Phone); err != nil {
 			return
 		}
 		if _u.UID != "" && _u.UID != logic.UID {

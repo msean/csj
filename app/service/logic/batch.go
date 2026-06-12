@@ -151,15 +151,16 @@ func (logic *BatchLogic) Create() (err error) {
 // withBatchGoods 是否更新批次下的物品信息
 func (logic *BatchLogic) Update(withBatchGoods bool) (err error) {
 	var storage model.Batch
-	if err = utils.First(logic.runtime.DB, &storage, utils.WhereUIDCond(logic.UID)); err != nil {
+	if storage, err = dao.BatchDao.FromUUID(logic.runtime.DB, logic.UID, false); err != nil {
 		logic.runtime.Logger.Error("BatchLogic Update", zap.Error(err))
 		return
 	}
+	logic.Batch = storage
 	switch withBatchGoods {
 	case true:
 		var oldGoodsList []model.BatchGoods
-		if err = logic.runtime.DB.Where("batch_uuid = ?", logic.UID).Find(&oldGoodsList).Error; err != nil {
-			logic.runtime.Logger.Error("查询旧批次物品失败", zap.Error(err))
+		if oldGoodsList, err = dao.BatchGoodsDao.ListByBatchUUID(logic.runtime.DB, logic.UID); err != nil {
+			logic.runtime.Logger.Error("BatchLogic Update", zap.Any("object", logic.Batch), zap.Error(err))
 			return
 		}
 		// todo 开了单的不能删除
@@ -179,10 +180,7 @@ func (logic *BatchLogic) Update(withBatchGoods bool) (err error) {
 		// 开单检测
 		if len(toDeleteGoodsUUIDs) > 0 {
 			var orderGoodsList []model.BatchOrderGoods
-			err = logic.runtime.DB.Where("batch_uuid = ? AND goods_uuid IN (?)",
-				logic.UID, toDeleteGoodsUUIDs).
-				Find(&orderGoodsList).Error
-			if err != nil {
+			if orderGoodsList, err = dao.OrderDao.ListByBatchUUIDIn(logic.runtime.DB, logic.UID, toDeleteGoodsUUIDs); err != nil {
 				logic.runtime.Logger.Error("查询开单记录失败", zap.Error(err))
 				return
 			}
@@ -356,36 +354,32 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 // 	return
 // }
 
-func (logic *BatchLogic) FromDate(date string) (err error) {
-	db := logic.runtime.DB
-	var batch model.Batch
-	if err = utils.Find(db.Preload("GoodsListRelated"), &batch, utils.WhereSerialNoCond(date), utils.WhereOwnerUserCond(logic.OwnerUser)); err != nil {
-		return
-	}
-	if batch.UID == "" {
-		return common.ObjectNotExistErr
-	}
-	logic.Batch = batch
-	return logic.SetGoodsFeild()
-}
+// func (logic *BatchLogic) FromDate(date string) (err error) {
+// 	db := logic.runtime.DB
+// 	var batch model.Batch
+// 	if err = utils.Find(db.Preload("GoodsListRelated"), &batch, utils.WhereSerialNoCond(date), utils.WhereOwnerUserCond(logic.OwnerUser)); err != nil {
+// 		return
+// 	}
+// 	if batch.UID == "" {
+// 		return common.ObjectNotExistErr
+// 	}
+// 	logic.Batch = batch
+// 	return logic.SetGoodsFeild()
+// }
 
 func (logic *BatchLogic) FromUUID(uuid string) (err error) {
-	db := logic.runtime.DB
 	var batch model.Batch
-	if err = utils.Find(db.Preload("GoodsListRelated"), &batch, utils.WhereUIDCond(uuid)); err != nil {
+	if batch, err = dao.BatchDao.FromUUID(logic.runtime.DB, uuid, true); err != nil {
+		logic.runtime.Logger.Error("BatchLogic FromUUID", zap.Any("uuid", uuid), zap.Error(err))
 		return
-	}
-	if batch.UID == "" {
-		return common.ObjectNotExistErr
 	}
 	logic.Batch = batch
 	return logic.SetGoodsFeild()
 }
 
 func (logic *BatchLogic) FromLatest() (err error) {
-	db := logic.runtime.DB
 	var batch model.Batch
-	if err = utils.First(db.Preload("GoodsListRelated"), &batch, utils.CreatedOrderDescCond(), utils.NewWhereCond("owner_user", logic.OwnerUser)); err != nil {
+	if batch, err = dao.BatchDao.FromLatest(logic.runtime.DB, logic.OwnerUser, true); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			batch.GoodsListRelated = []*model.BatchGoods{}
 			err = nil
@@ -427,61 +421,21 @@ func (logic *BatchGoodsLogic) Update() (err error) {
 
 func (logic *BatchLogic) List(req request.BatchListReq) (rsp []response.BatchListItem, err error) {
 	var batches []model.Batch
-	db := logic.runtime.DB
-
-	_u := NewUser(logic.context)
-	u, err := _u.FromUUID(logic.OwnerUser)
-	if err != nil {
-		logic.runtime.Logger.Error("BatchLogic List FromUUID", zap.Any("req", req), zap.Error(err))
+	var userModel model.User
+	if userModel, err = dao.UserDao.FromUUID(logic.runtime.DB, logic.OwnerUser); err != nil {
 		return
 	}
 
-	conds := []utils.Cond{
-		req.LimitCond,
-		utils.NewWhereCond("owner_user", logic.OwnerUser),
-	}
-
-	if req.StartDate != "" {
-		startTime, err := time.ParseInLocation("2006-01-02", req.StartDate, time.Local)
-		if err != nil {
-			logic.runtime.Logger.Error("BatchLogic List startTime", zap.Any("req", req), zap.Error(err))
-			return nil, fmt.Errorf("开始日期格式错误: %v", err)
-		}
-		conds = append(conds, utils.NewCmpCond("created_at", ">=", startTime))
-	}
-
-	if req.EndDate != "" {
-		endTime, err := time.ParseInLocation("2006-01-02", req.EndDate, time.Local)
-		if err != nil {
-			logic.runtime.Logger.Error("BatchLogic List endTime", zap.Any("req", req), zap.Error(err))
-			return nil, fmt.Errorf("结束日期格式错误: %v", err)
-		}
-		// 设置为当天的 23:59:59
-		endTime = endTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		conds = append(conds, utils.NewCmpCond("created_at", "<", endTime))
-	}
-
-	if req.Status != 0 {
-		conds = append(conds, utils.NewWhereCond("status", req.Status))
-	}
-
-	conds = append(conds, utils.CreatedOrderDescCond())
-	if err = utils.Find(db, &batches, conds...); err != nil {
-		logic.runtime.Logger.Error("BatchLogic List FindBatch", zap.Any("req", req), zap.Error(err))
+	if batches, err = dao.BatchDao.List(logic.runtime.DB, logic.OwnerUser, req); err != nil {
 		return
 	}
-
 	for _, batch := range batches {
-		name := u.Name
-		if utils.IsBlankString(name) {
-			name = u.Phone
-		}
 		t := time.Unix(batch.StorageTime, 0)
 		rsp = append(rsp, response.BatchListItem{
 			Status:   int(batch.Status),
 			Time:     t.Format("2006-01-02 15:04:05"),
 			UID:      batch.UID,
-			Title:    name,
+			Title:    userModel.Title(),
 			SerialID: batch.SerialID,
 		})
 	}

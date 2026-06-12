@@ -134,15 +134,15 @@ func BatchDetail(c *gin.Context) {
 		return
 	}
 
-	if payLoad.Date != "" {
-		err = batchLogic.FromDate(payLoad.Date)
-		if err != nil {
-			common.Response(c, err, nil)
-			return
-		}
-		common.Response(c, nil, batchLogic)
-		return
-	}
+	// if payLoad.Date != "" {
+	// 	err = batchLogic.FromDate(payLoad.Date)
+	// 	if err != nil {
+	// 		common.Response(c, err, nil)
+	// 		return
+	// 	}
+	// 	common.Response(c, nil, batchLogic)
+	// 	return
+	// }
 
 	err = batchLogic.FromLatest()
 	if err != nil {

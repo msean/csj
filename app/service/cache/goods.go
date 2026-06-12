@@ -146,13 +146,6 @@ func (gc *goodsCache) CreateGoods(goods *model.Goods) error {
 	return gc.InvalidateGoodsCache(goods.UID, goods.OwnerUser)
 }
 
-func (gc *goodsCache) UpdateGoods(uuid, ownerUser string, updates map[string]interface{}) error {
-	if err := gc.db.Model(&model.Goods{}).Where("uid = ? AND owner_user = ?", uuid, ownerUser).Updates(updates).Error; err != nil {
-		return err
-	}
-	return gc.InvalidateGoodsCache(uuid, ownerUser)
-}
-
 func (gc *goodsCache) DeleteGoods(uuid, ownerUser string) error {
 	if err := gc.db.Where("uid = ? AND owner_user = ?", uuid, ownerUser).Delete(&model.Goods{}).Error; err != nil {
 		return err

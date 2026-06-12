@@ -3,6 +3,7 @@ package logic
 import (
 	"app/global"
 	"app/pkg/utils"
+	"app/service/cache"
 	"app/service/common"
 	"app/service/dao"
 	"app/service/model"
@@ -140,31 +141,29 @@ func (logic *GoodsLogic) Create() (err error) {
 }
 
 func (logic *GoodsLogic) Update() (err error) {
-	tx := logic.runtime.DB.Begin()
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		} else {
-			tx.Commit()
+	return logic.runtime.DB.Transaction(func(tx *gorm.DB) (err error) {
+		// 1️⃣ 更新 Goods 自身
+		if err = dao.GoodsDao.Update(tx, logic.Goods); err != nil {
+			return
 		}
-	}()
 
-	// 1️⃣ 更新 Goods 自身
-	if err = dao.GoodsDao.Update(tx, logic.Goods); err != nil {
-		return
-	}
+		// 删除缓存
+		if err = cache.GoodsCache.InvalidateGoodsCache(logic.UID, logic.OwnerUser); err != nil {
+			return
+		}
 
-	// 2️⃣ 同步更新在售批次里的 BatchGoods
-	err = tx.Model(&model.BatchGoods{}).
-		Where("goods_uuid = ?", logic.Goods.BaseModel.UID).
-		Where(fmt.Sprintf(`
+		// 2️⃣ 同步更新在售批次里的 BatchGoods
+		err = tx.Model(&model.BatchGoods{}).
+			Where("goods_uuid = ?", logic.Goods.BaseModel.UID).
+			Where(fmt.Sprintf(`
 			batch_uuid IN (SELECT uid FROM %s WHERE status = ?)`, model.Batch{}.TableName()), 1).
-		Updates(map[string]interface{}{
-			"price":  logic.Goods.Price,
-			"weight": logic.Goods.Weight,
-		}).Error
+			Updates(map[string]interface{}{
+				"price":  logic.Goods.Price,
+				"weight": logic.Goods.Weight,
+			}).Error
 
-	return
+		return
+	})
 }
 
 func (logic *GoodsLogic) LoadGoods(req request.GoodsListReq) (goodsList []model.Goods, err error) {

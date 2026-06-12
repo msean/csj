@@ -2,6 +2,7 @@ package dao
 
 import (
 	"app/pkg/utils"
+	"app/service/common"
 	"app/service/model"
 
 	"gorm.io/gorm"
@@ -25,5 +26,20 @@ func (dao *userDao) Update(db *gorm.DB, user model.User) (err error) {
 }
 
 func (dao *userDao) WherePhoneCond(user model.User) (w utils.WhereCond) {
-	return utils.NewWhereCond("phone", user.Phone)
+	return
+}
+
+func (dao *userDao) FindByPhone(db *gorm.DB, phone string) (user model.User, err error) {
+	err = utils.Find(db, &user, utils.NewWhereCond("phone", user.Phone))
+	return
+}
+
+func (dao *userDao) FromUUID(db *gorm.DB, phone string) (user model.User, err error) {
+	if err = utils.Find(db, &user, utils.NewWhereCond("phone", user.Phone)); err != nil {
+		return
+	}
+	if user.UID == "" {
+		err = common.UnRegisterErr
+	}
+	return
 }

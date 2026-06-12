@@ -4,9 +4,9 @@ import (
 	"app/global"
 	"app/pkg/utils"
 	"app/service/common"
+	"app/service/dao"
 	"app/service/handler/middleware"
 	"app/service/logic"
-	"app/service/model"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -24,18 +24,17 @@ func userRouter(g *gin.RouterGroup) {
 }
 
 func UserInfo(c *gin.Context) {
-	_u := logic.NewUser(c)
-	u, err := _u.FromUUID(common.GetUserUUID(c))
+	user, err := dao.UserDao.FromUUID(global.Global.DB, common.GetUserUUID(c))
 
 	if err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	amount, creditAmount, _ := model.MonthFinance(global.Global.DB, common.GetUserUUID(c))
+	amount, creditAmount, _ := dao.OrderDao.MonthFinance(global.Global.DB, common.GetUserUUID(c))
 	common.Response(c, nil, map[string]any{
-		"name":          u.Name,
-		"phone":         u.Phone,
+		"name":          user.Name,
+		"phone":         user.Phone,
 		"customerDebt":  utils.FloatReserveStr(creditAmount, 2),
 		"monthSales":    utils.FloatReserveStr(amount, 2),
 		"vipRemainDays": 0,
