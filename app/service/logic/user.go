@@ -81,7 +81,7 @@ func (logic *UserLogic) Register() (token string, err error) {
 	return
 }
 
-func (logic *UserLogic) Login() (err error) {
+func (logic *UserLogic) Login() (token string, err error) {
 	if logic.Phone == "" {
 		err = common.PhoneCannotBeBlankErr
 		return
@@ -91,7 +91,8 @@ func (logic *UserLogic) Login() (err error) {
 		return
 	}
 	if !right {
-		return common.VerifyCodeErr
+		err = common.VerifyCodeErr
+		return
 	}
 
 	var userModel model.User
@@ -103,6 +104,7 @@ func (logic *UserLogic) Login() (err error) {
 		err = common.PhoneUnRegisterErr
 		return
 	}
+	token, err = middleware.SetToken(logic.Phone, logic.UID)
 	return
 }
 

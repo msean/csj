@@ -98,17 +98,11 @@ func Login(c *gin.Context) {
 		common.Response(c, err, nil)
 		return
 	}
-	e := userlogic.Login()
-	if e != nil {
-		common.Response(c, e, nil)
-		return
-	}
-	token, e := middleware.SetToken(userlogic.Phone, userlogic.UID)
-	if e != nil {
-		common.Response(c, e, nil)
-		return
-	}
-	common.Response(c, e, map[string]any{
+	var err error
+	var token string
+	token, err = userlogic.Login()
+
+	common.Response(c, err, map[string]any{
 		"token": token,
 		"uuid":  userlogic.UID,
 	})
