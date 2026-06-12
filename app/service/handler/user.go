@@ -109,16 +109,12 @@ func Login(c *gin.Context) {
 }
 
 func UserUpdate(c *gin.Context) {
+	var err error
 	userlogic := logic.NewUser(c)
-	if err := c.ShouldBind(&userlogic); err != nil {
+	if err = c.ShouldBind(&userlogic); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	userlogic.UID = common.GetUserUUID(c)
-	e := userlogic.Update()
-	if e != nil {
-		common.Response(c, e, nil)
-		return
-	}
-	common.Response(c, nil, userlogic.User)
+	err = userlogic.Update()
+	common.Response(c, err, userlogic.User)
 }
