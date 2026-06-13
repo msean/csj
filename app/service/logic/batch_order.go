@@ -641,3 +641,28 @@ func (logic *BatchOrderLogic) GoodsList(req request.BatchGoodsListReq) (rsp resp
 	rsp.Items = rspItems
 	return
 }
+
+// CreditListLogic 赊欠列表业务逻辑
+func (logic *BatchOrderLogic) CreditList(listReq request.CreditListReq) (rsp *response.CreditListResponse, err error) {
+	if rsp, err = dao.OrderDao.GetCreditList(logic.runtime.DB, logic.OwnerUser, listReq); err != nil {
+		return
+	}
+
+	if len(rsp.List) == 0 {
+		return
+	}
+
+	var userUUIDList []string
+
+	for _, item := range rsp.List {
+		userUUIDList = append(userUUIDList, item.UserName)
+	}
+
+	userMapper, _ := cache.CustomerCache.BatchCustomerFeildSet(userUUIDList, logic.OwnerUser)
+
+	for _, item := range rsp.List {
+		item.UserName = userMapper[item.UserUUID].CustomerName
+	}
+
+	return
+}

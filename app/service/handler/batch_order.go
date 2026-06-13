@@ -25,6 +25,7 @@ func batchOrderRouter(g *gin.RouterGroup) {
 		batchOrderGroup.POST("/list", BatchOrderList)
 		batchOrderGroup.POST("/share", BatchOrderShared)
 		batchOrderGroup.POST("/latest_by_goods", BatchOrderGoodsLatest)
+		batchOrderGroup.POST("/credit/list", CreditList)
 	}
 }
 
@@ -143,5 +144,17 @@ func BatchGoodsOrderList(c *gin.Context) {
 	}
 
 	rsp, err := logic.NewBatchOrderLogic(c).GoodsList(payLoad)
+	common.Response(c, err, rsp)
+}
+
+// CreditList 赊欠列表接口
+func CreditList(c *gin.Context) {
+	var payLoad request.CreditListReq
+	if err := c.ShouldBind(&payLoad); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+
+	rsp, err := logic.NewBatchOrderLogic(c).CreditList(payLoad)
 	common.Response(c, err, rsp)
 }
