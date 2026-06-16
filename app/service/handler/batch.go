@@ -26,7 +26,7 @@ func batchRouter(g *gin.RouterGroup) {
 	{
 		batchGoodsGroup.POST("/update", BatchGoodsUpdate)
 		batchGoodsGroup.POST("/detail", BatchGoodsDetail)
-		batchGoodsGroup.POST("/list", BatchGoodsOrderList)
+		batchGoodsGroup.POST("/list", OrderGoodsList)
 	}
 }
 

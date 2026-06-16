@@ -8,6 +8,7 @@ import (
 	"app/service/dao"
 	"app/service/model"
 	"app/service/model/request"
+	"app/service/model/response"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -72,6 +73,22 @@ func (logic *CustomerLogic) ListCustomersByOwnerUser(conditons request.CustomerL
 			Customer:       _customer,
 			LatestBillDate: bill[_customer.UID],
 		})
+	}
+	return
+}
+
+func (logic *CustomerLogic) Detail() (rsp response.CustomerDetailRsp, err error) {
+	if logic.Customer, err = dao.CustomerDao.FromUUID(global.Global.DB, logic.UID); err != nil {
+		return
+	}
+
+	rsp.Name = logic.Customer.Name
+	rsp.OrderCount = float64(logic.Customer.OrderCount)
+	rsp.OrderAmount = logic.Customer.TotalAmount
+
+	// 赊欠金额实时查
+	if rsp.CreditAmount, err = dao.OrderDao.CustomerCreditAmount(global.Global.DB, logic.OwnerUser, logic.UID); err != nil {
+		return
 	}
 	return
 }

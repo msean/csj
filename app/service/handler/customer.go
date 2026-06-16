@@ -14,6 +14,7 @@ func customerRouter(g *gin.RouterGroup) {
 	{
 		group.POST("/save", CustomerSave)
 		group.POST("/list", CustomerList)
+		group.POST("/detail", CustomerDetail)
 	}
 }
 
@@ -47,4 +48,19 @@ func CustomerList(c *gin.Context) {
 
 	_customers, err = logic.NewCustomerLogic(c).ListCustomersByOwnerUser(form)
 	common.Response(c, err, _customers)
+}
+
+func CustomerDetail(c *gin.Context) {
+	var form request.UIDReq
+	var err error
+	if err = c.ShouldBind(&form); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+
+	logic := logic.NewCustomerLogic(c)
+	logic.UID = form.UID
+	rsp, err := logic.Detail()
+
+	common.Response(c, err, rsp)
 }

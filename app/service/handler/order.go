@@ -12,26 +12,26 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func batchOrderRouter(g *gin.RouterGroup) {
-	batchOrderGroup := g.Group("/batch_order", middleware.AuthMiddleware())
+func orderRouter(g *gin.RouterGroup) {
+	OrderGroup := g.Group("/batch_order", middleware.AuthMiddleware())
 	{
 		// 记账单
-		batchOrderGroup.POST("/temp/create", BatchOrderTempCreate)
+		OrderGroup.POST("/temp/create", TempOrderCreate)
 		// 下单
-		batchOrderGroup.POST("/create", BatchOrderCreate)
-		batchOrderGroup.POST("/update", BatchOrderUpdate)
-		batchOrderGroup.POST("/update_status", BatchOrderUpdateStatus)
-		batchOrderGroup.POST("/detail", BatchOrderDetail)
-		batchOrderGroup.POST("/list", BatchOrderList)
-		batchOrderGroup.POST("/share", BatchOrderShared)
-		batchOrderGroup.POST("/latest_by_goods", BatchOrderGoodsLatest)
-		batchOrderGroup.POST("/credit/list", CreditList)
+		OrderGroup.POST("/create", OrderCreate)
+		OrderGroup.POST("/update", OrderUpdate)
+		OrderGroup.POST("/update_status", OrderUpdateStatus)
+		OrderGroup.POST("/detail", OrderDetail)
+		OrderGroup.POST("/list", OrderList)
+		OrderGroup.POST("/share", OrderShared)
+		OrderGroup.POST("/latest_by_goods", OrderGoodsLatest)
+		OrderGroup.POST("/credit/list", CreditList)
 	}
 }
 
 // 码单
-func BatchOrderTempCreate(c *gin.Context) {
-	order := logic.NewBatchOrderLogic(c)
+func TempOrderCreate(c *gin.Context) {
+	order := logic.NewOrderLogic(c)
 	if err := c.ShouldBind(&order); err != nil {
 		common.Response(c, err, nil)
 		return
@@ -45,7 +45,7 @@ func BatchOrderTempCreate(c *gin.Context) {
 	common.Response(c, nil, order)
 }
 
-func BatchOrderCreate(c *gin.Context) {
+func OrderCreate(c *gin.Context) {
 	var form request.OrderReq
 	var err error
 	if err := c.ShouldBind(&form); err != nil {
@@ -53,12 +53,13 @@ func BatchOrderCreate(c *gin.Context) {
 		return
 	}
 
-	order := logic.NewBatchOrderLogic(c)
+	form.OwnerUser = common.GetUserUUID(c)
+	order := logic.NewOrderLogic(c)
 	err = order.Create(form)
 	common.Response(c, err, order)
 }
 
-func BatchOrderUpdate(c *gin.Context) {
+func OrderUpdate(c *gin.Context) {
 	var err error
 	var form request.OrderReq
 	if err = c.ShouldBind(&form); err != nil {
@@ -66,14 +67,14 @@ func BatchOrderUpdate(c *gin.Context) {
 		return
 	}
 
-	order := logic.NewBatchOrderLogic(c)
+	order := logic.NewOrderLogic(c)
 
 	err = order.Update(form)
 	common.Response(c, err, order)
 }
 
-func BatchOrderUpdateStatus(c *gin.Context) {
-	order := logic.NewBatchOrderLogic(c)
+func OrderUpdateStatus(c *gin.Context) {
+	order := logic.NewOrderLogic(c)
 	var err error
 	if err = c.ShouldBind(&order); err != nil {
 		common.Response(c, err, nil)
@@ -84,8 +85,8 @@ func BatchOrderUpdateStatus(c *gin.Context) {
 	common.Response(c, err, order)
 }
 
-func BatchOrderShared(c *gin.Context) {
-	order := logic.NewBatchOrderLogic(c)
+func OrderShared(c *gin.Context) {
+	order := logic.NewOrderLogic(c)
 	var err error
 	if err = c.ShouldBind(&order); err != nil {
 		common.Response(c, err, nil)
@@ -96,7 +97,7 @@ func BatchOrderShared(c *gin.Context) {
 	common.Response(c, err, order)
 }
 
-func BatchOrderDetail(c *gin.Context) {
+func OrderDetail(c *gin.Context) {
 	var payLoad request.BatchOrderDetailReq
 	var err error
 	if err = c.ShouldBind(&payLoad); err != nil {
@@ -104,16 +105,16 @@ func BatchOrderDetail(c *gin.Context) {
 		return
 	}
 
-	order := logic.NewBatchOrderLogic(c)
+	order := logic.NewOrderLogic(c)
 	err = order.FromUUID(payLoad.UUID)
 	common.Response(c, err, order)
 }
 
-func BatchOrderGoodsLatest(c *gin.Context) {
+func OrderGoodsLatest(c *gin.Context) {
 
 	var body request.BatchOrderGoodsLatest
 	var err error
-	order := logic.NewBatchOrderLogic(c)
+	order := logic.NewOrderLogic(c)
 	if err = c.ShouldBind(&body); err != nil {
 		common.Response(c, err, nil)
 		return
@@ -124,9 +125,9 @@ func BatchOrderGoodsLatest(c *gin.Context) {
 	common.Response(c, err, goodPriceObjs)
 }
 
-func BatchOrderList(c *gin.Context) {
+func OrderList(c *gin.Context) {
 	var payload request.BatchOrderListReq
-	order := logic.NewBatchOrderLogic(c)
+	order := logic.NewOrderLogic(c)
 	if err := c.ShouldBind(&payload); err != nil {
 		common.Response(c, err, nil)
 		return
@@ -136,14 +137,14 @@ func BatchOrderList(c *gin.Context) {
 	common.Response(c, err, goodPriceObjs)
 }
 
-func BatchGoodsOrderList(c *gin.Context) {
+func OrderGoodsList(c *gin.Context) {
 	var payLoad request.BatchGoodsListReq
 	if err := c.ShouldBind(&payLoad); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	rsp, err := logic.NewBatchOrderLogic(c).GoodsList(payLoad)
+	rsp, err := logic.NewOrderLogic(c).GoodsList(payLoad)
 	common.Response(c, err, rsp)
 }
 
@@ -155,6 +156,6 @@ func CreditList(c *gin.Context) {
 		return
 	}
 
-	rsp, err := logic.NewBatchOrderLogic(c).CreditList(payLoad)
+	rsp, err := logic.NewOrderLogic(c).CreditList(payLoad)
 	common.Response(c, err, rsp)
 }

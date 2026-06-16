@@ -111,15 +111,6 @@ func (logic *BatchLogic) CalSurplus() (surplusGoodsList []BatchGoodsLogic, err e
 
 func (logic *BatchLogic) Create() (err error) {
 	var _b model.Batch
-	// if err = dao.Find(logic.runtime.DB, &_b); err != nil {
-	// 	return
-	// }
-	// 当天只能创建一个批次 测试环境
-	// if _b.UID != "" && global.Global.Env() != "test" {
-	// 	err = common.BatchDuplicateErr
-	// 	return
-	// }
-
 	var batchGoods []model.Goods
 	var _goodsUIDList []string
 	goodsUIDMap := make(map[string]model.Goods)
@@ -155,7 +146,7 @@ func (logic *BatchLogic) Update(withBatchGoods bool) (err error) {
 		logic.runtime.Logger.Error("BatchLogic Update", zap.Error(err))
 		return
 	}
-	logic.Batch = storage
+	logic.SerialID = storage.SerialID
 	switch withBatchGoods {
 	case true:
 		var oldGoodsList []model.BatchGoods
@@ -254,7 +245,7 @@ func (logic *BatchLogic) Update(withBatchGoods bool) (err error) {
 
 	case false:
 		// logic.Batch.Update(logic.runtime.DB)
-		dao.BatchDao.Update(logic.runtime.DB, logic.Batch)
+		err = dao.BatchDao.Update(logic.runtime.DB, logic.Batch)
 	}
 	return
 }
@@ -285,8 +276,8 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 	}
 
 	// 5. 为每个货品设置剩余库存和销售数量，同时统计总体数据
-	var totalMount float64       // 总件数（定装）
-	var totalWeight float64      // 总重量（散装）
+	var sellMount int            // 卖出总件数
+	var sellWeight float64       // 卖出总重量
 	var inventoryMount int       // 库存件数
 	var inventoryWeight float64  // 库存重量
 	var totalSalesAmount float64 // 总销售金额
@@ -300,11 +291,13 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 			// 根据货品类型统计总数和库存
 			if goods.GoodsTyp == common.GoodsTypeFix {
 				// 定装：统计件数
-				totalMount += float64(goods.Mount)
+				// totalMount += float64(goods.Mount)
 				inventoryMount += surplus.Mount
+				sellMount += surplus.SellMount
 			} else if goods.GoodsTyp == common.GoodsTypeBulk {
 				// 散装：统计重量
-				totalWeight += goods.Weight
+				// totalWeight += goods.Weight
+				sellWeight += surplus.SellWeight
 				inventoryWeight += surplus.Weight
 			}
 		}
@@ -312,11 +305,13 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 
 	// 6. 填充批次统计数据
 	logic.BatchStatFeild = model.BatchStatFeild{
-		StatMount:           utils.FloatReserveStr(totalMount, 1),
-		StatWeight:          utils.FloatReserveStr(totalWeight, 1),
+		StatMount:           fmt.Sprintf("%d", sellMount),
+		StatWeight:          utils.FloatReserveStr(sellWeight, 1),
 		StatInventoryMount:  fmt.Sprintf("%d", inventoryMount),
 		StatInventoryWeight: utils.FloatReserveStr(inventoryWeight, 1),
 		StatSalesAmount:     utils.FloatReserveStr(totalSalesAmount, 1),
+		// StatSellMount:       fmt.Sprintf("%d", sellMount),
+		// StatSellWeight:      utils.FloatReserveStr(sellWeight, 1),
 	}
 
 	return nil

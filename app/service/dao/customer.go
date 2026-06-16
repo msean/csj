@@ -45,3 +45,38 @@ func (dao *customerDao) List(db *gorm.DB, ownerUser string, condtions request.Cu
 	err = utils.Find(db, &customers, conds...)
 	return
 }
+
+func (dao *customerDao) FromUUID(db *gorm.DB, uuid string) (customers model.Customer, err error) {
+	err = utils.First(db, &customers, utils.WhereUIDCond(uuid))
+	return
+}
+
+// IncrOrderStats 新建有效订单时增加客户统计
+func (dao *customerDao) IncrOrderStats(db *gorm.DB, userUUID string, totalAmount float64) (err error) {
+	err = db.Model(&model.Customer{}).
+		Where("uid = ?", userUUID).
+		Updates(map[string]interface{}{
+			"order_count":  gorm.Expr("order_count + 1"),
+			"total_amount": gorm.Expr("total_amount + ?", totalAmount),
+		}).Error
+	return
+}
+
+// DecrOrderStats 作废/退款/退货时减少客户统计
+func (dao *customerDao) DecrOrderStats(db *gorm.DB, userUUID string, totalAmount float64) (err error) {
+	err = db.Model(&model.Customer{}).
+		Where("uid = ?", userUUID).
+		Updates(map[string]interface{}{
+			"order_count":  gorm.Expr("GREATEST(order_count - 1, 0)"),
+			"total_amount": gorm.Expr("total_amount - ?", totalAmount),
+		}).Error
+	return
+}
+
+// UpdateOrderStatsDiff 订单更新时调整客户统计差额
+func (dao *customerDao) UpdateOrderStatsDiff(db *gorm.DB, userUUID string, deltaTotal float64) (err error) {
+	err = db.Model(&model.Customer{}).
+		Where("uid = ?", userUUID).
+		Update("total_amount", gorm.Expr("total_amount + ?", deltaTotal)).Error
+	return
+}

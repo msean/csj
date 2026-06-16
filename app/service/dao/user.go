@@ -25,17 +25,13 @@ func (dao *userDao) Update(db *gorm.DB, user model.User) (err error) {
 	return utils.WhereUIDCond(user.UID).Cond(db.Model(&model.User{})).Updates(toUpdate).Error
 }
 
-func (dao *userDao) WherePhoneCond(user model.User) (w utils.WhereCond) {
-	return
-}
-
 func (dao *userDao) FindByPhone(db *gorm.DB, phone string) (user model.User, err error) {
-	err = utils.Find(db, &user, utils.NewWhereCond("phone", user.Phone))
+	err = utils.Find(db, &user, utils.NewWhereCond("phone", phone))
 	return
 }
 
-func (dao *userDao) FromUUID(db *gorm.DB, phone string) (user model.User, err error) {
-	if err = utils.Find(db, &user, utils.NewWhereCond("phone", user.Phone)); err != nil {
+func (dao *userDao) FromUUID(db *gorm.DB, uuid string) (user model.User, err error) {
+	if err = utils.Find(db, &user, utils.WhereUIDCond(uuid)); err != nil {
 		return
 	}
 	if user.UID == "" {

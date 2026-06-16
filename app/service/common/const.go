@@ -7,7 +7,7 @@ const (
 
 const (
 	BatchOrderTemp     int = 1   // 记账单
-	BatchOrderedCredit int = 2   // 赊欠单
+	BatchOrderedCredit int = 2   // 赊欠单 废弃
 	BatchOrderFinish   int = 3   // 已结算
 	BatchOrderCancel   int = 100 //作废
 	BatchOrderRefund   int = 101 // 退款

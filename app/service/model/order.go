@@ -11,7 +11,7 @@ type (
 		BaseModel
 		BatchUUID        string             `gorm:"column:batch_uuid;comment:批次uuid" json:"batchUUID"`
 		OwnerUser        string             `gorm:"column:owner_user;comment:所属用户;index" json:"ownerUser"`
-		UserUUID         string             `gorm:"column:user_uuid;comment:开单uuid" json:"customerUUID"`
+		UserUUID         string             `gorm:"column:user_uuid;comment:开单uuid;index:idx_owner_user" json:"customerUUID"`
 		Shared           int                `gorm:"column:shared;comment:是否分享单" json:"shared"`
 		SharedTime       int                `gorm:"column:share_time;comment:分享时间" json:"sharedTime"`
 		Status           int                `gorm:"column:status;comment:状态" json:"status"`

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -41,22 +42,10 @@ func IllegalResponse(c *gin.Context, err error, data any) {
 	})
 }
 
-// func GetUserUUID(context *gin.Context) string {
-// 	// userUUID, _ := c.Value("userUUID").(string)
-// 	// return userUUID
-// 	// 调试：分别测试两种获取方式
-// 	if val, exists := context.Get("userUUID"); exists {
-// 		global.Global.Logger.Debug("Get方法获取到:", zap.Any("value", val))
-// 	}
-
-//		if val := context.Value("userUUID"); val != nil {
-//			global.Global.Logger.Debug("Value方法获取到:", zap.Any("value", val))
-//		}
-//		return
-//	}
 func GetUserUUID(c *gin.Context) string {
 	// 使用 c.Get() 而不是 c.Value()
 	userUUID, exists := c.Get("userUUID")
+	fmt.Println(">>>>>>>>GetUserUUID", userUUID)
 	if !exists {
 		return ""
 	}

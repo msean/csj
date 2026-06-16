@@ -62,7 +62,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		claims, err := GetTokenClaims(tokenHeader)
-		global.Global.Logger.Debug("[AuthMiddleware]", zap.Any("expiresat", claims.ExpiresAt))
+		global.Global.Logger.Info("AuthMiddleware", zap.Any("claims", claims))
 		if err != nil {
 			c.Abort()
 			common.IllegalResponse(c, common.TokenUnValidErr, nil)
@@ -84,6 +84,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			}
 		}
 		c.Set("userUUID", claims.UUID)
+		global.Global.Logger.Info("userUUID", zap.Any("claims", claims.UUID))
 		c.Next()
 	}
 }

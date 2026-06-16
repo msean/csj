@@ -13,14 +13,14 @@ import (
 	"gorm.io/gorm"
 )
 
-type BatchOrderPayLogic struct {
+type OrderPayLogic struct {
 	context *gin.Context
 	runtime *global.RunTime
 	model.BatchOrderPay
 }
 
-func NewBatchOrderPayLogic(context *gin.Context) *BatchOrderPayLogic {
-	logic := &BatchOrderPayLogic{
+func NewOrderPayLogic(context *gin.Context) *OrderPayLogic {
+	logic := &OrderPayLogic{
 		context: context,
 		runtime: global.Global,
 	}
@@ -28,7 +28,7 @@ func NewBatchOrderPayLogic(context *gin.Context) *BatchOrderPayLogic {
 	return logic
 }
 
-func (logic *BatchOrderPayLogic) Create(tx *gorm.DB, toUpdateOrder bool) (err error) {
+func (logic *OrderPayLogic) Create(tx *gorm.DB, toUpdateOrder bool) (err error) {
 	if tx == nil {
 		tx = logic.runtime.DB
 		defer func() {
@@ -51,7 +51,7 @@ func (logic *BatchOrderPayLogic) Create(tx *gorm.DB, toUpdateOrder bool) (err er
 	return
 }
 
-func (logic *BatchOrderPayLogic) Update() (err error) {
+func (logic *OrderPayLogic) Update() (err error) {
 	return logic.runtime.DB.Transaction(func(tx *gorm.DB) (err error) {
 		if err = dao.OrderDao.UpdateOrderPay(tx, logic.BatchOrderPay); err != nil {
 			return
@@ -78,10 +78,10 @@ func UpdateOrderPay(db *gorm.DB, payFee float64, payType int32, batchOrderUUID s
 	}).Error; err != nil {
 		return
 	}
-	global.Global.Logger.Info(fmt.Sprintf("[BatchOrderPayLogic] [UpdateOrderPay] batch_order_uuid:%s, paidTotal: %f", batchOrderUUID, order.TotalAmount))
+	global.Global.Logger.Info(fmt.Sprintf("[OrderPayLogic] [UpdateOrderPay] batch_order_uuid:%s, paidTotal: %f", batchOrderUUID, order.TotalAmount))
 	return
 }
 
-func (logic *BatchOrderPayLogic) FromUUID() (err error) {
+func (logic *OrderPayLogic) FromUUID() (err error) {
 	return utils.Find(logic.runtime.DB, &logic.BatchOrderPay)
 }

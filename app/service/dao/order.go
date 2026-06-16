@@ -81,7 +81,7 @@ func (dao *orderDao) MonthSales(db *gorm.DB, ownerUser string) (amount float64, 
 		Where("owner_user = ?", ownerUser).
 		Where("created_at >= ?", monthStart).
 		Where("status IN (?)", common.ValidOrder).
-		Select("COALESCE(SUM(total_amount), 0)").
+		Select("COALESCE(SUM(amount), 0)").
 		Scan(&amount).Error
 
 	if err != nil {
@@ -119,6 +119,17 @@ func (dao *orderDao) CreditAmountTotal(db *gorm.DB, ownerUser string) (creditAmo
 	return creditAmount, nil
 }
 
+// CustomerCreditAmount 实时查询单个客户的赊欠金额
+func (dao *orderDao) CustomerCreditAmount(db *gorm.DB, ownerUser, userUUID string) (creditAmount float64, err error) {
+	err = db.Model(&model.BatchOrder{}).
+		Where("owner_user = ? AND user_uuid = ?", ownerUser, userUUID).
+		Where("status IN (?)", common.ValidOrder).
+		Where("credit_amount > ?", 0).
+		Select("COALESCE(SUM(credit_amount), 0)").
+		Scan(&creditAmount).Error
+	return
+}
+
 // GetCreditList 优化后的赊欠列表查询
 func (dao *orderDao) GetCreditList(db *gorm.DB, ownerUser string, conditions request.CreditListReq) (*response.CreditListResponse, error) {
 	now := time.Now()
@@ -127,14 +138,13 @@ func (dao *orderDao) GetCreditList(db *gorm.DB, ownerUser string, conditions req
 	// 基础查询条件复用
 	baseQuery := db.Table("batch_orders").
 		Where("owner_user = ?", ownerUser).
-		Where("status = ?", 1).
+		Where("status = ?", common.BatchOrderTemp).
 		Where("credit_amount > ?", 0)
 
 	// 1. 先查询真实的汇总数据（全量统计）
 	var summary response.CreditSummary
 	err := baseQuery.
-		Select(`
-			COALESCE(SUM(credit_amount), 0) as total_credit_amount,
+		Select(`COALESCE(SUM(credit_amount), 0) as total_credit_amount,
 			COUNT(DISTINCT user_uuid) as total_credit_users,
 			COUNT(*) as total_credit_orders,
 			COALESCE(SUM(CASE WHEN created_at >= ? THEN credit_amount ELSE 0 END), 0) as today_credit_amount
@@ -170,6 +180,8 @@ func (dao *orderDao) GetCreditList(db *gorm.DB, ownerUser string, conditions req
 	if err != nil {
 		return nil, err
 	}
+
+	global.Global.Logger.Debug("earliestList", zap.Any("earliestList", earliestList))
 
 	// 构建最早时间映射（减少JOIN复杂度）
 	earliestMap := make(map[string]time.Time, len(earliestList))
@@ -225,8 +237,63 @@ func (dao *orderDao) GetCreditList(db *gorm.DB, ownerUser string, conditions req
 		}
 	}
 
+	global.Global.Logger.Info("GetCreditList", zap.Any("list", list))
 	return &response.CreditListResponse{
 		List:    list,
 		Summary: summary,
 	}, nil
+}
+
+// GetTodayOrdersWithGoods retrieves today's BatchOrders (status=1) for a given owner and customer,
+// along with their BatchOrderGoods. Returns the order list and the sum of CreditAmount before today.
+func (dao *orderDao) GetTodayOrdersWithGoods(db *gorm.DB, ownerUser, customerUUID string) (*response.ShareDailyOrderRsp, error) {
+	// now := time.Now()
+	// todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	// todayEnd := todayStart.Add(24 * time.Hour)
+
+	var resp response.ShareDailyOrderRsp
+
+	// // 1. Calculate previous credit sum (all status=1 orders for this customer before today)
+	// err := db.Model(&model.BatchOrder{}).
+	// 	Where("owner_user = ? AND user_uuid = ? AND status = ? AND credit_amount > 0 AND created_at < ?",
+	// 		ownerUser, customerUUID, 1, todayStart).
+	// 	Select("COALESCE(SUM(credit_amount), 0)").
+	// 	Scan(&resp.TotalPreviousCredit).Error
+	// if err != nil {
+	// 	global.Global.Logger.Error("failed to get previous credit", zap.Error(err))
+	// 	return nil, err
+	// }
+
+	// // 2. Fetch today's orders with status=1
+	// var orders []model.BatchOrder
+	// err = db.Where("owner_user = ? AND user_uuid = ? AND status = ? AND created_at >= ? AND created_at < ?",
+	// 	ownerUser, customerUUID, 1, todayStart, todayEnd).
+	// 	Preload("GoodsListRelated"). // Preload associated BatchOrderGoods
+	// 	Find(&orders).Error
+	// if err != nil {
+	// 	global.Global.Logger.Error("failed to get today orders", zap.Error(err))
+	// 	return nil, err
+	// }
+
+	// shareOrder := &response.ShareDailyOrderRsp{
+	// 	TotalAmount:  order.TotalAmount,
+	// 	CreditAmount: order.CreditAmount,
+	// 	GoodsList:    make([]*response.ShareDailyOrderItem, 0, len(order.GoodsListRelated)),
+	// }
+	// // 3. Build response
+	// for _, order := range orders {
+
+	// 	for _, good := range order.GoodsListRelated {
+	// 		item := &response.ShareDailyOrderItem{
+	// 			GoodsUUID: good.GoodsUUID,
+	// 			Price:     good.Price,
+	// 			Weight:    good.Weight,
+	// 			Mount:     good.Mount,
+	// 			Total:     good.Total,
+	// 		}
+	// 		shareOrder.GoodsList = append(shareOrder.GoodsList, item)
+	// 	}
+	// }
+
+	return &resp, nil
 }

@@ -20,7 +20,7 @@ func InitEngine(engine *gin.Engine) {
 		customerRouter(apiGroup)
 		goodsRouter(apiGroup)
 		batchRouter(apiGroup)
-		batchOrderRouter(apiGroup)
-		batchOrderPayRouter(apiGroup)
+		orderRouter(apiGroup)
+		orderPayRouter(apiGroup)
 	}
 }

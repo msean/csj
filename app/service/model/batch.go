@@ -2,6 +2,7 @@ package model
 
 import (
 	"app/service/common"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -51,26 +52,59 @@ func (b *Batch) BeforeCreate(tx *gorm.DB) (err error) {
 func (Batch) TableName() string { return "batches" }
 
 func (b *Batch) GenerateSerialID(tx *gorm.DB) (maxID int, err error) {
-	if err = tx.Model(&Batch{}).
-		Where("owner_user = ?", b.OwnerUser).
-		Select("COALESCE(MAX(serial_id), 0)").
-		Scan(&maxID).Error; err != nil {
+	// MySQL atomic increment using LAST_INSERT_ID
+	result := tx.Exec(`
+		UPDATE batch_serial_counters
+		SET max_serial_id = LAST_INSERT_ID(max_serial_id + 1)
+		WHERE owner_user = ?
+	`, b.OwnerUser)
+	if result.Error != nil {
+		err = result.Error
 		return
 	}
-	maxID = maxID + 1
+
+	if result.RowsAffected > 0 {
+		// Existing counter updated, get the new value
+		err = tx.Raw("SELECT LAST_INSERT_ID()").Scan(&maxID).Error
+		return
+	}
+
+	// No counter exists yet — insert with initial value 1
+	if err = tx.Exec(`
+		INSERT INTO batch_serial_counters (owner_user, max_serial_id)
+		VALUES (?, 1)
+	`, b.OwnerUser).Error; err != nil {
+		// Ignore duplicate key (another request may have just inserted)
+		if !isDuplicateKeyError(err) {
+			return
+		}
+		// Another request won the race, retry the update
+		result = tx.Exec(`
+			UPDATE batch_serial_counters
+			SET max_serial_id = LAST_INSERT_ID(max_serial_id + 1)
+			WHERE owner_user = ?
+		`, b.OwnerUser)
+		if result.Error != nil {
+			err = result.Error
+			return
+		}
+		err = tx.Raw("SELECT LAST_INSERT_ID()").Scan(&maxID).Error
+		return
+	}
+
+	maxID = 1
 	return
+}
+
+func isDuplicateKeyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Check for MySQL duplicate key error (Error 1062)
+	return strings.Contains(err.Error(), "Duplicate entry") || strings.Contains(err.Error(), "1062")
 }
 
 func (b *Batch) Default() {
 	b.Status = common.BatchStatusOnSellering
 	// b.SerialNo = SerioalNo(time.Time{})
 }
-
-// func (bg *BatchGoods) Amount() (amount string) {
-// 	if bg.Type == common.GoodsTypeFix {
-// 		amount = fmt.Sprintf("%d", bg.Mount)
-// 		return
-// 	}
-// 	amount = fmt.Sprintf("%.2f", bg.Weight)
-// 	return
-// }

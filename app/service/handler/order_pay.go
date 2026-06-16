@@ -8,17 +8,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func batchOrderPayRouter(g *gin.RouterGroup) {
-	batchOrderPayGroup := g.Group("/batch_order_pay", middleware.AuthMiddleware())
+func orderPayRouter(g *gin.RouterGroup) {
+	orderPayGroup := g.Group("/batch_order_pay", middleware.AuthMiddleware())
 	{
-		batchOrderPayGroup.POST("/create", BatchOrderPayCreate)
-		batchOrderPayGroup.POST("/update", BatchOrderPayUpdate)
-		batchOrderPayGroup.POST("/detail", BatchOrderPayDetail)
+		orderPayGroup.POST("/create", OrderPayCreate)
+		orderPayGroup.POST("/update", OrderPayUpdate)
+		orderPayGroup.POST("/detail", OrderPayDetail)
 	}
 }
 
-func BatchOrderPayCreate(c *gin.Context) {
-	orderPay := logic.NewBatchOrderPayLogic(c)
+func OrderPayCreate(c *gin.Context) {
+	orderPay := logic.NewOrderPayLogic(c)
 	if err := c.ShouldBind(&orderPay); err != nil {
 		common.Response(c, err, nil)
 		return
@@ -32,8 +32,8 @@ func BatchOrderPayCreate(c *gin.Context) {
 	common.Response(c, nil, orderPay)
 }
 
-func BatchOrderPayUpdate(c *gin.Context) {
-	orderPay := logic.NewBatchOrderPayLogic(c)
+func OrderPayUpdate(c *gin.Context) {
+	orderPay := logic.NewOrderPayLogic(c)
 	if err := c.ShouldBind(&orderPay); err != nil {
 		common.Response(c, err, nil)
 		return
@@ -46,8 +46,8 @@ func BatchOrderPayUpdate(c *gin.Context) {
 	common.Response(c, nil, orderPay)
 }
 
-func BatchOrderPayDetail(c *gin.Context) {
-	orderPay := logic.NewBatchOrderPayLogic(c)
+func OrderPayDetail(c *gin.Context) {
+	orderPay := logic.NewOrderPayLogic(c)
 	if err := c.ShouldBind(&orderPay); err != nil {
 		common.Response(c, err, nil)
 		return

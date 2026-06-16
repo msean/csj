@@ -104,7 +104,7 @@ func (logic *UserLogic) Login() (token string, err error) {
 		err = common.PhoneUnRegisterErr
 		return
 	}
-	token, err = middleware.SetToken(logic.Phone, logic.UID)
+	token, err = middleware.SetToken(logic.Phone, userModel.UID)
 	return
 }
 

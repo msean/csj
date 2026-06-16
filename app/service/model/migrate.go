@@ -5,7 +5,6 @@ import (
 )
 
 func Migrate() {
-	// if global.Global.Migrate() {
 	global.Global.DB.AutoMigrate(
 		&User{},
 		&Customer{},
@@ -17,7 +16,7 @@ func Migrate() {
 		&BatchOrderGoods{},
 		&BatchOrderPay{},
 		&BatchOrderHistory{},
+		&BatchSerialCounter{},
 		&Sms{},
 	)
-	// }
 }
