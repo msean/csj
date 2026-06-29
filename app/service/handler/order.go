@@ -5,7 +5,6 @@ import (
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
-	"app/service/model"
 	"app/service/model/request"
 	"app/service/model/response"
 
@@ -26,6 +25,14 @@ func orderRouter(g *gin.RouterGroup) {
 		OrderGroup.POST("/share", OrderShared)
 		OrderGroup.POST("/latest_by_goods", OrderGoodsLatest)
 		OrderGroup.POST("/credit/list", CreditList)
+		// 生成分享PDF
+		OrderGroup.POST("/share/generate", ShareGeneratePDF)
+		// 生成分享HTML
+		OrderGroup.POST("/share/generate_html", ShareGenerateHTML)
+		// 生成分享图片（PNG，适合移动端微信分享）
+		OrderGroup.POST("/share/generate_image", ShareGenerateImage)
+		// 获取分享数据（JSON）
+		OrderGroup.POST("/share/daily", ShareDailyOrder)
 	}
 }
 
@@ -41,7 +48,7 @@ func TempOrderCreate(c *gin.Context) {
 		common.Response(c, err, nil)
 		return
 	}
-	go order.Record(false, model.HistoryStepOrder, model.PayFeild{})
+	// go order.Record(false, model.HistoryStepOrder, model.PayFeild{})
 	common.Response(c, nil, order)
 }
 
@@ -66,11 +73,11 @@ func OrderUpdate(c *gin.Context) {
 		common.Response(c, err, nil)
 		return
 	}
+	form.OwnerUser = common.GetUserUUID(c)
+	orderLogic := logic.NewOrderLogic(c)
 
-	order := logic.NewOrderLogic(c)
-
-	err = order.Update(form)
-	common.Response(c, err, order)
+	err = orderLogic.Update(form)
+	common.Response(c, err, orderLogic)
 }
 
 func OrderUpdateStatus(c *gin.Context) {
@@ -158,4 +165,71 @@ func CreditList(c *gin.Context) {
 
 	rsp, err := logic.NewOrderLogic(c).CreditList(payLoad)
 	common.Response(c, err, rsp)
+}
+
+// ShareDailyOrder 查询今日订单分享数据（JSON）
+func ShareDailyOrder(c *gin.Context) {
+	var req request.ShareDailyOrderReq
+	if err := c.ShouldBind(&req); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+
+	rsp, err := logic.NewOrderLogic(c).ShareDailyOrder(req)
+	common.Response(c, err, rsp)
+}
+
+// ShareGeneratePDF 生成今日账单PDF，直接返回PDF文件流（无需存档，多台服务器兼容）
+func ShareGeneratePDF(c *gin.Context) {
+	var req request.ShareDailyOrderReq
+	if err := c.ShouldBind(&req); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+
+	pdfBytes, err := logic.NewOrderLogic(c).GenerateSharePDF(req)
+	if err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+
+	c.Header("Content-Disposition", "inline; filename=\"receipt.pdf\"")
+	c.Data(200, "application/pdf", pdfBytes)
+}
+
+// ShareGenerateHTML 生成今日账单HTML，直接返回HTML内容
+func ShareGenerateHTML(c *gin.Context) {
+	var req request.ShareDailyOrderReq
+	if err := c.ShouldBind(&req); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+
+	html, err := logic.NewOrderLogic(c).GenerateShareHTML(req)
+	if err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.String(200, html)
+}
+
+// ShareGenerateImage 生成今日账单图片（PNG），适合移动端微信分享
+func ShareGenerateImage(c *gin.Context) {
+	var req request.ShareDailyOrderReq
+	if err := c.ShouldBind(&req); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+
+	imageBytes, err := logic.NewOrderLogic(c).GenerateShareImage(req)
+	if err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+
+	c.Header("Content-Disposition", "inline; filename=\"receipt.png\"")
+	c.Header("Cache-Control", "no-cache")
+	c.Data(200, "image/png", imageBytes)
 }

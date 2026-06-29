@@ -34,12 +34,12 @@ type (
 		PaidFee string `gorm:"-"  json:"paidFee"`
 	}
 	BatchStatFeild struct {
-		StatMount           string `json:"statMount"`           // 卖出总件数
-		StatWeight          string `json:"statWeight"`          // 卖出总重量
-		StatInventoryMount  string `json:"statInventoryMount"`  // 库存 件数
-		StatInventoryWeight string `json:"statInventoryWeight"` // 库存 重量
-		StatSalesAmount     string `json:"statSalesAmount"`     // 卖货总金额
-		// StatSellMount       string `json:"statSellMount"`
+		StatMount           string  `json:"statMount"`           // 卖出总件数
+		StatWeight          string  `json:"statWeight"`          // 卖出总重量
+		StatInventoryMount  string  `json:"statInventoryMount"`  // 库存 件数
+		StatInventoryWeight string  `json:"statInventoryWeight"` // 库存 重量
+		StatSalesAmount     string  `json:"statSalesAmount"`     // 卖货总金额
+		StatSellProfit      float64 `json:"statSellProfit"`      // 盈利
 		// StatSellWeight      string `json:"statSellWeight"`
 	}
 )

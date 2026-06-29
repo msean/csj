@@ -3,6 +3,7 @@ package model
 import (
 	"app/pkg/utils"
 	"app/service/common"
+	"time"
 )
 
 type (
@@ -45,11 +46,36 @@ type (
 	}
 	BatchOrderPay struct {
 		BaseModel
-		CustomerUUID   string  `gorm:"column:customer_uuid;comment:" json:"customerUUID"`
-		OwnerUser      string  `gorm:"column:owner_user;comment:所属用户" json:"ownerUser"`
-		BatchOrderUUID string  `gorm:"column:batch_order_uuid;comment:批次uuid'" json:"batchOrderUUID"`
-		Amount         float64 `gorm:"column:amount;type:decimal(10,2);comment:支付金额" json:"amount"`
-		PayType        int32   `gorm:"column:pay_type;comment:付款方式" json:"payType"`
+		CustomerUUID   string     `gorm:"column:customer_uuid;comment:客户UUID" json:"customerUUID"`
+		OwnerUser      string     `gorm:"column:owner_user;comment:所属用户;index" json:"ownerUser"`
+		BatchOrderUUID string     `gorm:"column:batch_order_uuid;comment:订单UUID（快捷还款为空）" json:"batchOrderUUID"`
+		Amount         float64    `gorm:"column:amount;type:decimal(10,2);comment:还款金额（正数还款，负数撤销）" json:"amount"`
+		PayType        int32      `gorm:"column:pay_type;comment:付款方式 1-现金 2-微信 3-支付宝" json:"payType"`
+		Remark         string     `gorm:"column:remark;comment:备注" json:"remark"`
+		IsRevoked      int        `gorm:"column:is_revoked;default:0;comment:是否已撤销 0-否 1-是" json:"isRevoked"`
+		RevokedAt      *time.Time `gorm:"column:revoked_at;comment:撤销时间" json:"revokedAt"`
+		RevokedReason  string     `gorm:"column:revoked_reason;comment:撤销原因" json:"revokedReason"`
+		// 快捷还款时存储多个订单的还款详情 JSON
+		// 格式：[{"orderUUID":"xxx","amount":100},{"orderUUID":"yyy","amount":200}]
+		PayDetails string `gorm:"column:pay_details;type:text;comment:还款详情JSON" json:"payDetails"`
+	}
+
+	// MessageCenter 消息中心表
+	MessageCenter struct {
+		BaseModel
+		OwnerUser    string `gorm:"column:owner_user;comment:所属用户;index" json:"ownerUser"`
+		CustomerUUID string `gorm:"column:customer_uuid;comment:客户UUID" json:"customerUUID"`
+		Type         int    `gorm:"column:type;comment:消息类型 1-还款 2-撤销还款" json:"type"`
+		Event        string `gorm:"column:event;comment:事件名称" json:"event"`
+		Content      string `gorm:"column:content;type:text;comment:消息内容" json:"content"`
+		IsRead       int    `gorm:"column:is_read;default:0;comment:是否已读 0-未读 1-已读" json:"isRead"`
+		RelatedUUID  string `gorm:"column:related_uuid;comment:关联UUID（还款记录UUID）" json:"relatedUUID"`
+	}
+
+	// PayDetail 还款详情（用于快捷还款记录多个订单）
+	PayDetail struct {
+		OrderUUID string  `json:"orderUUID"`
+		Amount    float64 `json:"amount"`
 	}
 )
 

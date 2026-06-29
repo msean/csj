@@ -171,7 +171,7 @@ func (logic *BatchLogic) Update(withBatchGoods bool) (err error) {
 		// 开单检测
 		if len(toDeleteGoodsUUIDs) > 0 {
 			var orderGoodsList []model.BatchOrderGoods
-			if orderGoodsList, err = dao.OrderDao.ListByBatchUUIDIn(logic.runtime.DB, logic.UID, toDeleteGoodsUUIDs); err != nil {
+			if orderGoodsList, err = dao.OrderDao.ListByBatchUUIDIn(logic.runtime.DB, logic.OwnerUser, logic.UID, toDeleteGoodsUUIDs); err != nil {
 				logic.runtime.Logger.Error("查询开单记录失败", zap.Error(err))
 				return
 			}
@@ -281,6 +281,7 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 	var inventoryMount int       // 库存件数
 	var inventoryWeight float64  // 库存重量
 	var totalSalesAmount float64 // 总销售金额
+	var totalProfit float64      // 总盈利
 
 	for _, goods := range logic.GoodsListRelated {
 		if surplus, ok := surplusM[goods.GoodsUUID]; ok {
@@ -288,18 +289,32 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 			// 统计总销售金额（卖出的总金额）
 			totalSalesAmount += surplus.SellTotal
 
-			// 根据货品类型统计总数和库存
+			// 计算盈利：销售收入 - 入库成本
+			var salesRevenue float64 // 销售收入
+			var costAmount float64   // 入库成本
+
 			if goods.GoodsTyp == common.GoodsTypeFix {
 				// 定装：统计件数
-				// totalMount += float64(goods.Mount)
 				inventoryMount += surplus.Mount
 				sellMount += surplus.SellMount
+
+				// 销售收入 = 卖出件数 × 卖出价格（均价）
+				salesRevenue = surplus.SellTotal
+				// 入库成本 = 入库件数 × 入库价格
+				costAmount = float64(goods.Mount) * goods.Price
 			} else if goods.GoodsTyp == common.GoodsTypeBulk {
 				// 散装：统计重量
-				// totalWeight += goods.Weight
 				sellWeight += surplus.SellWeight
 				inventoryWeight += surplus.Weight
+
+				// 销售收入 = 卖出重量 × 卖出价格
+				salesRevenue = surplus.SellTotal
+				// 入库成本 = 入库重量 × 入库价格
+				costAmount = goods.Weight * goods.Price
 			}
+
+			// 累加盈利
+			totalProfit += (salesRevenue - costAmount)
 		}
 	}
 
@@ -310,8 +325,7 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 		StatInventoryMount:  fmt.Sprintf("%d", inventoryMount),
 		StatInventoryWeight: utils.FloatReserveStr(inventoryWeight, 1),
 		StatSalesAmount:     utils.FloatReserveStr(totalSalesAmount, 1),
-		// StatSellMount:       fmt.Sprintf("%d", sellMount),
-		// StatSellWeight:      utils.FloatReserveStr(sellWeight, 1),
+		StatSellProfit:      utils.FloatReserve(totalProfit, 1),
 	}
 
 	return nil

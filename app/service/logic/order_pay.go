@@ -53,7 +53,7 @@ func (logic *OrderPayLogic) Create(tx *gorm.DB, toUpdateOrder bool) (err error) 
 
 func (logic *OrderPayLogic) Update() (err error) {
 	return logic.runtime.DB.Transaction(func(tx *gorm.DB) (err error) {
-		if err = dao.OrderDao.UpdateOrderPay(tx, logic.BatchOrderPay); err != nil {
+		if err = dao.OrderDao.UpdateOrderPay(tx, logic.OwnerUser, logic.BatchOrderPay); err != nil {
 			return
 		}
 		err = UpdateOrderPay(tx, logic.Amount, logic.PayType, logic.BatchOrderUUID, logic.context)

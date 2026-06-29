@@ -20,6 +20,17 @@ func newOrderDao() *orderDao {
 	return &orderDao{}
 }
 
+func (dao *orderDao) Create(db *gorm.DB, order *model.BatchOrder) error {
+	return db.Create(order).Error
+}
+
+func (dao *orderDao) CreateGoodsBatch(db *gorm.DB, ownerUser string, goodsList []*model.BatchOrderGoods) error {
+	if len(goodsList) == 0 {
+		return nil
+	}
+	return db.CreateInBatches(goodsList, 100).Error
+}
+
 func (dao *orderDao) UpdateStatus(db *gorm.DB, orderUUID string, status int) error {
 	return utils.WhereUIDCond(orderUUID).Cond(db).Model(&model.BatchOrder{}).Update("status", status).Error
 }
@@ -246,54 +257,45 @@ func (dao *orderDao) GetCreditList(db *gorm.DB, ownerUser string, conditions req
 
 // GetTodayOrdersWithGoods retrieves today's BatchOrders (status=1) for a given owner and customer,
 // along with their BatchOrderGoods. Returns the order list and the sum of CreditAmount before today.
-func (dao *orderDao) GetTodayOrdersWithGoods(db *gorm.DB, ownerUser, customerUUID string) (*response.ShareDailyOrderRsp, error) {
-	// now := time.Now()
-	// todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	// todayEnd := todayStart.Add(24 * time.Hour)
+func (dao *orderDao) GetTodayOrdersWithGoods(db *gorm.DB, ownerUser, customerUUID, orderUUID string) (orders []model.BatchOrder, previousCredit float64, err error) {
+	var targetDate time.Time
+	var dayStart, dayEnd time.Time
 
-	var resp response.ShareDailyOrderRsp
+	if orderUUID != "" {
+		// 1. 先查询订单的创建时间
+		var order model.BatchOrder
+		err = db.Where("uid = ?", orderUUID).First(&order).Error
+		if err != nil {
+			return nil, 0, fmt.Errorf("订单不存在: %w", err)
+		}
+		targetDate = order.CreatedAt
+	} else {
+		// 使用当前日期
+		targetDate = time.Now()
+	}
 
-	// // 1. Calculate previous credit sum (all status=1 orders for this customer before today)
-	// err := db.Model(&model.BatchOrder{}).
-	// 	Where("owner_user = ? AND user_uuid = ? AND status = ? AND credit_amount > 0 AND created_at < ?",
-	// 		ownerUser, customerUUID, 1, todayStart).
-	// 	Select("COALESCE(SUM(credit_amount), 0)").
-	// 	Scan(&resp.TotalPreviousCredit).Error
-	// if err != nil {
-	// 	global.Global.Logger.Error("failed to get previous credit", zap.Error(err))
-	// 	return nil, err
-	// }
+	// 计算目标日期的开始和结束时间
+	dayStart = time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
+	dayEnd = dayStart.Add(24 * time.Hour)
 
-	// // 2. Fetch today's orders with status=1
-	// var orders []model.BatchOrder
-	// err = db.Where("owner_user = ? AND user_uuid = ? AND status = ? AND created_at >= ? AND created_at < ?",
-	// 	ownerUser, customerUUID, 1, todayStart, todayEnd).
-	// 	Preload("GoodsListRelated"). // Preload associated BatchOrderGoods
-	// 	Find(&orders).Error
-	// if err != nil {
-	// 	global.Global.Logger.Error("failed to get today orders", zap.Error(err))
-	// 	return nil, err
-	// }
+	// 1. Sum of credit amounts for valid orders BEFORE the target day
+	err = db.Model(&model.BatchOrder{}).
+		Where("owner_user = ? AND user_uuid = ? AND status IN (?) AND credit_amount > 0 AND created_at < ?",
+			ownerUser, customerUUID, common.ValidOrder, dayStart).
+		Select("COALESCE(SUM(credit_amount), 0)").
+		Scan(&previousCredit).Error
+	if err != nil {
+		global.Global.Logger.Error("GetTodayOrdersWithGoods: failed to get previous credit", zap.Error(err))
+		return
+	}
 
-	// shareOrder := &response.ShareDailyOrderRsp{
-	// 	TotalAmount:  order.TotalAmount,
-	// 	CreditAmount: order.CreditAmount,
-	// 	GoodsList:    make([]*response.ShareDailyOrderItem, 0, len(order.GoodsListRelated)),
-	// }
-	// // 3. Build response
-	// for _, order := range orders {
-
-	// 	for _, good := range order.GoodsListRelated {
-	// 		item := &response.ShareDailyOrderItem{
-	// 			GoodsUUID: good.GoodsUUID,
-	// 			Price:     good.Price,
-	// 			Weight:    good.Weight,
-	// 			Mount:     good.Mount,
-	// 			Total:     good.Total,
-	// 		}
-	// 		shareOrder.GoodsList = append(shareOrder.GoodsList, item)
-	// 	}
-	// }
-
-	return &resp, nil
+	// 2. Fetch the target day's orders with preloaded goods
+	err = db.Where("owner_user = ? AND user_uuid = ? AND status IN (?) AND created_at >= ? AND created_at < ?",
+		ownerUser, customerUUID, common.ValidOrder, dayStart, dayEnd).
+		Preload("GoodsListRelated").
+		Find(&orders).Error
+	if err != nil {
+		global.Global.Logger.Error("GetTodayOrdersWithGoods: failed to get today orders", zap.Error(err))
+	}
+	return
 }

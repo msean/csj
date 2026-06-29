@@ -69,9 +69,30 @@ func (logic *OrderLogic) TempCreate() (err error) {
 
 	// 创建订单 + 更新客户统计（使用事务保证一致性）
 	tx := logic.runtime.DB.Begin()
-	if err = utils.CreateObj(tx, &logic.BatchOrder); err != nil {
+
+	// 1. 先创建订单（不包含货品）
+	goodsList := logic.GoodsListRelated
+	logic.GoodsListRelated = nil // 暂时清空，避免GORM通过外键创建
+
+	if err = dao.OrderDao.Create(tx, &logic.BatchOrder); err != nil {
+		logic.GoodsListRelated = goodsList // 恢复
 		tx.Rollback()
 		global.Global.Logger.Error("OrderLogic TempCreate CreateObj", zap.Any("logic.BatchOrder", logic.BatchOrder), zap.Error(err))
+		return
+	}
+
+	// 2. 再创建订单货品
+	logic.GoodsListRelated = goodsList // 恢复
+	for _, goods := range logic.GoodsListRelated {
+		goods.BatchOrderUID = logic.UID
+		goods.OwnerUser = logic.OwnerUser
+		goods.UserUUID = logic.UserUUID
+		goods.BatchUUID = logic.BatchUUID
+	}
+
+	if err = dao.OrderDao.CreateGoodsBatch(tx, logic.OwnerUser, logic.GoodsListRelated); err != nil {
+		tx.Rollback()
+		global.Global.Logger.Error("OrderLogic TempCreate CreateGoodsBatch", zap.Error(err))
 		return
 	}
 
@@ -81,7 +102,7 @@ func (logic *OrderLogic) TempCreate() (err error) {
 	}
 
 	tx.Commit()
-	logic.SetFeilds()
+	// logic.SetFeilds()
 	return
 }
 
@@ -113,7 +134,6 @@ func (logic *OrderLogic) FillGoodsWeightWithTotal(db *gorm.DB) (err error) {
 	var goodsFieldMap map[string]model.GoodsFeild
 
 	// Try cache first
-	fmt.Println(">>>>>>>>>>OwnerUser2", logic.OwnerUser)
 	if goodsFieldMap, err = cache.GoodsCache.BatchGoodsFeildSet(goodsUUIDs, logic.OwnerUser); err != nil {
 		return
 	}
@@ -156,6 +176,7 @@ func (logic *OrderLogic) FillGoodsWeightWithTotal(db *gorm.DB) (err error) {
 
 	logic.GoodsListRelated = finalItems
 	logic.TotalAmount = totalAmount
+	logic.CreditAmount = totalAmount
 
 	return nil
 }
@@ -191,7 +212,24 @@ func (logic *OrderLogic) Create(orderReq request.OrderReq) (err error) {
 	}
 
 	tx := logic.runtime.DB.Begin()
-	if err = utils.CreateObj(tx, &logic.BatchOrder); err != nil {
+
+	// 1. 先创建订单（不包含货品）
+	goodsList := logic.GoodsListRelated
+	logic.GoodsListRelated = nil // 暂时清空
+
+	if err = dao.OrderDao.Create(tx, &logic.BatchOrder); err != nil {
+		logic.GoodsListRelated = goodsList // 恢复
+		tx.Rollback()
+		return
+	}
+
+	// 2. 再创建订单货品
+	logic.GoodsListRelated = goodsList // 恢复
+	for _, goods := range logic.GoodsListRelated {
+		goods.BatchOrderUID = logic.UID
+	}
+
+	if err = dao.OrderDao.CreateGoodsBatch(tx, logic.OwnerUser, logic.GoodsListRelated); err != nil {
 		tx.Rollback()
 		return
 	}
@@ -212,28 +250,231 @@ func (logic *OrderLogic) Create(orderReq request.OrderReq) (err error) {
 	}
 
 	tx.Commit()
-	if utils.FloatGreat(0.0, logic.CreditAmount) {
-		go logic.Record(false, model.HistoryStepCash, model.PayFeild{
-			PayFee:  utils.Violent2String(orderReq.TotalAmount),
-			PayType: orderReq.PayType,
-			PaidFee: utils.Violent2String(orderReq.FPayAmount),
-		})
-	} else {
-		go logic.Record(false, model.HistoryStepCredit, model.PayFeild{
-			PayFee:  utils.Violent2String(orderReq.TotalAmount),
-			PayType: orderReq.PayType,
-			PaidFee: utils.Violent2String(orderReq.FPayAmount),
-		})
-	}
-	logic.SetFeilds()
+	// if utils.FloatGreat(0.0, logic.CreditAmount) {
+	// 	go logic.Record(false, model.HistoryStepCash, model.PayFeild{
+	// 		PayFee:  utils.Violent2String(orderReq.TotalAmount),
+	// 		PayType: orderReq.PayType,
+	// 		PaidFee: utils.Violent2String(orderReq.FPayAmount),
+	// 	})
+	// } else {
+	// 	go logic.Record(false, model.HistoryStepCredit, model.PayFeild{
+	// 		PayFee:  utils.Violent2String(orderReq.TotalAmount),
+	// 		PayType: orderReq.PayType,
+	// 		PaidFee: utils.Violent2String(orderReq.FPayAmount),
+	// 	})
+	// }
+	// logic.SetFeilds()
 	return
 }
 
 func (logic *OrderLogic) Shared() (err error) {
-	if err = dao.OrderDao.Shared(logic.runtime.DB, logic.UID); err != nil {
+	if err = dao.OrderDao.Shared(logic.runtime.DB, logic.OwnerUser, logic.UID); err != nil {
 		return
 	}
 	logic.Record(true, model.HistoryStepOrderShare, model.PayFeild{})
+	return
+}
+
+// ShareDailyOrder builds the share data for today's orders of a customer.
+// If orderUUID is provided, queries that order's date data.
+// Otherwise, queries today's data.
+func (logic *OrderLogic) ShareDailyOrder(req request.ShareDailyOrderReq) (rsp *response.ShareDailyOrderRsp, err error) {
+	// Get customer info for name
+	customer, err := dao.CustomerDao.FromUUID(logic.runtime.DB, req.CustomerUUID)
+	if err != nil {
+		return nil, fmt.Errorf("customer not found: %w", err)
+	}
+
+	orders, previousCredit, err := dao.OrderDao.GetTodayOrdersWithGoods(logic.runtime.DB, logic.OwnerUser, req.CustomerUUID, req.OrderUUID)
+	if err != nil {
+		return
+	}
+
+	// Build goods name map via cache
+	var goodsUUIDs []string
+	for _, o := range orders {
+		for _, g := range o.GoodsListRelated {
+			goodsUUIDs = append(goodsUUIDs, g.GoodsUUID)
+		}
+	}
+	goodsMap, _ := cache.GoodsCache.BatchGoodsFeildSet(goodsUUIDs, logic.OwnerUser)
+
+	rsp = &response.ShareDailyOrderRsp{
+		PreviousCreditAmount: previousCredit,
+	}
+
+	for _, o := range orders {
+		rsp.TodayCreditAmount += o.CreditAmount
+		for _, g := range o.GoodsListRelated {
+			item := &response.ShareDailyOrderItem{
+				GoodsUUID: g.GoodsUUID,
+				GoodsName: goodsMap[g.GoodsUUID].GoodsName,
+				Price:     g.Price,
+				Weight:    g.Weight,
+				Mount:     g.Mount,
+				Total:     g.Total,
+			}
+			rsp.GoodsList = append(rsp.GoodsList, item)
+		}
+	}
+
+	// 计算总赊欠 = 前欠 + 今日赊欠
+	rsp.TotalCreditAmount = rsp.PreviousCreditAmount + rsp.TodayCreditAmount
+
+	// 设置日期：如果有订单，使用订单的创建日期；否则使用当前日期
+	if len(orders) > 0 {
+		rsp.Date = orders[0].CreatedAt.Format("2006-01-02 15:04")
+	} else {
+		rsp.Date = time.Now().Format("2006-01-02 15:04")
+	}
+
+	rsp.Contact = logic.runtime.Viper.GetString("share.contact")
+	rsp.Title = logic.runtime.Viper.GetString("share.title")
+	if rsp.Title == "" {
+		rsp.Title = "账单详情"
+	}
+	rsp.CustomerName = customer.Name
+	return
+}
+
+// GenerateSharePDF builds the receipt PDF for a customer's daily order and returns the raw PDF bytes.
+func (logic *OrderLogic) GenerateSharePDF(req request.ShareDailyOrderReq) (pdfBytes []byte, err error) {
+	rsp, err := logic.ShareDailyOrder(req)
+	if err != nil {
+		return
+	}
+
+	// Build ReceiptData
+	var goodsItems []utils.ReceiptGoodsItem
+	var totalMount int
+	var totalWeight float64
+
+	for _, g := range rsp.GoodsList {
+		goodsItems = append(goodsItems, utils.ReceiptGoodsItem{
+			GoodsName: g.GoodsName,
+			MountStr:  utils.FormatMount(g.Mount),
+			WeightStr: utils.FormatWeight(g.Weight),
+			PriceStr:  utils.FormatFloat(g.Price),
+			TotalStr:  utils.FormatFloat(g.Total),
+		})
+		totalMount += g.Mount
+		totalWeight += g.Weight
+	}
+
+	totalDebt := rsp.TotalCreditAmount
+	receiptData := utils.ReceiptData{
+		Title:                  rsp.Title,
+		CustomerName:           rsp.CustomerName,
+		SerialNo:               fmt.Sprintf("%d", time.Now().Unix()%100000),
+		Date:                   rsp.Date,
+		Contact:                rsp.Contact,
+		GoodsList:              goodsItems,
+		TotalMount:             fmt.Sprintf("%d", totalMount),
+		TotalWeight:            utils.FormatFloat(totalWeight),
+		TotalAmountStr:         utils.FormatFloat(rsp.TodayCreditAmount),
+		CreditAmountStr:        utils.FormatFloat(rsp.TodayCreditAmount),
+		TotalPreviousCreditStr: utils.FormatFloat(rsp.PreviousCreditAmount),
+		TotalDebtStr:           utils.FormatFloat(totalDebt),
+	}
+
+	pdfBytes, err = utils.GeneratePDFBytes(receiptData)
+	if err != nil {
+		logic.runtime.Logger.Error("GenerateSharePDF failed", zap.Error(err))
+	}
+	return
+}
+
+// GenerateShareHTML builds the receipt HTML for a customer's daily order and returns the HTML string.
+func (logic *OrderLogic) GenerateShareHTML(req request.ShareDailyOrderReq) (html string, err error) {
+	rsp, err := logic.ShareDailyOrder(req)
+	if err != nil {
+		return
+	}
+
+	// Build ReceiptData
+	var goodsItems []utils.ReceiptGoodsItem
+	var totalMount int
+	var totalWeight float64
+
+	for _, g := range rsp.GoodsList {
+		goodsItems = append(goodsItems, utils.ReceiptGoodsItem{
+			GoodsName: g.GoodsName,
+			MountStr:  utils.FormatMount(g.Mount),
+			WeightStr: utils.FormatWeight(g.Weight),
+			PriceStr:  utils.FormatFloat(g.Price),
+			TotalStr:  utils.FormatFloat(g.Total),
+		})
+		totalMount += g.Mount
+		totalWeight += g.Weight
+	}
+
+	totalDebt := rsp.TotalCreditAmount
+	receiptData := utils.ReceiptData{
+		Title:                  rsp.Title,
+		CustomerName:           rsp.CustomerName,
+		SerialNo:               fmt.Sprintf("%d", time.Now().Unix()%100000),
+		Date:                   rsp.Date,
+		Contact:                rsp.Contact,
+		GoodsList:              goodsItems,
+		TotalMount:             fmt.Sprintf("%d", totalMount),
+		TotalWeight:            utils.FormatFloat(totalWeight),
+		TotalAmountStr:         utils.FormatFloat(rsp.TodayCreditAmount),
+		CreditAmountStr:        utils.FormatFloat(rsp.TodayCreditAmount),
+		TotalPreviousCreditStr: utils.FormatFloat(rsp.PreviousCreditAmount),
+		TotalDebtStr:           utils.FormatFloat(totalDebt),
+	}
+
+	html, err = utils.GenerateHTML(receiptData)
+	if err != nil {
+		logic.runtime.Logger.Error("GenerateShareHTML failed", zap.Error(err))
+	}
+	return
+}
+
+// GenerateShareImage builds the receipt image (PNG) for a customer's daily order, optimized for mobile sharing (WeChat).
+func (logic *OrderLogic) GenerateShareImage(req request.ShareDailyOrderReq) (imageBytes []byte, err error) {
+	rsp, err := logic.ShareDailyOrder(req)
+	if err != nil {
+		return
+	}
+
+	// Build ReceiptData
+	var goodsItems []utils.ReceiptGoodsItem
+	var totalMount int
+	var totalWeight float64
+
+	for _, g := range rsp.GoodsList {
+		goodsItems = append(goodsItems, utils.ReceiptGoodsItem{
+			GoodsName: g.GoodsName,
+			MountStr:  utils.FormatMount(g.Mount),
+			WeightStr: utils.FormatWeight(g.Weight),
+			PriceStr:  utils.FormatFloat(g.Price),
+			TotalStr:  utils.FormatFloat(g.Total),
+		})
+		totalMount += g.Mount
+		totalWeight += g.Weight
+	}
+
+	totalDebt := rsp.TotalCreditAmount
+	receiptData := utils.ReceiptData{
+		Title:                  rsp.Title,
+		CustomerName:           rsp.CustomerName,
+		SerialNo:               fmt.Sprintf("%d", time.Now().Unix()%100000),
+		Date:                   rsp.Date,
+		Contact:                rsp.Contact,
+		GoodsList:              goodsItems,
+		TotalMount:             fmt.Sprintf("%d", totalMount),
+		TotalWeight:            utils.FormatFloat(totalWeight),
+		TotalAmountStr:         utils.FormatFloat(rsp.TodayCreditAmount),
+		CreditAmountStr:        utils.FormatFloat(rsp.TodayCreditAmount),
+		TotalPreviousCreditStr: utils.FormatFloat(rsp.PreviousCreditAmount),
+		TotalDebtStr:           utils.FormatFloat(totalDebt),
+	}
+
+	imageBytes, err = utils.GenerateImageBytes(receiptData)
+	if err != nil {
+		logic.runtime.Logger.Error("GenerateShareImage failed", zap.Error(err))
+	}
 	return
 }
 
@@ -244,7 +485,7 @@ func (logic *OrderLogic) UpdateStatus() (err error) {
 		return
 	}
 
-	if err = dao.OrderDao.UpdateStatus(logic.runtime.DB, logic.UID, logic.Status); err != nil {
+	if err = dao.OrderDao.UpdateStatus(logic.runtime.DB, logic.OwnerUser, logic.UID, logic.Status); err != nil {
 		return
 	}
 
@@ -255,12 +496,12 @@ func (logic *OrderLogic) UpdateStatus() (err error) {
 		}
 	}
 
-	switch logic.Status {
-	case common.BatchOrderTemp:
-		logic.Record(true, model.HistoryStepCredit, model.PayFeild{})
-	case common.BatchOrderCancel, common.BatchOrderRefund:
-		logic.Record(true, model.HistoryStepCrash, model.PayFeild{})
-	}
+	// switch logic.Status {
+	// case common.BatchOrderTemp:
+	// 	logic.Record(true, model.HistoryStepCredit, model.PayFeild{})
+	// case common.BatchOrderCancel, common.BatchOrderRefund:
+	// 	logic.Record(true, model.HistoryStepCrash, model.PayFeild{})
+	// }
 	return
 }
 
@@ -300,7 +541,7 @@ func (logic *OrderLogic) Update(orderReq request.OrderReq) (err error) {
 		goods.UserUUID = logic.UserUUID
 		goods.BatchOrderUID = logic.UID
 	}
-	if err = tx.Omit("created_at").Save(&logic.BatchOrder).Error; err != nil {
+	if err = tx.Omit("created_at", "owner_user", "batch_uuid", "user_uuid").Save(&logic.BatchOrder).Error; err != nil {
 		tx.Rollback()
 		return
 	}
@@ -412,27 +653,33 @@ func (logic *OrderLogic) SetCustomerFeild() (err error) {
 }
 
 func (logic *OrderLogic) List(userUUID string, startTime, endTime int64, status int32, limitCond utils.LimitCond) (orderList []*model.BatchOrder, err error) {
-	conds := []utils.Cond{
-		limitCond,
-		utils.NewWhereCond("owner_user", logic.OwnerUser),
-	}
-	if userUUID != "" {
-		conds = append(conds, utils.NewWhereCond("user_uuid", userUUID))
-	}
-
+	// 使用分表 DAO 查询
+	var startT, endT time.Time
 	if startTime != 0 {
-		conds = append(conds, utils.NewCmpCond("created_at", ">=", time.Unix(startTime, 0)))
+		startT = time.Unix(startTime, 0)
 	}
 	if endTime != 0 {
-		conds = append(conds, utils.NewCmpCond("created_at", "<=", time.Unix(endTime, 0)))
+		endT = time.Unix(endTime, 0)
 	}
-	if status != 0 {
-		conds = append(conds, utils.NewWhereCond("status", status))
-	} else {
-		// conds = append(conds, model.NewInCondFromInt("status", common.ExCludeTempBatchOrder))
+
+	offset := 0
+	if limitCond.Page > 0 && limitCond.PageCount > 0 {
+		offset = (limitCond.Page - 1) * limitCond.PageCount
 	}
-	conds = append(conds, utils.CreatedOrderDescCond())
-	if err = utils.Find(logic.runtime.DB.Preload("GoodsListRelated"), &orderList, conds...); err != nil {
+
+	orderList, err = dao.OrderDao.List(
+		logic.runtime.DB,
+		logic.OwnerUser,
+		userUUID,
+		startT,
+		endT,
+		status,
+		offset,
+		limitCond.PageCount,
+		true, // 预加载货品
+	)
+
+	if err != nil {
 		return
 	}
 
@@ -660,7 +907,7 @@ func (logic *OrderLogic) GoodsList(req request.BatchGoodsListReq) (rsp response.
 
 	// 4. 计算利润
 	profit := totalSellAmount - totalCostAmount
-	rsp.Profits = utils.FloatReserveStr(profit, 1)
+	rsp.Profit = utils.FloatReserveStr(profit, 1)
 
 	// 5. 计算剩余库存
 	var surplus float64

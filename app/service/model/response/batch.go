@@ -25,7 +25,7 @@ type (
 	}
 	BatchGoodsGroupRsp struct {
 		Items   []*BatchGoodsGroupItem `json:"items"`
-		Profits string                 `json:"profits"` // 利润
+		Profit  string                 `json:"profit"` // 利润
 		Surplus string                 `json:"surplus"`
 	}
 )

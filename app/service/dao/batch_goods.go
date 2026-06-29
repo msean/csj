@@ -29,6 +29,6 @@ func (dao *batchGoodsDao) FromUUID(db *gorm.DB, ownerUser, batchUUID, goodsUUID 
 }
 
 func (dao *batchGoodsDao) ListByBatchUUID(db *gorm.DB, batchUUID string) (objects []model.BatchGoods, err error) {
-	err = utils.Find(db, objects, utils.NewWhereCond("batch_uuid", batchUUID))
+	err = utils.Find(db, &objects, utils.NewWhereCond("batch_uuid", batchUUID))
 	return
 }

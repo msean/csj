@@ -5,6 +5,7 @@ var (
 	CustomerDao   = newCustomerDao()
 	BatchDao      = newbatchDao()
 	BatchGoodsDao = newbatchGoodsDao()
-	OrderDao      = newOrderDao()
+	OrderDao      = newShardOrderDao()
 	UserDao       = newUserDao()
+	PaymentDao    = newPaymentDao()
 )

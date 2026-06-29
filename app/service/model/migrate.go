@@ -18,5 +18,6 @@ func Migrate() {
 		&BatchOrderHistory{},
 		&BatchSerialCounter{},
 		&Sms{},
+		&MessageCenter{},
 	)
 }
