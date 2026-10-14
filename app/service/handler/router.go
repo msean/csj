@@ -9,6 +9,7 @@ import (
 func InitEngine(engine *gin.Engine) {
 	engine.Use(middleware.LoggerMiddleware())
 	engine.StaticFile("/static", "/etc/caishuji/index.html")
+	engine.Static("/downloads", "/etc/caishuji")
 
 	apiGroup := engine.Group("/api/csj")
 	{
@@ -17,11 +18,13 @@ func InitEngine(engine *gin.Engine) {
 				"status": "ok!",
 			})
 		})
+		commonRouter(apiGroup)
 		userRouter(apiGroup)
 		customerRouter(apiGroup)
 		goodsRouter(apiGroup)
 		batchRouter(apiGroup)
 		orderRouter(apiGroup)
 		paymentRouter(apiGroup)
+		messageRouter(apiGroup)
 	}
 }

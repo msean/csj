@@ -50,6 +50,8 @@ func (logic *CustomerLogic) Create() (err error) {
 		err = common.CustomerDuplicateErr
 		return
 	}
+	// 创建客户时，用 Debt 初始化 Credit（Credit 表示客户的当前总欠款额度）
+	logic.Credit = logic.Debt
 	return utils.CreateObj(logic.runtime.DB, &logic.Customer)
 }
 
@@ -62,18 +64,30 @@ func (logic *CustomerLogic) Update() (err error) {
 	})
 }
 
-func (logic *CustomerLogic) ListCustomersByOwnerUser(conditons request.CustomerListReq) (customers []CustomerLogic, err error) {
+func (logic *CustomerLogic) ListCustomersByOwnerUser(conditons request.CustomerListReq) (rsp response.CustomerListRsp, err error) {
 	var _customerModel []model.Customer
 	if _customerModel, err = dao.CustomerDao.List(logic.runtime.DB, logic.OwnerUser, conditons); err != nil {
 		return
 	}
 	bill, _ := dao.OrderDao.LatestOrderByCustomers(logic.runtime.DB, logic.OwnerUser, _customerModel)
 	for _, _customer := range _customerModel {
-		customers = append(customers, CustomerLogic{
+		rsp.Customers = append(rsp.Customers, response.CustomerListItem{
 			Customer:       _customer,
 			LatestBillDate: bill[_customer.UID],
 		})
 	}
+
+	// 统计商户下客户总数与总赊欠金额
+	if err = logic.runtime.DB.Model(&model.Customer{}).
+		Where("owner_user = ?", logic.OwnerUser).
+		Count(&rsp.TotalCustomer).Error; err != nil {
+		return
+	}
+	stats, err := dao.CustomerDao.SumOwnerStats(logic.runtime.DB, logic.OwnerUser)
+	if err != nil {
+		return
+	}
+	rsp.TotalCredit = stats.TotalDebt
 	return
 }
 
@@ -85,10 +99,11 @@ func (logic *CustomerLogic) Detail() (rsp response.CustomerDetailRsp, err error)
 	rsp.Name = logic.Customer.Name
 	rsp.OrderCount = float64(logic.Customer.OrderCount)
 	rsp.OrderAmount = logic.Customer.TotalAmount
+	rsp.Credit = logic.Customer.Credit
 
 	// 赊欠金额实时查
-	if rsp.CreditAmount, err = dao.OrderDao.CustomerCreditAmount(global.Global.DB, logic.OwnerUser, logic.UID); err != nil {
-		return
-	}
+	// if rsp.CreditAmount, err = dao.OrderDao.CustomerCreditAmount(global.Global.DB, logic.OwnerUser, logic.UID); err != nil {
+	// 	return
+	// }
 	return
 }

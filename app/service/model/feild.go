@@ -18,6 +18,8 @@ type (
 		SellAmount      string  `gorm:"-" json:"sellAmount"`      // 销量 件数/重量
 		SellAvgPrice    string  `gorm:"-" json:"sellAvgPrice"`    // 销售均价
 		SellTotalAmount string  `gorm:"-" json:"sellTotalAmount"` // 销售货款总金额
+		SellProfit      float64 `gorm:"-" json:"sellProfit"`      // 销售利润
+		InventoryPrice  float64 `gorm:"-" json:"-"`               // 入库价格
 	}
 	CustomerFeild struct {
 		CustomerName  string `gorm:"-"  json:"customerName"`
@@ -40,7 +42,7 @@ type (
 		StatInventoryWeight string  `json:"statInventoryWeight"` // 库存 重量
 		StatSalesAmount     string  `json:"statSalesAmount"`     // 卖货总金额
 		StatSellProfit      float64 `json:"statSellProfit"`      // 盈利
-		// StatSellWeight      string `json:"statSellWeight"`
+		StatSellWeight      string  `json:"statSellWeight"`
 	}
 )
 
@@ -48,6 +50,7 @@ func (s *BatchGoodsStatFeild) Set() {
 	s.SellTotalAmount = utils.FloatReserveStr(s.SellTotal, 1)
 
 	if s.Type == common.GoodsTypeFix {
+		fmt.Println(">>>>>>>>>s.Mount", s.Mount)
 		s.Surplus = fmt.Sprintf("%d", s.Mount)
 		s.SellAmount = fmt.Sprintf("%d", s.SellMount)
 		if s.SellMount != 0 {

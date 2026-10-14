@@ -11,6 +11,7 @@ import (
 	"app/service/model/response"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -51,9 +52,26 @@ func NewOrderGoodsLogic(context *gin.Context) *OrderGoodsLogic {
 	return logic
 }
 
+// isCashCustomer 判断当前订单的客户是否为现金客户
+func (logic *OrderLogic) isCashCustomer() (bool, error) {
+	if logic.UserUUID == "" {
+		return false, nil
+	}
+	customer, err := dao.CustomerDao.FromUUID(logic.runtime.DB, logic.UserUUID)
+	if err != nil {
+		return false, err
+	}
+	return customer.Name == common.CashCustomerName, nil
+}
+
 // 码单
 func (logic *OrderLogic) TempCreate() (err error) {
 	logic.BatchOrder.DefaultSet()
+
+	// 前端未传下单时间时用当前时间
+	if logic.OrderTime == 0 {
+		logic.OrderTime = int(time.Now().Unix())
+	}
 
 	if logic.BatchUUID == "" {
 		return common.BatchUUIDRequireErr
@@ -65,6 +83,15 @@ func (logic *OrderLogic) TempCreate() (err error) {
 	// 在创建前加这一行
 	if err = logic.FillGoodsWeightWithTotal(logic.runtime.DB); err != nil {
 		return
+	}
+
+	// 现金客户不能记账单（付款金额必须 >= 订单金额，暂存单不接受付款故直接拦截）
+	isCash, err := logic.isCashCustomer()
+	if err != nil {
+		return
+	}
+	if isCash {
+		return common.CashCustomerPayLessErr
 	}
 
 	// 创建订单 + 更新客户统计（使用事务保证一致性）
@@ -96,7 +123,7 @@ func (logic *OrderLogic) TempCreate() (err error) {
 		return
 	}
 
-	if err = dao.CustomerDao.IncrOrderStats(tx, logic.UserUUID, logic.TotalAmount); err != nil {
+	if err = dao.CustomerDao.IncrOrderStats(tx, logic.UserUUID, logic.TotalAmount+logic.TricycleFee, logic.CreditAmount); err != nil {
 		tx.Rollback()
 		return
 	}
@@ -175,28 +202,44 @@ func (logic *OrderLogic) FillGoodsWeightWithTotal(db *gorm.DB) (err error) {
 	}
 
 	logic.GoodsListRelated = finalItems
-	logic.TotalAmount = totalAmount
-	logic.CreditAmount = totalAmount
+	logic.TotalAmount = totalAmount + logic.TricycleFee
+	logic.CreditAmount = logic.TotalAmount - logic.Discount
 
 	return nil
 }
 
 // 下单
 func (logic *OrderLogic) Create(orderReq request.OrderReq) (err error) {
+	// 假如是现金客户
+
 	logic.BatchOrder = orderReq.BatchOrder
+
+	// 前端未传下单时间时用当前时间
+	if logic.OrderTime == 0 {
+		logic.OrderTime = int(time.Now().Unix())
+	}
+
 	// 计算total
 	if err = logic.FillGoodsWeightWithTotal(global.Global.DB); err != nil {
 		return
 	}
 
-	logic.CreditAmount = logic.TotalAmount - orderReq.FPayAmount
-	if utils.FloatEqual(logic.TotalAmount, orderReq.FPayAmount) || utils.FloatGreat(orderReq.FPayAmount, logic.TotalAmount) {
+	logic.CreditAmount = logic.TotalAmount - logic.Discount - orderReq.FPayAmount
+	payableAmount := logic.TotalAmount - logic.Discount
+	if utils.FloatEqual(payableAmount, orderReq.FPayAmount) || utils.FloatGreat(orderReq.FPayAmount, payableAmount) {
 		logic.Status = common.BatchOrderFinish
 	} else {
 		logic.Status = common.BatchOrderTemp
 	}
 
-	logic.BatchOrder.Shared = common.BatchOrderUnshare
+	// 现金客户付款金额不能小于订单金额（赊欠单说明没付够）
+	isCash, err := logic.isCashCustomer()
+	if err != nil {
+		return
+	}
+	if isCash && logic.Status == common.BatchOrderTemp {
+		return common.CashCustomerPayLessErr
+	}
 
 	if logic.BatchUUID == "" {
 		return common.BatchUUIDRequireErr
@@ -234,17 +277,17 @@ func (logic *OrderLogic) Create(orderReq request.OrderReq) (err error) {
 		return
 	}
 
-	orderPay := NewOrderPayLogic(logic.context)
-	orderPay.BatchOrderUUID = logic.UID
-	// orderPay.Amount = order.TotalAmount - order.CreditAmount
-	orderPay.Amount = orderReq.FPayAmount
-	if err = orderPay.Create(tx, false); err != nil {
-		tx.Rollback()
-		return
-	}
+	// orderPay := NewOrderPayLogic(logic.context)
+	// orderPay.BatchOrderUUID = logic.UID
+	// // orderPay.Amount = order.TotalAmount - order.CreditAmount
+	// orderPay.Amount = orderReq.FPayAmount
+	// if err = orderPay.Create(tx, false); err != nil {
+	// 	tx.Rollback()
+	// 	return
+	// }
 
 	// 更新客户订单统计
-	if err = dao.CustomerDao.IncrOrderStats(tx, logic.UserUUID, logic.TotalAmount); err != nil {
+	if err = dao.CustomerDao.IncrOrderStats(tx, logic.UserUUID, logic.TotalAmount+logic.TricycleFee, logic.CreditAmount); err != nil {
 		tx.Rollback()
 		return
 	}
@@ -268,10 +311,17 @@ func (logic *OrderLogic) Create(orderReq request.OrderReq) (err error) {
 }
 
 func (logic *OrderLogic) Shared() (err error) {
-	if err = dao.OrderDao.Shared(logic.runtime.DB, logic.OwnerUser, logic.UID); err != nil {
-		return
+	// 分享以客户为维度：同一客户当天分享多个订单只记录一条，更新最近一次分享时间
+	if logic.UserUUID != "" {
+		if err = dao.ShareDao.UpsertShare(logic.runtime.DB, &model.ShareRecord{
+			OwnerUser:    logic.OwnerUser,
+			CustomerUUID: logic.UserUUID,
+			ShareTime:    time.Now().Unix(),
+		}); err != nil {
+			return
+		}
 	}
-	logic.Record(true, model.HistoryStepOrderShare, model.PayFeild{})
+	// logic.Record(true, model.HistoryStepOrderShare, model.PayFeild{})
 	return
 }
 
@@ -299,12 +349,42 @@ func (logic *OrderLogic) ShareDailyOrder(req request.ShareDailyOrderReq) (rsp *r
 	}
 	goodsMap, _ := cache.GoodsCache.BatchGoodsFeildSet(goodsUUIDs, logic.OwnerUser)
 
+	// 计算本批次订单赊欠总额
+	var batchCredit float64
+	for _, o := range orders {
+		batchCredit += o.CreditAmount
+	}
+
+	var previousCreditAmount float64
+	if req.OrderUUID != "" {
+		// 指定订单：前欠 = DAO 返回的目标批次外订单赊欠 + 原始债务未还部分
+		originAmount := customer.Debt - customer.PaidDebt
+		if originAmount < 0 {
+			originAmount = 0
+		}
+		previousCreditAmount = previousCredit + originAmount
+	} else {
+		// 未指定订单：前欠 = 客户当前总赊欠 - 本批次订单赊欠之和
+		previousCreditAmount = customer.Credit - batchCredit
+		if previousCreditAmount < 0 {
+			previousCreditAmount = 0
+		}
+	}
+
 	rsp = &response.ShareDailyOrderRsp{
-		PreviousCreditAmount: previousCredit,
+		PreviousCreditAmount: previousCreditAmount,
 	}
 
 	for _, o := range orders {
 		rsp.TodayCreditAmount += o.CreditAmount
+		rsp.TricycleFee += o.TricycleFee
+
+		group := response.ShareDailyOrderGroup{
+			OrderUUID:   o.UID,
+			DateStr:     o.CreatedAt.Format("2006-01-02 15:04"),
+			TricycleFee: o.TricycleFee,
+			TotalAmount: o.CreditAmount,
+		}
 		for _, g := range o.GoodsListRelated {
 			item := &response.ShareDailyOrderItem{
 				GoodsUUID: g.GoodsUUID,
@@ -313,9 +393,23 @@ func (logic *OrderLogic) ShareDailyOrder(req request.ShareDailyOrderReq) (rsp *r
 				Weight:    g.Weight,
 				Mount:     g.Mount,
 				Total:     g.Total,
+				GoodType:  g.GoodType,
 			}
-			rsp.GoodsList = append(rsp.GoodsList, item)
+			group.GoodsList = append(group.GoodsList, item)
+			group.TotalMount += g.Mount
+			if g.GoodType == common.GoodsTypeBulk {
+				group.TotalWeight += g.Weight
+			}
 		}
+		// 先散装后定装（GoodType 降序：散装=2 在前，定装=1 在后），
+		// 同类型内按货品名升序，保证不同时段分享次序稳定
+		sort.SliceStable(group.GoodsList, func(i, j int) bool {
+			if group.GoodsList[i].GoodType != group.GoodsList[j].GoodType {
+				return group.GoodsList[i].GoodType > group.GoodsList[j].GoodType
+			}
+			return group.GoodsList[i].GoodsName < group.GoodsList[j].GoodsName
+		})
+		rsp.OrderGroups = append(rsp.OrderGroups, group)
 	}
 
 	// 计算总赊欠 = 前欠 + 今日赊欠
@@ -337,6 +431,44 @@ func (logic *OrderLogic) ShareDailyOrder(req request.ShareDailyOrderReq) (rsp *r
 	return
 }
 
+// buildReceiptData 从 ShareDailyOrderRsp 构建模板渲染数据，按订单分组。
+func (logic *OrderLogic) buildReceiptData(rsp *response.ShareDailyOrderRsp) utils.ReceiptData {
+	var orders []utils.ReceiptOrder
+	for _, og := range rsp.OrderGroups {
+		var goodsItems []utils.ReceiptGoodsItem
+		for _, g := range og.GoodsList {
+			goodsItems = append(goodsItems, utils.ReceiptGoodsItem{
+				GoodsName: g.GoodsName,
+				MountStr:  utils.FormatMount(g.Mount),
+				WeightStr: utils.FormatWeight(g.Weight),
+				PriceStr:  utils.FormatFloat(g.Price),
+				TotalStr:  utils.FormatFloat(g.Total),
+				GoodType:  g.GoodType,
+			})
+		}
+		orders = append(orders, utils.ReceiptOrder{
+			SerialNo:       og.OrderUUID,
+			Date:           og.DateStr,
+			GoodsList:      goodsItems,
+			TotalMount:     fmt.Sprintf("%d", og.TotalMount),
+			TotalWeight:    utils.FormatTotalWeight(og.TotalWeight),
+			TotalAmountStr: utils.FormatFloat(og.TotalAmount),
+			TricycleFeeStr: utils.FormatFloat(og.TricycleFee),
+		})
+	}
+	return utils.ReceiptData{
+		Title:                  rsp.Title,
+		CustomerName:           rsp.CustomerName,
+		SerialNo:               fmt.Sprintf("%d", time.Now().Unix()%100000),
+		Date:                   rsp.Date,
+		Contact:                rsp.Contact,
+		Orders:                 orders,
+		CreditAmountStr:        utils.FormatFloat(rsp.TodayCreditAmount),
+		TotalPreviousCreditStr: utils.FormatFloat(rsp.PreviousCreditAmount),
+		TotalDebtStr:           utils.FormatFloat(rsp.TotalCreditAmount),
+	}
+}
+
 // GenerateSharePDF builds the receipt PDF for a customer's daily order and returns the raw PDF bytes.
 func (logic *OrderLogic) GenerateSharePDF(req request.ShareDailyOrderReq) (pdfBytes []byte, err error) {
 	rsp, err := logic.ShareDailyOrder(req)
@@ -344,39 +476,7 @@ func (logic *OrderLogic) GenerateSharePDF(req request.ShareDailyOrderReq) (pdfBy
 		return
 	}
 
-	// Build ReceiptData
-	var goodsItems []utils.ReceiptGoodsItem
-	var totalMount int
-	var totalWeight float64
-
-	for _, g := range rsp.GoodsList {
-		goodsItems = append(goodsItems, utils.ReceiptGoodsItem{
-			GoodsName: g.GoodsName,
-			MountStr:  utils.FormatMount(g.Mount),
-			WeightStr: utils.FormatWeight(g.Weight),
-			PriceStr:  utils.FormatFloat(g.Price),
-			TotalStr:  utils.FormatFloat(g.Total),
-		})
-		totalMount += g.Mount
-		totalWeight += g.Weight
-	}
-
-	totalDebt := rsp.TotalCreditAmount
-	receiptData := utils.ReceiptData{
-		Title:                  rsp.Title,
-		CustomerName:           rsp.CustomerName,
-		SerialNo:               fmt.Sprintf("%d", time.Now().Unix()%100000),
-		Date:                   rsp.Date,
-		Contact:                rsp.Contact,
-		GoodsList:              goodsItems,
-		TotalMount:             fmt.Sprintf("%d", totalMount),
-		TotalWeight:            utils.FormatFloat(totalWeight),
-		TotalAmountStr:         utils.FormatFloat(rsp.TodayCreditAmount),
-		CreditAmountStr:        utils.FormatFloat(rsp.TodayCreditAmount),
-		TotalPreviousCreditStr: utils.FormatFloat(rsp.PreviousCreditAmount),
-		TotalDebtStr:           utils.FormatFloat(totalDebt),
-	}
-
+	receiptData := logic.buildReceiptData(rsp)
 	pdfBytes, err = utils.GeneratePDFBytes(receiptData)
 	if err != nil {
 		logic.runtime.Logger.Error("GenerateSharePDF failed", zap.Error(err))
@@ -391,39 +491,7 @@ func (logic *OrderLogic) GenerateShareHTML(req request.ShareDailyOrderReq) (html
 		return
 	}
 
-	// Build ReceiptData
-	var goodsItems []utils.ReceiptGoodsItem
-	var totalMount int
-	var totalWeight float64
-
-	for _, g := range rsp.GoodsList {
-		goodsItems = append(goodsItems, utils.ReceiptGoodsItem{
-			GoodsName: g.GoodsName,
-			MountStr:  utils.FormatMount(g.Mount),
-			WeightStr: utils.FormatWeight(g.Weight),
-			PriceStr:  utils.FormatFloat(g.Price),
-			TotalStr:  utils.FormatFloat(g.Total),
-		})
-		totalMount += g.Mount
-		totalWeight += g.Weight
-	}
-
-	totalDebt := rsp.TotalCreditAmount
-	receiptData := utils.ReceiptData{
-		Title:                  rsp.Title,
-		CustomerName:           rsp.CustomerName,
-		SerialNo:               fmt.Sprintf("%d", time.Now().Unix()%100000),
-		Date:                   rsp.Date,
-		Contact:                rsp.Contact,
-		GoodsList:              goodsItems,
-		TotalMount:             fmt.Sprintf("%d", totalMount),
-		TotalWeight:            utils.FormatFloat(totalWeight),
-		TotalAmountStr:         utils.FormatFloat(rsp.TodayCreditAmount),
-		CreditAmountStr:        utils.FormatFloat(rsp.TodayCreditAmount),
-		TotalPreviousCreditStr: utils.FormatFloat(rsp.PreviousCreditAmount),
-		TotalDebtStr:           utils.FormatFloat(totalDebt),
-	}
-
+	receiptData := logic.buildReceiptData(rsp)
 	html, err = utils.GenerateHTML(receiptData)
 	if err != nil {
 		logic.runtime.Logger.Error("GenerateShareHTML failed", zap.Error(err))
@@ -438,39 +506,7 @@ func (logic *OrderLogic) GenerateShareImage(req request.ShareDailyOrderReq) (ima
 		return
 	}
 
-	// Build ReceiptData
-	var goodsItems []utils.ReceiptGoodsItem
-	var totalMount int
-	var totalWeight float64
-
-	for _, g := range rsp.GoodsList {
-		goodsItems = append(goodsItems, utils.ReceiptGoodsItem{
-			GoodsName: g.GoodsName,
-			MountStr:  utils.FormatMount(g.Mount),
-			WeightStr: utils.FormatWeight(g.Weight),
-			PriceStr:  utils.FormatFloat(g.Price),
-			TotalStr:  utils.FormatFloat(g.Total),
-		})
-		totalMount += g.Mount
-		totalWeight += g.Weight
-	}
-
-	totalDebt := rsp.TotalCreditAmount
-	receiptData := utils.ReceiptData{
-		Title:                  rsp.Title,
-		CustomerName:           rsp.CustomerName,
-		SerialNo:               fmt.Sprintf("%d", time.Now().Unix()%100000),
-		Date:                   rsp.Date,
-		Contact:                rsp.Contact,
-		GoodsList:              goodsItems,
-		TotalMount:             fmt.Sprintf("%d", totalMount),
-		TotalWeight:            utils.FormatFloat(totalWeight),
-		TotalAmountStr:         utils.FormatFloat(rsp.TodayCreditAmount),
-		CreditAmountStr:        utils.FormatFloat(rsp.TodayCreditAmount),
-		TotalPreviousCreditStr: utils.FormatFloat(rsp.PreviousCreditAmount),
-		TotalDebtStr:           utils.FormatFloat(totalDebt),
-	}
-
+	receiptData := logic.buildReceiptData(rsp)
 	imageBytes, err = utils.GenerateImageBytes(receiptData)
 	if err != nil {
 		logic.runtime.Logger.Error("GenerateShareImage failed", zap.Error(err))
@@ -491,7 +527,7 @@ func (logic *OrderLogic) UpdateStatus() (err error) {
 
 	// 作废/退款/退货：减少客户统计
 	if logic.Status == common.BatchOrderCancel || logic.Status == common.BatchOrderRefund || logic.Status == common.BatchOrderReTurn {
-		if err = dao.CustomerDao.DecrOrderStats(logic.runtime.DB, logic.UserUUID, oldOrder.TotalAmount); err != nil {
+		if err = dao.CustomerDao.DecrOrderStats(logic.runtime.DB, oldOrder.UserUUID, oldOrder.TotalAmount, oldOrder.CreditAmount); err != nil {
 			return
 		}
 	}
@@ -514,24 +550,44 @@ func (logic *OrderLogic) Update(orderReq request.OrderReq) (err error) {
 	logic.BatchOrder = orderReq.BatchOrder // owner_user重置成了空字符串
 	logic.BatchUUID = old.BatchUUID
 
+	if logic.BatchOrder.OrderTime == 0 {
+		logic.BatchOrder.OrderTime = old.OrderTime
+	}
+
+	if logic.BatchOrder.UserUUID == "" {
+		logic.BatchOrder.UserUUID = old.UserUUID
+	}
+
 	// 计算total
 	if err = logic.FillGoodsWeightWithTotal(global.Global.DB); err != nil {
 		return
 	}
 
-	logic.CreditAmount = logic.TotalAmount - orderReq.FPayAmount
-	if utils.FloatEqual(logic.TotalAmount, orderReq.FPayAmount) || utils.FloatGreat(orderReq.FPayAmount, logic.TotalAmount) {
+	logic.CreditAmount = logic.TotalAmount - logic.Discount - orderReq.FPayAmount
+	payableAmount := logic.TotalAmount - logic.Discount
+	if utils.FloatEqual(payableAmount, orderReq.FPayAmount) || utils.FloatGreat(orderReq.FPayAmount, payableAmount) {
 		logic.Status = common.BatchOrderFinish
 	} else {
 		logic.Status = common.BatchOrderTemp
 	}
 
+	// 现金客户付款金额不能小于订单金额（赊欠单说明没付够）
+	isCash, err := logic.isCashCustomer()
+	if err != nil {
+		return
+	}
+	if isCash && logic.Status == common.BatchOrderTemp {
+		return common.CashCustomerPayLessErr
+	}
+
 	tx := logic.runtime.DB.Begin()
-	if err = tx.Delete(&model.BatchOrderGoods{}, "batch_order_uuid=?", logic.UID).Error; err != nil {
+	// 分表删除：删除原货品记录（走分表，避免外键约束）
+	if err = dao.OrderDao.DeleteGoodsByOrderUUID(tx, logic.OwnerUser, logic.UID); err != nil {
 		tx.Rollback()
 		return err
 	}
-	if err = tx.Delete(&model.BatchOrderPay{}, "batch_order_uuid=?", logic.UID).Error; err != nil {
+	// 分表删除：删除原还款记录
+	if err = dao.OrderDao.DeletePayByOrderUUID(tx, logic.OwnerUser, logic.UID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -541,7 +597,26 @@ func (logic *OrderLogic) Update(orderReq request.OrderReq) (err error) {
 		goods.UserUUID = logic.UserUUID
 		goods.BatchOrderUID = logic.UID
 	}
-	if err = tx.Omit("created_at", "owner_user", "batch_uuid", "user_uuid").Save(&logic.BatchOrder).Error; err != nil {
+	// 分表更新订单（使用 Updates 而非 Save，避免 GORM 处理 GoodsListRelated 关联触犯主表外键约束）
+	// 注意：OrderLogic 同时定义了 Shared() 方法和嵌入的 BatchOrder.Shared 字段，
+	// 直接用 logic.Shared 会被解析成方法值 func() error，必须显式访问字段。
+	updateFields := map[string]interface{}{
+		"updated_at":    time.Now(),
+		"share_time":    logic.BatchOrder.SharedTime,
+		"status":        logic.BatchOrder.Status,
+		"amount":        logic.BatchOrder.TotalAmount,
+		"credit_amount": logic.BatchOrder.CreditAmount,
+		"tricycle_fee":  logic.BatchOrder.TricycleFee,
+		"order_time":    logic.BatchOrder.OrderTime,
+		"user_uuid":     logic.BatchOrder.UserUUID,
+	}
+	if err = dao.OrderDao.UpdateOrderFields(tx, logic.OwnerUser, logic.UID, updateFields); err != nil {
+		tx.Rollback()
+		return
+	}
+
+	// 分表批量创建新货品记录
+	if err = dao.OrderDao.CreateGoodsBatch(tx, logic.OwnerUser, logic.GoodsListRelated); err != nil {
 		tx.Rollback()
 		return
 	}
@@ -554,29 +629,43 @@ func (logic *OrderLogic) Update(orderReq request.OrderReq) (err error) {
 		return
 	}
 
-	// 更新客户订单统计差额（新金额 - 旧金额）
-	deltaTotal := logic.TotalAmount - old.TotalAmount
-	if deltaTotal != 0 {
-		if err = dao.CustomerDao.UpdateOrderStatsDiff(tx, logic.UserUUID, deltaTotal); err != nil {
+	// 更新客户订单统计
+	if logic.UserUUID == old.UserUUID {
+		// 同客户：按差额调整（新金额 - 旧金额）
+		deltaTotal := logic.TotalAmount - old.TotalAmount
+		deltaDebt := logic.CreditAmount - old.CreditAmount
+		if deltaTotal != 0 || deltaDebt != 0 {
+			if err = dao.CustomerDao.UpdateOrderStatsDiff(tx, logic.UserUUID, deltaTotal, deltaDebt); err != nil {
+				tx.Rollback()
+				return
+			}
+		}
+	} else {
+		// 换客户：旧客户回退统计（订单数-1、总金额-旧、credit-旧赊欠），新客户累加统计
+		if err = dao.CustomerDao.DecrOrderStats(tx, old.UserUUID, old.TotalAmount, old.CreditAmount); err != nil {
+			tx.Rollback()
+			return
+		}
+		if err = dao.CustomerDao.IncrOrderStats(tx, logic.UserUUID, logic.TotalAmount, logic.CreditAmount); err != nil {
 			tx.Rollback()
 			return
 		}
 	}
 
 	tx.Commit()
-	if utils.FloatGreat(0.0, logic.CreditAmount) {
-		go logic.Record(false, model.HistoryStepCash, model.PayFeild{
-			PayFee:  utils.Violent2String(orderReq.TotalAmount),
-			PayType: orderReq.PayType,
-			PaidFee: utils.Violent2String(orderReq.FPayAmount),
-		})
-	} else {
-		go logic.Record(false, model.HistoryStepCredit, model.PayFeild{
-			PayFee:  utils.Violent2String(orderReq.TotalAmount),
-			PayType: orderReq.PayType,
-			PaidFee: utils.Violent2String(orderReq.FPayAmount),
-		})
-	}
+	// if utils.FloatGreat(0.0, logic.CreditAmount) {
+	// 	go logic.Record(false, model.HistoryStepCash, model.PayFeild{
+	// 		PayFee:  utils.Violent2String(orderReq.TotalAmount),
+	// 		PayType: orderReq.PayType,
+	// 		PaidFee: utils.Violent2String(orderReq.FPayAmount),
+	// 	})
+	// } else {
+	// 	go logic.Record(false, model.HistoryStepCredit, model.PayFeild{
+	// 		PayFee:  utils.Violent2String(orderReq.TotalAmount),
+	// 		PayType: orderReq.PayType,
+	// 		PaidFee: utils.Violent2String(orderReq.FPayAmount),
+	// 	})
+	// }
 
 	// logic.SetFeilds()
 	// logic.Record(false, model.HistoryStepOrderFix, model.PayFeild{})
@@ -584,7 +673,7 @@ func (logic *OrderLogic) Update(orderReq request.OrderReq) (err error) {
 }
 
 func (logic *OrderLogic) FromUUID(uuid string) (err error) {
-	if err = utils.Find(logic.runtime.DB.Preload("GoodsListRelated"), &logic.BatchOrder, utils.WhereUIDCond(uuid)); err != nil {
+	if logic.BatchOrder, err = dao.OrderDao.FindByUID(logic.runtime.DB, logic.OwnerUser, uuid, "GoodsListRelated"); err != nil {
 		return
 	}
 	logic.LoadHistory()
@@ -594,8 +683,7 @@ func (logic *OrderLogic) FromUUID(uuid string) (err error) {
 }
 
 func (logic *OrderLogic) LoadSingle(uuid string) (batchOrder model.BatchOrder, err error) {
-	err = utils.Find(logic.runtime.DB, &batchOrder, utils.WhereUIDCond(uuid))
-	// logic.SetTotal()
+	batchOrder, err = dao.OrderDao.FindByUID(logic.runtime.DB, logic.OwnerUser, uuid)
 	return
 }
 
@@ -608,7 +696,7 @@ func (logic *OrderLogic) FindLatestGoods(goodsUUIDList []string) (goodsOrderList
 		// todo BatchOrderGoods需要加索引
 		var goodsOrder model.BatchOrderGoods
 		var _price float64
-		if err = utils.First(logic.runtime.DB, &goodsOrder, conds...); err != nil {
+		if err = utils.First(logic.runtime.DB.Table(dao.ShardOrderGoodsTable(logic.OwnerUser)), &goodsOrder, conds...); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				var goods model.Goods
 				if err = utils.First(logic.runtime.DB, &goods, utils.NewWhereCond("uid", goodsUUID)); err != nil {
@@ -652,28 +740,45 @@ func (logic *OrderLogic) SetCustomerFeild() (err error) {
 	return
 }
 
-func (logic *OrderLogic) List(userUUID string, startTime, endTime int64, status int32, limitCond utils.LimitCond) (orderList []*model.BatchOrder, err error) {
+func (logic *OrderLogic) List(req request.BatchOrderListReq) (orderList []*model.BatchOrder, err error) {
 	// 使用分表 DAO 查询
 	var startT, endT time.Time
-	if startTime != 0 {
-		startT = time.Unix(startTime, 0)
+	if req.StartTime != 0 {
+		startT = time.Unix(req.StartTime, 0)
 	}
-	if endTime != 0 {
-		endT = time.Unix(endTime, 0)
+	if req.EndTime != 0 {
+		endT = time.Unix(req.EndTime, 0)
 	}
 
+	limitCond := utils.DefaultSetLimitCond(req.LimitCond)
 	offset := 0
 	if limitCond.Page > 0 && limitCond.PageCount > 0 {
 		offset = (limitCond.Page - 1) * limitCond.PageCount
 	}
 
+	// 收集需要查询的客户 UUID 列表
+	var userUUIDs []string
+	if req.UserNameSearch != "" {
+		// 先根据用户名模糊查询客户 UUID 列表
+		userUUIDs, err = dao.CustomerDao.FindUserUUIDsByName(logic.runtime.DB, logic.OwnerUser, req.UserNameSearch)
+		if err != nil {
+			return
+		}
+		if len(userUUIDs) == 0 {
+			// 没有匹配的客户，直接返回空列表
+			return
+		}
+	} else if req.UserUUID != "" {
+		userUUIDs = []string{req.UserUUID}
+	}
+
 	orderList, err = dao.OrderDao.List(
 		logic.runtime.DB,
 		logic.OwnerUser,
-		userUUID,
+		userUUIDs,
 		startT,
 		endT,
-		status,
+		req.Status,
 		offset,
 		limitCond.PageCount,
 		true, // 预加载货品
@@ -833,17 +938,10 @@ func (logic *OrderLogic) LoadHistory() (err error) {
 //	}
 func (logic *OrderLogic) GoodsList(req request.BatchGoodsListReq) (rsp response.BatchGoodsGroupRsp, err error) {
 	rspItems := make([]*response.BatchGoodsGroupItem, 0)
-	var storages []model.BatchOrderGoods
-	db := logic.runtime.DB
 
-	conds := []utils.Cond{
-		utils.NewWhereCond("batch_uuid", req.BatchUUID),
-		utils.NewWhereCond("goods_uuid", req.GoodsUUID),
-	}
-	conds = append(conds, utils.CreatedOrderDescCond())
-
-	if err = utils.Find(db, &storages, conds...); err != nil {
-		logic.runtime.Logger.Error("BatchLogic List FindBatch", zap.Any("req", req), zap.Error(err))
+	storages, err := dao.OrderDao.FindGoodsByBatchAndGoodsUUID(logic.runtime.DB, logic.OwnerUser, req.BatchUUID, req.GoodsUUID, common.ValidOrder)
+	if err != nil {
+		logic.runtime.Logger.Error("GoodsList FindGoodsByBatchAndGoodsUUID", zap.Any("req", req), zap.Error(err))
 		return
 	}
 

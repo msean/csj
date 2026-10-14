@@ -6,7 +6,9 @@ type Customer struct {
 	Name        string  `gorm:"column:name;comment:客户名字" json:"name"`
 	Phone       string  `gorm:"column:phone;comment:手机号" json:"phone"`
 	Remark      string  `gorm:"column:remark;comment:备注" json:"remark"`
-	Debt        float64 `gorm:"column:debt;type:decimal(10,2);comment:客户欠款,单位:元" json:"debt"`
+	Debt        float64 `gorm:"column:debt;type:decimal(10,2);comment:客户原始欠款,单位:元" json:"debt"`
+	PaidDebt    float64 `gorm:"column:paid_debt;type:decimal(10,2);comment:已还原始金额" json:"paid_debt"`
+	Credit      float64 `gorm:"column:credit;type:decimal(10,2);comment:客户欠款,单位:元" json:"credit"`
 	Addr        string  `gorm:"column:addr;comment:客户住址" json:"addr"`
 	CarNo       string  `gorm:"column:car_no;comment:车牌号" json:"carNo"`
 	OrderCount  int64   `gorm:"column:order_count;default:0;comment:有效订单总数" json:"orderCount"`

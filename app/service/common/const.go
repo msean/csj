@@ -28,10 +28,23 @@ const (
 	BatchStatusSettled     = 3 // 已结算
 )
 
+const (
+	CashCustomerName = "现金客户" // 现金客户名称，多处使用，修改时改这里即可
+)
+
+const (
+	PayDetailTypeDebt  = 1 // 还原始客户债务(PaidDebt)
+	PayDetailTypeOrder = 2 // 还订单赊欠
+)
+
 var ExCludeTempBatchOrder = []int{
 	BatchOrderedCredit, BatchOrderFinish, BatchOrderCancel, BatchOrderRefund, BatchOrderReTurn,
 }
 
 var ValidOrder = []int{
-	BatchOrderTemp, BatchOrderedCredit, BatchOrderFinish,
+	BatchOrderTemp, BatchOrderFinish,
+}
+
+var UnFinalStatusOrder = []int{
+	BatchOrderTemp,
 }

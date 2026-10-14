@@ -4,14 +4,16 @@ import (
 	"app/global"
 	"app/pkg/utils"
 	"app/service/common"
+	"app/service/dao"
 	"app/service/model"
+	"fmt"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 // goodsM key goods uuid
-func BatchGoodsStat(db *gorm.DB, batchUUID string) (goodsM map[string]*model.BatchGoodsStatFeild, err error) {
+func BatchGoodsStat(db *gorm.DB, ownerUser string, batchUUID string) (goodsM map[string]*model.BatchGoodsStatFeild, err error) {
 	goodsM = make(map[string]*model.BatchGoodsStatFeild)
 	var _bgs []model.BatchGoods
 	if err = utils.Find(db, &_bgs, utils.NewWhereCond("batch_uuid", batchUUID)); err != nil {
@@ -20,16 +22,17 @@ func BatchGoodsStat(db *gorm.DB, batchUUID string) (goodsM map[string]*model.Bat
 
 	for _, _bg := range _bgs {
 		goodsM[_bg.GoodsUUID] = &model.BatchGoodsStatFeild{
-			Weight:     _bg.Weight,
-			Mount:      _bg.Mount,
-			Type:       _bg.GoodType,
-			SellAmount: "0",
+			Weight:         _bg.Weight,
+			Mount:          _bg.Mount,
+			Type:           _bg.GoodType,
+			SellAmount:     "0",
+			InventoryPrice: _bg.Price,
 		}
 	}
+
 	var _bos []model.BatchOrderGoods
-	err = db.
-		Table("batch_order_goods AS bog").
-		Joins("JOIN batch_orders AS bo ON bo.uid = bog.batch_order_uuid").
+	err = db.Table(fmt.Sprintf("%s as bog", dao.ShardOrderGoodsTable(ownerUser))).
+		Joins(fmt.Sprintf("JOIN %s AS bo ON bo.uid = bog.batch_order_uuid", dao.ShardOrderTable(ownerUser))).
 		Where("bog.batch_uuid = ?", batchUUID).
 		Where("bo.status IN (?)", common.ValidOrder).
 		Find(&_bos).Error
@@ -45,29 +48,31 @@ func BatchGoodsStat(db *gorm.DB, batchUUID string) (goodsM map[string]*model.Bat
 			)
 			if goodsM[_bo.GoodsUUID].Type == common.GoodsTypeFix {
 				goodsM[_bo.GoodsUUID] = &model.BatchGoodsStatFeild{
-					Weight:     goodsM[_bo.GoodsUUID].Weight - _bo.Weight,
-					Mount:      goodsM[_bo.GoodsUUID].Mount - _bo.Mount,
-					Type:       goodsM[_bo.GoodsUUID].Type,
-					SellWeight: goodsM[_bo.GoodsUUID].SellWeight + _bo.Weight,
-					SellMount:  goodsM[_bo.GoodsUUID].SellMount + _bo.Mount,
-					SellTotal:  goodsM[_bo.GoodsUUID].SellTotal + float64(_bo.Mount)*_bo.Price,
+					Weight:         goodsM[_bo.GoodsUUID].Weight - _bo.Weight,
+					Mount:          goodsM[_bo.GoodsUUID].Mount - _bo.Mount,
+					Type:           goodsM[_bo.GoodsUUID].Type,
+					InventoryPrice: goodsM[_bo.GoodsUUID].InventoryPrice,
+					SellWeight:     goodsM[_bo.GoodsUUID].SellWeight + _bo.Weight,
+					SellMount:      goodsM[_bo.GoodsUUID].SellMount + _bo.Mount,
+					SellTotal:      goodsM[_bo.GoodsUUID].SellTotal + float64(_bo.Mount)*_bo.Price,
 				}
 			} else {
 				goodsM[_bo.GoodsUUID] = &model.BatchGoodsStatFeild{
-					Weight:     goodsM[_bo.GoodsUUID].Weight - _bo.Weight,
-					Type:       goodsM[_bo.GoodsUUID].Type,
-					SellWeight: goodsM[_bo.GoodsUUID].SellWeight + _bo.Weight,
-					SellMount:  goodsM[_bo.GoodsUUID].Mount + _bo.Mount,
-					SellTotal:  goodsM[_bo.GoodsUUID].SellTotal + _bo.Weight*_bo.Price,
+					Weight:         goodsM[_bo.GoodsUUID].Weight - _bo.Weight,
+					Type:           goodsM[_bo.GoodsUUID].Type,
+					InventoryPrice: goodsM[_bo.GoodsUUID].InventoryPrice,
+					SellWeight:     goodsM[_bo.GoodsUUID].SellWeight + _bo.Weight,
+					SellMount:      goodsM[_bo.GoodsUUID].Mount + _bo.Mount,
+					SellTotal:      goodsM[_bo.GoodsUUID].SellTotal + _bo.Weight*_bo.Price,
 				}
 			}
 		}
 	}
 
-	global.Global.Logger.Info("SetSurplusByBatch", zap.Any("goodsM", goodsM))
+	global.Global.Logger.Debug("SetSurplusByBatch", zap.Any("goodsM", goodsM))
 	for goodsUUID, surplus := range goodsM {
 		surplus.Set()
-		global.Global.Logger.Info("SetSurplusByBatch",
+		global.Global.Logger.Debug("#########SetSurplusByBatch",
 			zap.Any("goods_uuid", zap.Any("goodsUUID", goodsUUID)),
 			zap.Any("surplus Weight", surplus.Weight),
 			zap.Any("surplus Mount", surplus.Mount),

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"app/pkg/utils"
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
@@ -140,7 +139,7 @@ func OrderList(c *gin.Context) {
 		return
 	}
 
-	goodPriceObjs, err := order.List(payload.UserUUID, payload.StartTime, payload.EndTime, payload.Status, utils.DefaultSetLimitCond(payload.LimitCond))
+	goodPriceObjs, err := order.List(payload)
 	common.Response(c, err, goodPriceObjs)
 }
 

@@ -21,10 +21,12 @@ type UserLogic struct {
 }
 
 func NewUser(context *gin.Context) UserLogic {
-	return UserLogic{
+	logic := UserLogic{
 		runTime: global.Global,
 		context: context,
 	}
+	logic.UID = common.GetUserUUID(context)
+	return logic
 }
 
 func (logic *UserLogic) CheckVerifyCode() (right bool, err error) {

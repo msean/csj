@@ -4,11 +4,18 @@ import (
 	"fmt"
 	"net/http"
 
+	"app/global"
+
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func Response(c *gin.Context, err error, data any) {
 	if err != nil {
+		global.Global.Logger.Error("API response error",
+			zap.String("path", c.Request.URL.Path),
+			zap.String("method", c.Request.Method),
+			zap.Error(err))
 		c.JSON(http.StatusOK, gin.H{
 			"data": gin.H{},
 			"code": -1,
@@ -28,6 +35,10 @@ func Response(c *gin.Context, err error, data any) {
 
 func IllegalResponse(c *gin.Context, err error, data any) {
 	if err != nil {
+		global.Global.Logger.Warn("API illegal response",
+			zap.String("path", c.Request.URL.Path),
+			zap.String("method", c.Request.Method),
+			zap.Error(err))
 		c.JSON(http.StatusOK, gin.H{
 			"data": gin.H{},
 			"code": 4001,

@@ -107,7 +107,6 @@ func (l LimitCond) Cond(db *gorm.DB) *gorm.DB {
 }
 
 func (wl WhereLikeCond) Cond(db *gorm.DB) *gorm.DB {
-
 	db = db.Where(fmt.Sprintf("%s like %s", wl.key, wl.value))
 	return db
 }

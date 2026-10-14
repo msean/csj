@@ -4,10 +4,6 @@ import (
 	"os"
 
 	"github.com/msean/csj/backend/global"
-	"github.com/msean/csj/backend/model/bot"
-	"github.com/msean/csj/backend/model/ledger"
-	"github.com/msean/csj/backend/model/ledger2"
-	"github.com/msean/csj/backend/model/recharge"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -87,32 +83,5 @@ func RegisterTables() {
 
 func bizModel() error {
 	db := global.GVA_MYSQL
-	err := db.AutoMigrate(
-		bot.BotBanContent{},
-		bot.Bot{},
-		bot.BanRecord{},
-		bot.BotChatGroup{},
-		bot.BotChatGroupClassify{},
-		bot.BotBanGroupMem{},
-		bot.BotTask{},
-		bot.BotChannel{},
-		bot.BotCmdConfig{},
-		bot.BotChatGroupRelatedChannelFollow{},
-		bot.BotMassMsgRecord{},
-		bot.BotMassMsgPermission{},
-		recharge.RechargeConfig{},
-		recharge.UserRechargeRecord{},
-		recharge.UserWallet{},
-		recharge.AdPublishRecord{},
-		ledger.Ledger{},
-		ledger.LedgerAccountGroup{},
-		ledger.LedgerPermission{},
-		ledger2.Ledger{},
-		ledger2.LedgerPermission{},
-		ledger2.LedgerSession{},
-	)
-	if err != nil {
-		return err
-	}
-	return nil
+	return db.AutoMigrate()
 }

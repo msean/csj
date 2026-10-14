@@ -20,4 +20,4 @@ ENV ORCH_CONF=/etc/caishuji/conf.yaml
 
 STOPSIGNAL SIGRTMIN+3
 
-ENTRYPOINT server -c $ORCH_CONF
+ENTRYPOINT server -c $ORCH_CONF -m true -s true

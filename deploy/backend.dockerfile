@@ -1,6 +1,16 @@
-From alpine:latest
+FROM alpine:latest
 
-COPY backend_bin /usr/local/bin/
+# 安装时区数据
+RUN apk add --no-cache tzdata
+
+# 设置时区
+ENV TZ=Asia/Shanghai
+RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone
+
+RUN mkdir -p /etc/caishuji/log
+COPY backend_bin /usr/local/bin/server
+RUN chmod +x /usr/local/bin/server
 
 WORKDIR /
 

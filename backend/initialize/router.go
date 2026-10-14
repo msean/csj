@@ -78,6 +78,7 @@ func Routers() *gin.Engine {
 	}
 
 	systemRouter := router.RouterGroupApp.System
+	appMgrRouter := router.RouterGroupApp.AppMgr
 	// 如果想要不使用nginx代理前端网页，可以修改 web/.env.production 下的
 	// VUE_APP_BASE_API = /
 	// VUE_APP_BASE_PATH = http://localhost
@@ -140,6 +141,9 @@ func Routers() *gin.Engine {
 		systemRouter.InitAuthorityBtnRouterRouter(PrivateGroup)             // 按钮权限管理
 		systemRouter.InitSysExportTemplateRouter(PrivateGroup, PublicGroup) // 导出模板
 		systemRouter.InitSysParamsRouter(PrivateGroup, PublicGroup)         // 参数管理
+	}
+	{
+		appMgrRouter.InitAppVersionRouter(PrivateGroup, PublicGroup) // App版本管理
 	}
 
 	//插件路由安装

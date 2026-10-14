@@ -39,7 +39,7 @@ mysql:
     prefix: ""
     port: "3306"
     config: charset=utf8mb4&parseTime=True&loc=Local
-    db-name: caishuji
+    db-name: ""
     username: root
     password: 1jshKdf87k8As
     path: 20.2.233.88
@@ -60,7 +60,7 @@ system:
     db-type: mysql
     oss-type: local
     router-prefix: ""
-    addr: 8899
+    addr: 8091
     iplimit-count: 15000
     iplimit-time: 3600
     use-multipoint: false
@@ -72,7 +72,7 @@ system:
     un-match-payment: true
     env: debug
 zap:
-    level: info
+    level: debug
     prefix: ''
     format: console
     director: log

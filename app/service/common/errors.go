@@ -34,6 +34,7 @@ var (
 	BatchOrderUUIDRequireErr  = errors.New("单次UUID不能为空")
 	BatchUUIDRequireErr       = errors.New("批次UUID不能为空")
 	BatchOrderGoodsRequireErr = errors.New("开单货品不能为空")
+	CashCustomerPayLessErr    = errors.New("现金客户付款金额不能小于订单金额")
 )
 
 // common

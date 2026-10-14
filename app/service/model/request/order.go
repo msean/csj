@@ -9,5 +9,6 @@ type (
 	}
 	CreditListReq struct {
 		utils.LimitCond
+		Search string `json:"search"`
 	}
 )

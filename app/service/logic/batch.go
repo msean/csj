@@ -258,6 +258,7 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 		goodsUUIDList = append(goodsUUIDList, goods.GoodsUUID)
 	}
 
+	// 获取货品
 	goodsM := make(map[string]model.GoodsFeild, 0)
 	if goodsM, err = cache.GoodsCache.BatchGoodsFeildSet(goodsUUIDList, logic.OwnerUser); err != nil {
 		return
@@ -269,7 +270,7 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 	}
 
 	// 4. 获取批次剩余库存和销售数据
-	surplusM, e := BatchGoodsStat(logic.runtime.DB, logic.UID)
+	surplusM, e := BatchGoodsStat(logic.runtime.DB, logic.OwnerUser, logic.UID)
 	if e != nil {
 		err = e
 		return
@@ -280,41 +281,29 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 	var sellWeight float64       // 卖出总重量
 	var inventoryMount int       // 库存件数
 	var inventoryWeight float64  // 库存重量
-	var totalSalesAmount float64 // 总销售金额
+	var totalSalesAmount float64 // 总销售金额 卖出件数/重量 * 卖出价格
 	var totalProfit float64      // 总盈利
 
 	for _, goods := range logic.GoodsListRelated {
+		var profit float64
 		if surplus, ok := surplusM[goods.GoodsUUID]; ok {
 			goods.BatchGoodsStatFeild = *surplus
-			// 统计总销售金额（卖出的总金额）
-			totalSalesAmount += surplus.SellTotal
-
-			// 计算盈利：销售收入 - 入库成本
-			var salesRevenue float64 // 销售收入
-			var costAmount float64   // 入库成本
 
 			if goods.GoodsTyp == common.GoodsTypeFix {
 				// 定装：统计件数
 				inventoryMount += surplus.Mount
 				sellMount += surplus.SellMount
-
-				// 销售收入 = 卖出件数 × 卖出价格（均价）
-				salesRevenue = surplus.SellTotal
-				// 入库成本 = 入库件数 × 入库价格
-				costAmount = float64(goods.Mount) * goods.Price
+				profit = surplus.SellTotal - surplus.InventoryPrice*float64(surplus.SellMount)
 			} else if goods.GoodsTyp == common.GoodsTypeBulk {
 				// 散装：统计重量
 				sellWeight += surplus.SellWeight
 				inventoryWeight += surplus.Weight
-
-				// 销售收入 = 卖出重量 × 卖出价格
-				salesRevenue = surplus.SellTotal
-				// 入库成本 = 入库重量 × 入库价格
-				costAmount = goods.Weight * goods.Price
+				profit = surplus.SellTotal - surplus.InventoryPrice*float64(surplus.SellWeight)
 			}
 
 			// 累加盈利
-			totalProfit += (salesRevenue - costAmount)
+			totalProfit += profit
+			totalSalesAmount += surplus.SellTotal
 		}
 	}
 

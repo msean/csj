@@ -4,7 +4,7 @@ import (
 	"app/global"
 )
 
-func Migrate() {
+func Migrate() (err error) {
 	global.Global.DB.AutoMigrate(
 		&User{},
 		&Customer{},
@@ -12,12 +12,13 @@ func Migrate() {
 		&Goods{},
 		&Batch{},
 		&BatchGoods{},
-		&BatchOrder{},
-		&BatchOrderGoods{},
-		&BatchOrderPay{},
 		&BatchOrderHistory{},
 		&BatchSerialCounter{},
 		&Sms{},
 		&MessageCenter{},
+		&ShareRecord{},
+		&AppVersion{},
 	)
+
+	return
 }

@@ -44,10 +44,8 @@ func CustomerList(c *gin.Context) {
 		common.Response(c, err, nil)
 		return
 	}
-	var _customers []logic.CustomerLogic
-
-	_customers, err = logic.NewCustomerLogic(c).ListCustomersByOwnerUser(form)
-	common.Response(c, err, _customers)
+	rsp, err := logic.NewCustomerLogic(c).ListCustomersByOwnerUser(form)
+	common.Response(c, err, rsp)
 }
 
 func CustomerDetail(c *gin.Context) {

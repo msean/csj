@@ -35,10 +35,10 @@ func Run(cfgFilepath string, enableMigrate bool, enableShardMigrate bool) {
 		}
 
 		// 迁移现有数据到分表（仅首次执行）
-		if err := model.MigrateShardingData(); err != nil {
-			global.Global.Logger.Error("迁移数据到分表失败", zap.Error(err))
-			panic(err)
-		}
+		// if err := model.MigrateShardingData(); err != nil {
+		// 	global.Global.Logger.Error("迁移数据到分表失败", zap.Error(err))
+		// 	panic(err)
+		// }
 		global.Global.Logger.Info("分表迁移已执行")
 	} else {
 		global.Global.Logger.Info("分表迁移已跳过（使用 -s 或 --shard-migrate 参数启用）")

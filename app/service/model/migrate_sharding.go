@@ -45,7 +45,50 @@ func MigrateShardingTables() error {
 		global.Global.Logger.Info(fmt.Sprintf("创建分表成功: %s", tableName))
 	}
 
+	// 自动同步分表结构（补齐 GORM 模型中新增的字段，无需手写 ALTER TABLE）
+	if err := AutoMigrateShardTables(); err != nil {
+		return fmt.Errorf("自动迁移分表字段失败: %w", err)
+	}
 	// 创建 batch_goods 分表
+	return nil
+}
+
+// shardModelDef 分表模型定义：基础表名 + 对应的 GORM 模型
+type shardModelDef struct {
+	baseTable string
+	model     interface{}
+}
+
+// AutoMigrateShardTables 自动将所有分表的表结构与 GORM 模型同步。
+// 当 BatchOrder / BatchOrderGoods / BatchOrderPay 的 gorm 结构体字段变更时，
+// 调用此函数会遍历每张分表，自动补齐缺失字段、调整字段类型、创建索引，
+// 无需手写 ALTER TABLE 语句。注意：不会删除字段（GORM AutoMigrate 的安全特性）。
+func AutoMigrateShardTables() error {
+	global.Global.Logger.Info("开始自动迁移分表结构（同步 GORM 模型）...")
+
+	models := []shardModelDef{
+		{"batch_orders", &BatchOrder{}},
+		{"batch_order_goods", &BatchOrderGoods{}},
+		{"batch_order_pay", &BatchOrderPay{}},
+	}
+
+	for _, sm := range models {
+		tables := utils.GetAllShardTableNames(sm.baseTable)
+		for _, tableName := range tables {
+			// db.Table(name) 指定目标分表，AutoMigrate 会：
+			//   - 表不存在时按模型定义创建
+			//   - 补齐模型有但表里缺的字段
+			//   - 调整字段类型与模型 tag 一致
+			//   - 创建模型定义的索引（已存在则跳过）
+			//   - 不会删除字段
+			if err := global.Global.DB.Table(tableName).AutoMigrate(sm.model); err != nil {
+				return fmt.Errorf("自动迁移分表 %s 失败: %w", tableName, err)
+			}
+		}
+		global.Global.Logger.Info(fmt.Sprintf("已同步 %s 分表结构（共 %d 张表）", sm.baseTable, len(tables)))
+	}
+
+	global.Global.Logger.Info("分表结构自动迁移完成")
 	return nil
 }
 
@@ -293,18 +336,20 @@ func createOrderTable(tableName string) error {
 			batch_uuid VARCHAR(64) NOT NULL,
 			owner_user VARCHAR(64) NOT NULL,
 			user_uuid VARCHAR(64) NOT NULL,
-			shared INT DEFAULT 0,
 			share_time INT DEFAULT 0,
 			status INT DEFAULT 0,
 			amount DECIMAL(10,2) DEFAULT 0.00,
 			credit_amount DECIMAL(10,2) DEFAULT 0.00,
+			discount DECIMAL(10,2) DEFAULT 0.00 COMMENT '优惠金额',
+			tricycle_fee DECIMAL(10,2) DEFAULT 0.00 COMMENT '三轮车费用',
+			order_time INT DEFAULT 0 NOT NULL COMMENT '下单时间',
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL,
 			deleted_at DATETIME,
 			INDEX idx_owner_user (owner_user),
 			INDEX idx_user_uuid (user_uuid),
 			INDEX idx_batch_uuid (batch_uuid),
-			INDEX idx_created_at (created_at),
+			INDEX idx_order_time (order_time),
 			INDEX idx_status (status)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 	`, tableName)
@@ -343,46 +388,65 @@ func createGoodsTable(tableName string) error {
 func createPayTable(tableName string) error {
 	sql := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
-			uid VARCHAR(64) NOT NULL PRIMARY KEY,
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			uid VARCHAR(64) NOT NULL,
 			customer_uuid VARCHAR(64) NOT NULL,
-			batch_order_uuid VARCHAR(64) NOT NULL,
+			batch_order_uuid VARCHAR(64) NOT NULL DEFAULT '',
 			owner_user VARCHAR(64) NOT NULL,
-			pay_type INT DEFAULT 0,
-			amount DECIMAL(10,2) DEFAULT 0.00,
+			pay_type INT DEFAULT 0 COMMENT '付款方式 1-现金 2-微信 3-支付宝',
+			amount DECIMAL(10,2) DEFAULT 0.00 COMMENT '还款金额（正数还款，负数撤销）',
+			discount DECIMAL(10,2) DEFAULT 0.00 COMMENT '优惠金额（正数还款，负数撤销）',
+			before_credit DECIMAL(12,2) DEFAULT 0.00 COMMENT '还款前客户赊欠总额',
+			is_revoked TINYINT DEFAULT 0 COMMENT '是否已撤销 0-否 1-是',
+			revoked_at DATETIME NULL COMMENT '撤销时间',
+			revoked_reason VARCHAR(255) DEFAULT '' COMMENT '撤销原因',
+			pay_details TEXT COMMENT '还款详情JSON',
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL,
 			deleted_at DATETIME,
+			PRIMARY KEY (id),
+			UNIQUE KEY uk_uid (uid),
 			INDEX idx_owner_user (owner_user),
 			INDEX idx_batch_order_uuid (batch_order_uuid),
 			INDEX idx_customer_uuid (customer_uuid),
-			INDEX idx_uid (uid)
+			INDEX idx_created_at (created_at)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 	`, tableName)
 	return global.Global.DB.Exec(sql).Error
 }
 
 // dropForeignKeyConstraints 删除外键约束（分表架构不需要）
+// 删除 batch_order_goods / batch_order_pay 等主表上所有外键约束
 func dropForeignKeyConstraints() error {
 	log.Println("[DropForeignKey] 开始删除外键约束...")
 
-	// 删除 batch_order_goods 表的外键约束
-	fkName := "fk_batch_orders_goods_list_related"
-	tableName := "batch_order_goods"
-
-	// 检查外键是否存在
-	var count int64
-	global.Global.DB.Raw(
-		"SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_NAME = ? AND TABLE_NAME = ?",
-		fkName, tableName).Scan(&count)
-
-	if count > 0 {
-		sql := fmt.Sprintf("ALTER TABLE %s DROP FOREIGN KEY %s", tableName, fkName)
-		if err := global.Global.DB.Exec(sql).Error; err != nil {
-			return fmt.Errorf("删除外键 %s 失败: %w", fkName, err)
+	tables := []string{"batch_order_goods", "batch_order_pay", "batch_orders"}
+	for _, tableName := range tables {
+		// 查询该表上所有外键约束名
+		type fkRow struct {
+			ConstraintName string `gorm:"column:CONSTRAINT_NAME"`
 		}
-		log.Printf("[DropForeignKey] 删除外键约束 %s 成功", fkName)
-	} else {
-		log.Printf("[DropForeignKey] 外键约束 %s 不存在，跳过", fkName)
+		var fks []fkRow
+		if err := global.Global.DB.Raw(
+			"SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_TYPE = 'FOREIGN KEY' AND TABLE_NAME = ?",
+			tableName).Scan(&fks).Error; err != nil {
+			log.Printf("[DropForeignKey] 查询表 %s 外键失败: %v", tableName, err)
+			continue
+		}
+
+		if len(fks) == 0 {
+			log.Printf("[DropForeignKey] 表 %s 无外键约束，跳过", tableName)
+			continue
+		}
+
+		for _, fk := range fks {
+			sql := fmt.Sprintf("ALTER TABLE %s DROP FOREIGN KEY %s", tableName, fk.ConstraintName)
+			if err := global.Global.DB.Exec(sql).Error; err != nil {
+				log.Printf("[DropForeignKey] 删除外键 %s.%s 失败: %v", tableName, fk.ConstraintName, err)
+				continue
+			}
+			log.Printf("[DropForeignKey] 删除外键约束 %s.%s 成功", tableName, fk.ConstraintName)
+		}
 	}
 
 	return nil

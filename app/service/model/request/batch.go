@@ -23,16 +23,18 @@ type (
 	BatchGoodsListReq struct {
 		BatchUUID string `json:"batchUUID"`
 		GoodsUUID string `json:"goodsUUID"`
+		// Statuses  []int32 `json:"statuses"` // 订单状态筛选，为空则不筛选
 	}
 	BatchOrderGoodsLatest struct {
 		GoodsUUIDList []string `json:"goodsUUIDList"`
 	}
 	BatchOrderListReq struct {
 		utils.LimitCond
-		Status    int32  `json:"status"`
-		UserUUID  string `json:"userUUID"`
-		StartTime int64  `json:"startTime"`
-		EndTime   int64  `json:"endTime"`
+		Status         int32  `json:"status"`
+		UserUUID       string `json:"userUUID"`
+		UserNameSearch string `json:"userNameSearch"`
+		StartTime      int64  `json:"startTime"`
+		EndTime        int64  `json:"endTime"`
 	}
 	OrderReq struct {
 		model.BatchOrder

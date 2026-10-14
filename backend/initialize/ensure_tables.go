@@ -5,6 +5,7 @@ import (
 
 	adapter "github.com/casbin/gorm-adapter/v3"
 
+	appmgr "github.com/msean/csj/backend/model/appmgr"
 	sysModel "github.com/msean/csj/backend/model/system"
 	"github.com/msean/csj/backend/plugin/announcement/model"
 	"github.com/msean/csj/backend/service/system"
@@ -55,6 +56,7 @@ func (e *ensureTables) MigrateTable(ctx context.Context) (context.Context, error
 		sysModel.JoinTemplate{},
 		sysModel.SysParams{},
 		sysModel.SysVersion{},
+		appmgr.AppVersion{},
 		adapter.CasbinRule{},
 		model.Info{},
 	}

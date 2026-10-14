@@ -12,7 +12,10 @@ type (
 
 	// QuickPayRsp 快捷还款响应
 	QuickPayRsp struct {
-		PayUUID string `json:"payUUID"`
+		PayUUID  string  `json:"payUUID"`
+		Discount float64 `json:"discount"` // 优惠
+		Amount   float64 `json:"amount"`   // 金额
+		NeedPop  bool    `json:"needPop"`  // 是否弹窗
 	}
 
 	// OrderPayRsp 订单还款响应
@@ -50,6 +53,7 @@ type (
 		RevokedAt     *time.Time `json:"revokedAt"`
 		RevokedReason string     `json:"revokedReason"`
 		CreatedAt     time.Time  `json:"createdAt"`
+		Discount      int        `json:"discount"`
 	}
 
 	// MessageItem 消息项

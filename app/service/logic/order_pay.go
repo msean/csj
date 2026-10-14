@@ -39,7 +39,8 @@ func (logic *OrderPayLogic) Create(tx *gorm.DB, toUpdateOrder bool) (err error) 
 			}
 		}()
 	}
-	if err = utils.CreateObj(tx, &logic.BatchOrderPay); err != nil {
+	// 分表创建还款记录
+	if err = dao.PaymentDao.CreatePay(tx, &logic.BatchOrderPay); err != nil {
 		return
 	}
 
@@ -53,7 +54,7 @@ func (logic *OrderPayLogic) Create(tx *gorm.DB, toUpdateOrder bool) (err error) 
 
 func (logic *OrderPayLogic) Update() (err error) {
 	return logic.runtime.DB.Transaction(func(tx *gorm.DB) (err error) {
-		if err = dao.OrderDao.UpdateOrderPay(tx, logic.OwnerUser, logic.BatchOrderPay); err != nil {
+		if err = dao.PaymentDao.UpdateOrderPay(tx, logic.OwnerUser, logic.BatchOrderPay); err != nil {
 			return
 		}
 		err = UpdateOrderPay(tx, logic.Amount, logic.PayType, logic.BatchOrderUUID, logic.context)
@@ -63,8 +64,10 @@ func (logic *OrderPayLogic) Update() (err error) {
 
 // 查询该批次的单次是否结算完成，若完成，则需修改单次的状态
 func UpdateOrderPay(db *gorm.DB, payFee float64, payType int32, batchOrderUUID string, ctx *gin.Context) (err error) {
-	var order model.BatchOrder
-	if err = utils.Find(db, &order, utils.WhereUIDCond(batchOrderUUID)); err != nil {
+	ownerUser := common.GetUserUUID(ctx)
+	// 分表查询订单
+	order, err := dao.OrderDao.FindByUID(db, ownerUser, batchOrderUUID)
+	if err != nil {
 		return
 	}
 
@@ -72,10 +75,8 @@ func UpdateOrderPay(db *gorm.DB, payFee float64, payType int32, batchOrderUUID s
 	if utils.FloatGreat(0.0, order.CreditAmount) {
 		order.Status = common.BatchOrderFinish
 	}
-	if err = utils.WhereUIDCond(order.UID).Cond(db).Updates(&model.BatchOrder{
-		CreditAmount: order.CreditAmount,
-		Status:       order.Status,
-	}).Error; err != nil {
+	// 分表更新订单赊欠金额和状态
+	if err = dao.OrderDao.UpdateOrderCreditStatus(db, ownerUser, order.UID, order.CreditAmount, order.Status); err != nil {
 		return
 	}
 	global.Global.Logger.Info(fmt.Sprintf("[OrderPayLogic] [UpdateOrderPay] batch_order_uuid:%s, paidTotal: %f", batchOrderUUID, order.TotalAmount))
@@ -83,5 +84,7 @@ func UpdateOrderPay(db *gorm.DB, payFee float64, payType int32, batchOrderUUID s
 }
 
 func (logic *OrderPayLogic) FromUUID() (err error) {
-	return utils.Find(logic.runtime.DB, &logic.BatchOrderPay)
+	// 分表查询还款记录
+	err = utils.First(logic.runtime.DB.Table(dao.ShardPayTable(logic.OwnerUser)), &logic.BatchOrderPay, utils.WhereUIDCond(logic.UID))
+	return
 }

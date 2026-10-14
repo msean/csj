@@ -18,7 +18,7 @@ func userRouter(g *gin.RouterGroup) {
 		userRouterGroup.POST("/send_verify_code", SenderVerifyCode)
 		userRouterGroup.POST("/login", Login)
 		userRouterGroup.POST("/update", middleware.AuthMiddleware(), UserUpdate)
-		userRouterGroup.GET("/profile", middleware.AuthMiddleware(), UserInfo)
+		userRouterGroup.POST("/profile", middleware.AuthMiddleware(), UserInfo)
 	}
 }
 

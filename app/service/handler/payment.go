@@ -24,8 +24,8 @@ func paymentRouter(g *gin.RouterGroup) {
 		paymentGroup.POST("/detail", PayDetail)
 		// 撤销还款
 		paymentGroup.POST("/revoke", RevokePay)
-		// 消息列表
-		paymentGroup.POST("/message/list", MessageList)
+		// 还款分享
+		paymentGroup.POST("/share/generate_html", PaymentShareGenerateHTML)
 	}
 }
 
@@ -40,15 +40,16 @@ func QuickPayList(c *gin.Context) {
 		req.PageCount = 10
 	}
 
-	items, total, err := logic.NewPaymentLogic(c).QuickPayList(req)
+	items, total, totalDebt, err := logic.NewPaymentLogic(c).QuickPayList(req)
 	if err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
 	common.Response(c, nil, gin.H{
-		"items": items,
-		"total": total,
+		"items":         items,
+		"totalCustomer": total,
+		"totalCredit":   totalDebt,
 	})
 }
 
@@ -143,25 +144,20 @@ func RevokePay(c *gin.Context) {
 	common.Response(c, nil, nil)
 }
 
-// MessageList 消息列表
-func MessageList(c *gin.Context) {
-	var req request.MessageListReq
-	if err := c.ShouldBindJSON(&req); err != nil {
+// ShareGenerateHTML 生成今日账单HTML，直接返回HTML内容
+func PaymentShareGenerateHTML(c *gin.Context) {
+	var req request.PaymentShareReq
+	if err := c.ShouldBind(&req); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-	if req.PageCount <= 0 {
-		req.PageCount = 20
-	}
 
-	items, summary, err := logic.NewPaymentLogic(c).MessageList(req)
+	html, err := logic.NewPaymentLogic(c).GenerateShareHTML(req)
 	if err != nil {
 		common.Response(c, err, nil)
 		return
 	}
 
-	common.Response(c, nil, gin.H{
-		"items":   items,
-		"summary": summary,
-	})
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.String(200, html)
 }

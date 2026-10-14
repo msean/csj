@@ -9,6 +9,7 @@ type (
 		TodayCredit float64 `json:"todayCredit"` // 今日赊欠金额
 		LongestDays int     `json:"longestDays"` // 最长赊欠天数
 		OrderCount  int64   `json:"orderCount"`  // 赊欠订单数
+		TodayShared bool    `json:"todayShared"` // 今日是否已分享
 	}
 
 	// 赊欠汇总
