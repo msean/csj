@@ -2,6 +2,7 @@ package service
 
 import (
 	"app/global"
+	"app/pkg/wechat"
 	"app/service/cache"
 	"app/service/handler"
 	"app/service/model"
@@ -18,6 +19,11 @@ func Run(cfgFilepath string, enableMigrate bool, enableShardMigrate bool) {
 		panic(err)
 	}
 	handler.InitEngine(global.Global.Engine)
+
+	// 微信支付初始化（配置不完整时仅警告，不阻断启动）
+	if err = wechat.Init(); err != nil {
+		global.Global.Logger.Error("微信支付初始化失败", zap.Error(err))
+	}
 
 	// 根据命令行参数决定是否执行迁移
 	if enableMigrate {

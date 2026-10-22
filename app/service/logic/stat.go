@@ -22,8 +22,8 @@ func BatchGoodsStat(db *gorm.DB, ownerUser string, batchUUID string) (goodsM map
 
 	for _, _bg := range _bgs {
 		goodsM[_bg.GoodsUUID] = &model.BatchGoodsStatFeild{
-			Weight:         _bg.Weight,
-			Mount:          _bg.Mount,
+			SurplusWeight:  _bg.Weight,
+			SurplusMount:   _bg.Mount,
 			Type:           _bg.GoodType,
 			SellAmount:     "0",
 			InventoryPrice: _bg.Price,
@@ -40,16 +40,15 @@ func BatchGoodsStat(db *gorm.DB, ownerUser string, batchUUID string) (goodsM map
 		if _, ok := goodsM[_bo.GoodsUUID]; ok {
 			global.Global.Logger.Debug("SetSurplusByBatch _bo",
 				zap.Any("_bo.GoodsUUID", _bo.GoodsUUID),
-				zap.Any("goodsM[_bo.GoodsUUID].Weight", goodsM[_bo.GoodsUUID].Weight),
-				zap.Any("goodsM[_bo.GoodsUUID].Mount", goodsM[_bo.GoodsUUID].Mount),
+				zap.Any("goodsM[_bo.GoodsUUID].Weight", goodsM[_bo.GoodsUUID].SurplusWeight),
+				zap.Any("goodsM[_bo.GoodsUUID].Mount", goodsM[_bo.GoodsUUID].SurplusMount),
 				zap.Any("_bo.Weight", _bo.Weight),
 				zap.Any("_bo.Mount", _bo.Mount),
 				zap.Any("_bo.Price", _bo.Price),
 			)
 			if goodsM[_bo.GoodsUUID].Type == common.GoodsTypeFix {
 				goodsM[_bo.GoodsUUID] = &model.BatchGoodsStatFeild{
-					Weight:         goodsM[_bo.GoodsUUID].Weight - _bo.Weight,
-					Mount:          goodsM[_bo.GoodsUUID].Mount - _bo.Mount,
+					SurplusMount:   goodsM[_bo.GoodsUUID].SurplusMount - _bo.Mount,
 					Type:           goodsM[_bo.GoodsUUID].Type,
 					InventoryPrice: goodsM[_bo.GoodsUUID].InventoryPrice,
 					SellWeight:     goodsM[_bo.GoodsUUID].SellWeight + _bo.Weight,
@@ -58,11 +57,11 @@ func BatchGoodsStat(db *gorm.DB, ownerUser string, batchUUID string) (goodsM map
 				}
 			} else {
 				goodsM[_bo.GoodsUUID] = &model.BatchGoodsStatFeild{
-					Weight:         goodsM[_bo.GoodsUUID].Weight - _bo.Weight,
+					SurplusWeight:  goodsM[_bo.GoodsUUID].SurplusWeight - _bo.Weight,
 					Type:           goodsM[_bo.GoodsUUID].Type,
 					InventoryPrice: goodsM[_bo.GoodsUUID].InventoryPrice,
 					SellWeight:     goodsM[_bo.GoodsUUID].SellWeight + _bo.Weight,
-					SellMount:      goodsM[_bo.GoodsUUID].Mount + _bo.Mount,
+					SellMount:      goodsM[_bo.GoodsUUID].SurplusMount + _bo.Mount,
 					SellTotal:      goodsM[_bo.GoodsUUID].SellTotal + _bo.Weight*_bo.Price,
 				}
 			}
@@ -74,9 +73,8 @@ func BatchGoodsStat(db *gorm.DB, ownerUser string, batchUUID string) (goodsM map
 		surplus.Set()
 		global.Global.Logger.Debug("#########SetSurplusByBatch",
 			zap.Any("goods_uuid", zap.Any("goodsUUID", goodsUUID)),
-			zap.Any("surplus Weight", surplus.Weight),
-			zap.Any("surplus Mount", surplus.Mount),
-			zap.Any("surplus Surplus", surplus.Surplus),
+			zap.Any("surplus Weight", surplus.SurplusWeight),
+			zap.Any("surplus Mount", surplus.SurplusMount),
 			zap.Any("surplus Type", surplus.Type),
 			zap.Any("surplus SellTotal", surplus.SellTotal),
 			zap.Any("surplus SellTotalAmount", surplus.SellTotalAmount),

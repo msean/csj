@@ -23,6 +23,7 @@ type (
 		OwnerUser string  `gorm:"column:owner_user;comment:所属用户" json:"ownerUser"`
 		BatchUUID string  `gorm:"column:batch_uuid;comment:货品uuid" json:"batchUUID"`
 		SerialNo  string  `gorm:"column:serial_no;comment:批次序号" json:"serialNo"`
+		SortNo    int     `gorm:"column:sort_no;default:1;comment:货品在批次内的排序序号，默认1" json:"sortNo"`
 		GoodsUUID string  `gorm:"column:goods_uuid;comment:货品uuid" json:"goodsUUID"`
 		GoodType  int     `gorm:"column:goods_type;comment:货品类型" json:"goods_type"`
 		Price     float64 `gorm:"column:price;type:decimal(10,2);comment:单价" json:"price"`

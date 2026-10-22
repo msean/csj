@@ -89,8 +89,8 @@ func (logic *BatchLogic) CalSurplus() (surplusGoodsList []BatchGoodsLogic, err e
 			preCountM[batchOrdered.GoodsUUID].Mount -= batchOrdered.Mount
 			preCountM[batchOrdered.GoodsUUID].Weight -= batchOrdered.Weight
 			preCountM[batchOrdered.GoodsUUID].BatchGoodsStatFeild = model.BatchGoodsStatFeild{
-				Mount:  preCountM[batchOrdered.GoodsUUID].Mount,
-				Weight: preCountM[batchOrdered.GoodsUUID].Weight,
+				SurplusMount:  preCountM[batchOrdered.GoodsUUID].Mount,
+				SurplusWeight: preCountM[batchOrdered.GoodsUUID].Weight,
 			}
 			preCountM[batchOrdered.GoodsUUID].BatchGoodsStatFeild.Set()
 		}
@@ -129,11 +129,12 @@ func (logic *BatchLogic) Create() (err error) {
 		goodsUIDMap[goods.UID] = goods
 	}
 	logic.Default()
-	for _, goods := range logic.GoodsListRelated {
+	// 按前端传入的货品顺序依次编号，从 1 开始
+	for i, goods := range logic.GoodsListRelated {
 		goods.SerialNo = logic.SerialNo
 		goods.OwnerUser = logic.OwnerUser
 		goods.GoodType = int(goodsUIDMap[goods.GoodsUUID].Typ)
-
+		goods.SortNo = i + 1
 	}
 
 	return utils.CreateObj(logic.runtime.DB, &logic.Batch)
@@ -228,11 +229,13 @@ func (logic *BatchLogic) Update(withBatchGoods bool) (err error) {
 			goodsUIDMap[goods.UID] = goods
 		}
 		logic.runtime.Logger.Debug("BatchLogic goodsUIDMap", zap.Any("goodsUIDMap", goodsUIDMap))
-		for _, goods := range logic.GoodsListRelated {
+		// 按前端传入的货品顺序依次编号，从 1 开始
+		for i, goods := range logic.GoodsListRelated {
 			goods.SerialNo = logic.SerialNo
 			goods.OwnerUser = logic.OwnerUser
 			goods.BatchUUID = logic.UID
 			goods.GoodType = int(goodsUIDMap[goods.GoodsUUID].Typ)
+			goods.SortNo = i + 1
 		}
 		if len(logic.GoodsListRelated) > 0 {
 			if err = tx.Create(&logic.GoodsListRelated).Error; err != nil {
@@ -291,13 +294,13 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 
 			if goods.GoodsTyp == common.GoodsTypeFix {
 				// 定装：统计件数
-				inventoryMount += surplus.Mount
+				inventoryMount += surplus.SurplusMount
 				sellMount += surplus.SellMount
 				profit = surplus.SellTotal - surplus.InventoryPrice*float64(surplus.SellMount)
 			} else if goods.GoodsTyp == common.GoodsTypeBulk {
 				// 散装：统计重量
 				sellWeight += surplus.SellWeight
-				inventoryWeight += surplus.Weight
+				inventoryWeight += surplus.SurplusWeight
 				profit = surplus.SellTotal - surplus.InventoryPrice*float64(surplus.SellWeight)
 			}
 
@@ -309,12 +312,14 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 
 	// 6. 填充批次统计数据
 	logic.BatchStatFeild = model.BatchStatFeild{
-		StatMount:           fmt.Sprintf("%d", sellMount),
-		StatWeight:          utils.FloatReserveStr(sellWeight, 1),
+		StatMount:           fmt.Sprintf("%d", sellMount+inventoryMount),
+		StatWeight:          utils.FloatReserveStr(sellWeight+inventoryWeight, 1),
 		StatInventoryMount:  fmt.Sprintf("%d", inventoryMount),
 		StatInventoryWeight: utils.FloatReserveStr(inventoryWeight, 1),
 		StatSalesAmount:     utils.FloatReserveStr(totalSalesAmount, 1),
 		StatSellProfit:      utils.FloatReserve(totalProfit, 1),
+		StatSellMount:       fmt.Sprintf("%d", sellMount),         // 销售件数（定装）
+		StatSellWeight:      utils.FloatReserveStr(sellWeight, 1), // 销售重量（散装）
 	}
 
 	return nil

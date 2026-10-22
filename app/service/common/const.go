@@ -33,6 +33,12 @@ const (
 )
 
 const (
+	MemberTypeMonth   = 1 // 月
+	MemberTypeQuarter = 2 // 季度
+	MemberTypeYear    = 3 // 年
+)
+
+const (
 	PayDetailTypeDebt  = 1 // 还原始客户债务(PaidDebt)
 	PayDetailTypeOrder = 2 // 还订单赊欠
 )

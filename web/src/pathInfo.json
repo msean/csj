@@ -1,4 +1,5 @@
 {
+  "/src/view/appUser/index.vue": "AppUser",
   "/src/view/appVersion/index.vue": "AppVersion",
   "/src/view/dashboard/components/banner.vue": "Banner",
   "/src/view/dashboard/components/card.vue": "Card",
@@ -38,7 +39,9 @@
   "/src/view/layout/setting/modules/layout/index.vue": "LayoutSettings",
   "/src/view/layout/tabs/index.vue": "HistoryComponent",
   "/src/view/login/index.vue": "Login",
+  "/src/view/memberConfig/index.vue": "MemberConfig",
   "/src/view/person/person.vue": "Person",
+  "/src/view/rechargeOrder/index.vue": "RechargeOrder",
   "/src/view/superAdmin/api/api.vue": "Api",
   "/src/view/superAdmin/authority/authority.vue": "Authority",
   "/src/view/superAdmin/authority/components/apis.vue": "Apis",

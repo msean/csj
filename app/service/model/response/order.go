@@ -13,6 +13,7 @@ type (
 	// ShareDailyOrderGroup 单个订单的货品分组（用于分享时按订单分开渲染）
 	ShareDailyOrderGroup struct {
 		OrderUUID   string                 `json:"orderUUID"`
+		SerialNo    string                 `json:"serialNo"`    // 6 位票号（uuid.hashCode().abs() 取前 6 位补零）
 		DateStr     string                 `json:"dateStr"`     // 开单时间
 		GoodsList   []*ShareDailyOrderItem `json:"goodsList"`
 		TricycleFee float64                `json:"tricycleFee"`
@@ -25,10 +26,10 @@ type (
 		CustomerName         string                 `json:"customerName"`         // 客户名称
 		Date                 string                 `json:"date"`                 // 日期
 		Contact              string                 `json:"contact"`              // 联系方式 放底部左侧
-		TotalCreditAmount    float64                `json:"totalCreditAmount"`    // 总赊欠（前欠+今日赊欠）
-		TodayCreditAmount    float64                `json:"todayCreditAmount"`    // 今日赊欠
-		PreviousCreditAmount float64                `json:"previousCreditAmount"` // 前欠（今日之前的总赊欠）
-		TricycleFee          float64                `json:"tricycleFee"`          // 三轮车费用（多订单累加）
+		TotalCreditAmount    float64                `json:"totalCreditAmount"`    // 总赊欠（前欠+本单赊欠）
+		TodayCreditAmount    float64                `json:"todayCreditAmount"`    // 本单赊欠（最近一单的欠款）
+		PreviousCreditAmount float64                `json:"previousCreditAmount"` // 前欠（总赊欠 - 本单赊欠）
+		TricycleFee          float64                `json:"tricycleFee"`          // 三轮车费用（当前订单）
 		OrderGroups          []ShareDailyOrderGroup `json:"orderGroups"`          // 按订单分组
 	}
 )

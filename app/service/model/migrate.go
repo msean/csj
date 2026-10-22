@@ -18,6 +18,8 @@ func Migrate() (err error) {
 		&MessageCenter{},
 		&ShareRecord{},
 		&AppVersion{},
+		&MemberConfig{},
+		&RechargeOrder{},
 	)
 
 	return

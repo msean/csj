@@ -73,7 +73,9 @@ func (dao *batchDao) List(db *gorm.DB, ownerUser string, conditions request.Batc
 
 func (dao *batchDao) FromUUID(db *gorm.DB, uuid string, withGoods bool) (batch model.Batch, err error) {
 	if withGoods {
-		db = db.Preload("GoodsListRelated")
+		db = db.Preload("GoodsListRelated", func(tx *gorm.DB) *gorm.DB {
+			return tx.Order("sort_no asc, created_at asc")
+		})
 	}
 	err = utils.First(db, &batch, utils.WhereUIDCond(uuid))
 	return
@@ -81,7 +83,9 @@ func (dao *batchDao) FromUUID(db *gorm.DB, uuid string, withGoods bool) (batch m
 
 func (dao *batchDao) FromLatest(db *gorm.DB, ownerUser string, withGoods bool) (batch model.Batch, err error) {
 	if withGoods {
-		db = db.Preload("GoodsListRelated")
+		db = db.Preload("GoodsListRelated", func(tx *gorm.DB) *gorm.DB {
+			return tx.Order("sort_no asc, created_at asc")
+		})
 	}
 	err = utils.First(db, &batch, utils.CreatedOrderDescCond(), utils.WhereOwnerUserCond(ownerUser))
 	return

@@ -20,9 +20,10 @@ func (dao *goodsDao) Update(db *gorm.DB, goods model.Goods) (err error) {
 		goods.Weight = 0
 	}
 	return utils.WhereUIDCond(goods.UID).Cond(db).Updates(&model.Goods{
-		Name:   goods.Name,
-		Price:  goods.Price,
-		Weight: goods.Weight,
+		Name:       goods.Name,
+		Price:      goods.Price,
+		Weight:     goods.Weight,
+		CategoryID: goods.CategoryID,
 	}).Error
 }
 

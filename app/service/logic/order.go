@@ -328,14 +328,14 @@ func (logic *OrderLogic) Shared() (err error) {
 // ShareDailyOrder builds the share data for today's orders of a customer.
 // If orderUUID is provided, queries that order's date data.
 // Otherwise, queries today's data.
-func (logic *OrderLogic) ShareDailyOrder(req request.ShareDailyOrderReq) (rsp *response.ShareDailyOrderRsp, err error) {
+func (logic *OrderLogic) ShareOrder(req request.ShareDailyOrderReq) (rsp *response.ShareDailyOrderRsp, err error) {
 	// Get customer info for name
 	customer, err := dao.CustomerDao.FromUUID(logic.runtime.DB, req.CustomerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("customer not found: %w", err)
 	}
 
-	orders, previousCredit, err := dao.OrderDao.GetTodayOrdersWithGoods(logic.runtime.DB, logic.OwnerUser, req.CustomerUUID, req.OrderUUID)
+	orders, _, err := dao.OrderDao.GetShareOrdersWithGoods(logic.runtime.DB, logic.OwnerUser, req.CustomerUUID, req.OrderUUID)
 	if err != nil {
 		return
 	}
@@ -349,43 +349,49 @@ func (logic *OrderLogic) ShareDailyOrder(req request.ShareDailyOrderReq) (rsp *r
 	}
 	goodsMap, _ := cache.GoodsCache.BatchGoodsFeildSet(goodsUUIDs, logic.OwnerUser)
 
-	// 计算本批次订单赊欠总额
-	var batchCredit float64
-	for _, o := range orders {
-		batchCredit += o.CreditAmount
+	// 订单时间：优先取下单时间 order_time，老数据缺失时回退创建时间
+	orderTimeOf := func(o model.BatchOrder) time.Time {
+		if o.OrderTime > 0 {
+			return time.Unix(int64(o.OrderTime), 0)
+		}
+		return o.CreatedAt
 	}
 
-	var previousCreditAmount float64
-	if req.OrderUUID != "" {
-		// 指定订单：前欠 = DAO 返回的目标批次外订单赊欠 + 原始债务未还部分
-		originAmount := customer.Debt - customer.PaidDebt
-		if originAmount < 0 {
-			originAmount = 0
+	// 只取最近的一单（同批次、不同批次都只展示最新的那个）
+	var latest *model.BatchOrder
+	for i := range orders {
+		if latest == nil || orderTimeOf(orders[i]).After(orderTimeOf(*latest)) {
+			latest = &orders[i]
 		}
-		previousCreditAmount = previousCredit + originAmount
-	} else {
-		// 未指定订单：前欠 = 客户当前总赊欠 - 本批次订单赊欠之和
-		previousCreditAmount = customer.Credit - batchCredit
-		if previousCreditAmount < 0 {
-			previousCreditAmount = 0
-		}
+	}
+
+	// 今日赊欠 = 本单欠款；前欠 = 客户当前总赊欠 - 本单欠款
+	var latestCredit, latestTricycleFee float64
+	if latest != nil {
+		latestCredit = latest.CreditAmount
+		latestTricycleFee = latest.TricycleFee
+	}
+	previousCreditAmount := customer.Credit - latestCredit
+	if previousCreditAmount < 0 {
+		previousCreditAmount = 0
 	}
 
 	rsp = &response.ShareDailyOrderRsp{
 		PreviousCreditAmount: previousCreditAmount,
+		TodayCreditAmount:    latestCredit,
+		TricycleFee:          latestTricycleFee,
 	}
 
-	for _, o := range orders {
-		rsp.TodayCreditAmount += o.CreditAmount
-		rsp.TricycleFee += o.TricycleFee
-
+	// 渲染这一单的货品明细
+	if latest != nil {
 		group := response.ShareDailyOrderGroup{
-			OrderUUID:   o.UID,
-			DateStr:     o.CreatedAt.Format("2006-01-02 15:04"),
-			TricycleFee: o.TricycleFee,
-			TotalAmount: o.CreditAmount,
+			OrderUUID:   latest.UID,
+			SerialNo:    utils.UUIDToSerial(latest.UID),
+			DateStr:     orderTimeOf(*latest).Format("2006-01-02 15:04"),
+			TricycleFee: latest.TricycleFee,
+			TotalAmount: latest.CreditAmount,
 		}
-		for _, g := range o.GoodsListRelated {
+		for _, g := range latest.GoodsListRelated {
 			item := &response.ShareDailyOrderItem{
 				GoodsUUID: g.GoodsUUID,
 				GoodsName: goodsMap[g.GoodsUUID].GoodsName,
@@ -410,17 +416,14 @@ func (logic *OrderLogic) ShareDailyOrder(req request.ShareDailyOrderReq) (rsp *r
 			return group.GoodsList[i].GoodsName < group.GoodsList[j].GoodsName
 		})
 		rsp.OrderGroups = append(rsp.OrderGroups, group)
+
+		rsp.Date = orderTimeOf(*latest).Format("2006-01-02 15:04")
+	} else {
+		rsp.Date = time.Now().Format("2006-01-02 15:04")
 	}
 
 	// 计算总赊欠 = 前欠 + 今日赊欠
 	rsp.TotalCreditAmount = rsp.PreviousCreditAmount + rsp.TodayCreditAmount
-
-	// 设置日期：如果有订单，使用订单的创建日期；否则使用当前日期
-	if len(orders) > 0 {
-		rsp.Date = orders[0].CreatedAt.Format("2006-01-02 15:04")
-	} else {
-		rsp.Date = time.Now().Format("2006-01-02 15:04")
-	}
 
 	rsp.Contact = logic.runtime.Viper.GetString("share.contact")
 	rsp.Title = logic.runtime.Viper.GetString("share.title")
@@ -447,7 +450,7 @@ func (logic *OrderLogic) buildReceiptData(rsp *response.ShareDailyOrderRsp) util
 			})
 		}
 		orders = append(orders, utils.ReceiptOrder{
-			SerialNo:       og.OrderUUID,
+			SerialNo:       og.SerialNo,
 			Date:           og.DateStr,
 			GoodsList:      goodsItems,
 			TotalMount:     fmt.Sprintf("%d", og.TotalMount),
@@ -471,7 +474,7 @@ func (logic *OrderLogic) buildReceiptData(rsp *response.ShareDailyOrderRsp) util
 
 // GenerateSharePDF builds the receipt PDF for a customer's daily order and returns the raw PDF bytes.
 func (logic *OrderLogic) GenerateSharePDF(req request.ShareDailyOrderReq) (pdfBytes []byte, err error) {
-	rsp, err := logic.ShareDailyOrder(req)
+	rsp, err := logic.ShareOrder(req)
 	if err != nil {
 		return
 	}
@@ -486,7 +489,7 @@ func (logic *OrderLogic) GenerateSharePDF(req request.ShareDailyOrderReq) (pdfBy
 
 // GenerateShareHTML builds the receipt HTML for a customer's daily order and returns the HTML string.
 func (logic *OrderLogic) GenerateShareHTML(req request.ShareDailyOrderReq) (html string, err error) {
-	rsp, err := logic.ShareDailyOrder(req)
+	rsp, err := logic.ShareOrder(req)
 	if err != nil {
 		return
 	}
@@ -501,7 +504,7 @@ func (logic *OrderLogic) GenerateShareHTML(req request.ShareDailyOrderReq) (html
 
 // GenerateShareImage builds the receipt image (PNG) for a customer's daily order, optimized for mobile sharing (WeChat).
 func (logic *OrderLogic) GenerateShareImage(req request.ShareDailyOrderReq) (imageBytes []byte, err error) {
-	rsp, err := logic.ShareDailyOrder(req)
+	rsp, err := logic.ShareOrder(req)
 	if err != nil {
 		return
 	}
@@ -601,8 +604,8 @@ func (logic *OrderLogic) Update(orderReq request.OrderReq) (err error) {
 	// 注意：OrderLogic 同时定义了 Shared() 方法和嵌入的 BatchOrder.Shared 字段，
 	// 直接用 logic.Shared 会被解析成方法值 func() error，必须显式访问字段。
 	updateFields := map[string]interface{}{
-		"updated_at":    time.Now(),
-		"share_time":    logic.BatchOrder.SharedTime,
+		"updated_at": time.Now(),
+		// "share_time":    logic.BatchOrder.SharedTime,
 		"status":        logic.BatchOrder.Status,
 		"amount":        logic.BatchOrder.TotalAmount,
 		"credit_amount": logic.BatchOrder.CreditAmount,

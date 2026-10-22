@@ -174,7 +174,7 @@ func ShareDailyOrder(c *gin.Context) {
 		return
 	}
 
-	rsp, err := logic.NewOrderLogic(c).ShareDailyOrder(req)
+	rsp, err := logic.NewOrderLogic(c).ShareOrder(req)
 	common.Response(c, err, rsp)
 }
 

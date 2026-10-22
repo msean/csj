@@ -42,3 +42,10 @@ var (
 	ObjectNotExistErr = errors.New("object not found")
 	RequestUIDMustErr = errors.New("UUID不能为空")
 )
+
+// recharge
+var (
+	MemberTypeInvalidErr  = errors.New("会员类型无效")
+	RechargeOrderNotExist = errors.New("充值订单不存在")
+	WechatPayNotInitErr   = errors.New("微信支付未初始化，请检查配置")
+)

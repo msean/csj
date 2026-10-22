@@ -22,7 +22,7 @@ type (
 		GoodsListRelated []*BatchOrderGoods `gorm:"foreignKey:BatchOrderUID;references:UID" json:"goodsList"`
 		OrderTime        int                `gorm:"column:order_time;comment:下单时间" json:"orderTime"`
 		CustomerFeild
-		// Shared           int                `gorm:"column:shared;comment:是否分享单" json:"shared"`
+		Shared int `gorm:"column:shared;comment:是否分享单" json:"shared"`
 	}
 	BatchOrderGoods struct {
 		BaseModel

@@ -1,0 +1,4 @@
+/*! 
+ Build based on gin-vue-admin 
+ Time : 1792052640000 */
+System.register(["./087AC4D233B64EB0index-legacy.BBhT7jlv.js"],function(t,e){"use strict";var s,a,i,n,o,r,u;return{setters:[function(t){s=t.c,a=t.a,i=t.t,n=t.f,o=t.y,r=t.n,u=t.o}],execute:function(){var e={key:0,class:"flex justify-between items-center"},d={class:"text-base font-bold"},l={key:0,class:"text-sm text-active cursor-pointer"},c={class:"mt-2"};t("default",{__name:"card",props:{title:{type:String,default:""},showAction:{type:Boolean,default:!1},customClass:{type:String,default:""},withoutPadding:{type:Boolean,default:!1}},setup:function(t){return function(f,y){return u(),s("div",{class:r(["bg-white dark:bg-slate-900 text-gray-800 dark:text-gray-400 rounded shadow",[t.customClass||"",t.withoutPadding?"p-0":"p-4"]])},[t.title?(u(),s("div",e,[a("div",d,i(t.title),1),t.showAction?(u(),s("div",l," 查看更多 ")):n("",!0)])):n("",!0),a("div",c,[o(f.$slots,"default")])],2)}}})}}});

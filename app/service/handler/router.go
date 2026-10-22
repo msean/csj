@@ -26,5 +26,7 @@ func InitEngine(engine *gin.Engine) {
 		orderRouter(apiGroup)
 		paymentRouter(apiGroup)
 		messageRouter(apiGroup)
+		memberRouter(apiGroup)
+		rechargeRouter(apiGroup)
 	}
 }

@@ -143,7 +143,10 @@ func Routers() *gin.Engine {
 		systemRouter.InitSysParamsRouter(PrivateGroup, PublicGroup)         // 参数管理
 	}
 	{
-		appMgrRouter.InitAppVersionRouter(PrivateGroup, PublicGroup) // App版本管理
+		appMgrRouter.InitAppVersionRouter(PrivateGroup, PublicGroup)     // App版本管理
+		appMgrRouter.InitMemberConfigRouter(PrivateGroup, PublicGroup)   // 会员收费配置
+		appMgrRouter.InitRechargeOrderRouter(PrivateGroup, PublicGroup)  // 会员充值订单
+		appMgrRouter.InitAppUserRouter(PrivateGroup, PublicGroup)        // App注册用户
 	}
 
 	//插件路由安装

@@ -50,6 +50,27 @@ type ReceiptData struct {
 	TotalDebtStr           string         // 总欠
 }
 
+// UUIDToSerial 生成移动端展示的 6 位票号：
+// uuid.hashCode().abs() 后取前 6 位，不足 6 位左侧补 0
+func UUIDToSerial(uuid string) string {
+	var h int32
+	for i := 0; i < len(uuid); i++ {
+		h = 31*h + int32(uuid[i])
+	}
+	n := int64(h)
+	if n < 0 {
+		n = -n
+	}
+	s := strconv.FormatInt(n, 10)
+	if len(s) > 6 {
+		s = s[:6]
+	}
+	for len(s) < 6 {
+		s = "0" + s
+	}
+	return s
+}
+
 // GenerateHTML renders the receipt template and returns HTML string.
 func GenerateHTML(data ReceiptData) (html string, err error) {
 	funcMap := template.FuncMap{

@@ -11,6 +11,7 @@ var (
 	UserDao       = newUserDao()
 	PaymentDao    = newPaymentDao()
 	ShareDao      = newShareDao()
+	RechargeDao   = newRechargeDao()
 )
 
 func ShardOrderTable(ownerUser string) string {

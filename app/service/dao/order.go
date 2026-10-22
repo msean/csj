@@ -272,100 +272,49 @@ func (dao *orderDao) FindGoodsByBatchAndGoodsUUID(db *gorm.DB, ownerUser, batchU
 	return
 }
 
-// GetTodayOrdersWithGoods 获取分享所需的订单及货品（分表）
-// 如果 orderUUID 不为空，则展示该订单所在批次的全部订单
-// 如果 orderUUID 为空，则展示当天最近一个批次的订单；当天无订单则回退到最近有订单的一天
-// 前欠 = 目标批次之外所有有效订单的赊欠金额之和（包含当天其他批次 + 历史订单）
-func (dao *orderDao) GetTodayOrdersWithGoods(db *gorm.DB, ownerUser, customerUUID, orderUUID string) (orders []model.BatchOrder, previousCredit float64, err error) {
+// GetShareOrdersWithGoods 获取分享所需的订单及货品（分表）
+// 如果 orderUUID 不为空，返回该指定订单；否则返回当天或昨天最近的一单
+func (dao *orderDao) GetShareOrdersWithGoods(db *gorm.DB, ownerUser, customerUUID, orderUUID string) (orders []model.BatchOrder, previousCredit float64, err error) {
 	orderTable := ShardOrderTable(ownerUser)
 	goodsTable := ShardOrderGoodsTable(ownerUser)
-	var targetBatchUUID string
 
+	var targetOrder model.BatchOrder
 	if orderUUID != "" {
-		// 指定订单：取该订单所在批次
-		var order model.BatchOrder
-		err = db.Table(orderTable).Where("uid = ?", orderUUID).First(&order).Error
+		err = db.Table(orderTable).
+			Where("uid = ? AND owner_user = ? AND user_uuid = ? AND status IN (?)",
+				orderUUID, ownerUser, customerUUID, common.UnFinalStatusOrder).
+			First(&targetOrder).Error
 		if err != nil {
-			return nil, 0, fmt.Errorf("订单不存在: %w", err)
+			if err == gorm.ErrRecordNotFound {
+				err = fmt.Errorf("订单不存在")
+			}
+			return
 		}
-		targetBatchUUID = order.BatchUUID
 	} else {
-		// 未指定：查当天的订单
 		now := time.Now()
-		dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-		dayEnd := dayStart.Add(24 * time.Hour)
+		todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		yesterdayStart := todayStart.Add(-24 * time.Hour)
+		todayEnd := todayStart.Add(24 * time.Hour)
 
 		err = db.Table(orderTable).
 			Where("owner_user = ? AND user_uuid = ? AND status IN (?) AND order_time >= ? AND order_time < ?",
-				ownerUser, customerUUID, common.UnFinalStatusOrder, dayStart.Unix(), dayEnd.Unix()).
+				ownerUser, customerUUID, common.UnFinalStatusOrder, yesterdayStart.Unix(), todayEnd.Unix()).
 			Order("order_time DESC").
-			Find(&orders).Error
+			First(&targetOrder).Error
 		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				err = nil
+			}
 			return
 		}
-
-		// 当天无订单，回退到最近有订单的一天
-		if len(orders) == 0 {
-			var latest model.BatchOrder
-			err = db.Table(orderTable).
-				Where("owner_user = ? AND user_uuid = ? AND status IN (?) AND order_time > 0",
-					ownerUser, customerUUID, common.UnFinalStatusOrder).
-				Order("order_time DESC").
-				First(&latest).Error
-			if err != nil {
-				if err == gorm.ErrRecordNotFound {
-					err = nil
-				}
-				return
-			}
-			targetDate := time.Unix(int64(latest.OrderTime), 0)
-			dayStart = time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
-			dayEnd = dayStart.Add(24 * time.Hour)
-
-			orders = nil
-			err = db.Table(orderTable).
-				Where("owner_user = ? AND user_uuid = ? AND status IN (?) AND order_time >= ? AND order_time < ?",
-					ownerUser, customerUUID, common.UnFinalStatusOrder, dayStart.Unix(), dayEnd.Unix()).
-				Order("order_time DESC").
-				Find(&orders).Error
-			if err != nil {
-				return
-			}
-		}
-
-		// 取最近批次（已按 order_time DESC 排序，第一个就是最新）
-		if len(orders) > 0 {
-			targetBatchUUID = orders[0].BatchUUID
-		}
 	}
 
-	if targetBatchUUID == "" {
-		return
-	}
-
-	// 只查目标批次的订单（含货品）
-	orders = nil
 	err = db.Table(orderTable).
-		Where("owner_user = ? AND user_uuid = ? AND status IN (?) AND batch_uuid = ?",
-			ownerUser, customerUUID, common.UnFinalStatusOrder, targetBatchUUID).
+		Where("uid = ?", targetOrder.UID).
 		Preload("GoodsListRelated", func(db *gorm.DB) *gorm.DB {
 			return db.Table(goodsTable)
 		}).
 		Find(&orders).Error
-	if err != nil {
-		return
-	}
-
-	// 前欠计算：
-	// - 指定订单：目标批次之外所有有效订单的赊欠金额之和（包含当天其他批次 + 历史订单）
-	// - 未指定订单：由调用方用 customer.Credit - 本批次订单赊欠之和 计算，避免扫描全表
-	if orderUUID != "" {
-		err = db.Table(orderTable).
-			Where("owner_user = ? AND user_uuid = ? AND status IN (?) AND credit_amount > 0 AND batch_uuid <> ?",
-				ownerUser, customerUUID, common.UnFinalStatusOrder, targetBatchUUID).
-			Select("COALESCE(SUM(credit_amount), 0)").
-			Scan(&previousCredit).Error
-	}
 	return
 }
 
@@ -398,7 +347,7 @@ func (dao *orderDao) GetCreditList(db *gorm.DB, ownerUser string, conditions req
 		Joins("JOIN customers c ON c.uid = o.user_uuid").
 		Where("c.name <> ?", common.CashCustomerName).
 		Select(`COUNT(*) as total_credit_orders,
-			COALESCE(SUM(CASE WHEN o.created_at >= ? THEN o.credit_amount ELSE 0 END), 0) as today_credit_amount`, todayStart).
+			COALESCE(SUM(CASE WHEN o.order_time >= ? THEN o.credit_amount ELSE 0 END), 0) as today_credit_amount`, todayStart.Unix()).
 		Scan(&orderSummary).Error
 	if err != nil {
 		global.Global.Logger.Error("[GetCreditList] 查询订单赊欠汇总失败", zap.Error(err))
@@ -469,9 +418,9 @@ func (dao *orderDao) GetCreditList(db *gorm.DB, ownerUser string, conditions req
 		Where("o.owner_user = ? AND o.user_uuid IN ? AND o.status = ? AND o.credit_amount > 0",
 			ownerUser, userUUIDs, common.BatchOrderTemp).
 		Select(`o.user_uuid,
-			SUM(CASE WHEN o.created_at >= ? THEN o.credit_amount ELSE 0 END) as today_credit,
+			SUM(CASE WHEN o.order_time >= ? THEN o.credit_amount ELSE 0 END) as today_credit,
 			COUNT(*) as order_count,
-			MIN(o.created_at) as first_created`, todayStart).
+			MIN(o.created_at) as first_created`, todayStart.Unix()).
 		Group("o.user_uuid").
 		Scan(&orderStats).Error
 	if err != nil {

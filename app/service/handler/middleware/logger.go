@@ -20,7 +20,18 @@ func (w responseWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
+func shouldLogResponse() bool {
+	if global.Global.Env() == "test" || global.Global.Env() == "debug" {
+		return true
+	}
+	return false
+}
+
+// respMaxLen 响应体日志最大长度，超出部分截断，避免日志爆炸
+const respMaxLen = 8192
+
 func LoggerMiddleware() gin.HandlerFunc {
+	logResp := shouldLogResponse()
 	return func(c *gin.Context) {
 		_st := time.Now()
 		b, _ := c.GetRawData()
@@ -43,10 +54,24 @@ func LoggerMiddleware() gin.HandlerFunc {
 		c.Next()
 
 		statusCode := c.Writer.Status()
+		if !logResp {
+			global.Global.Logger.Info(
+				"[response] info",
+				zap.Int("status_code", statusCode),
+				zap.Float64("duration", time.Since(_st).Seconds()),
+			)
+			return
+		}
+
+		respBody := writer.b.String()
+		if len(respBody) > respMaxLen {
+			respBody = respBody[:respMaxLen] + "...(truncated)"
+		}
 		global.Global.Logger.Info(
 			"[response] info",
 			zap.Int("status_code", statusCode),
 			zap.Float64("duration", time.Since(_st).Seconds()),
+			zap.String("body", respBody),
 		)
 	}
 }

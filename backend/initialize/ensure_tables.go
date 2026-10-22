@@ -57,6 +57,9 @@ func (e *ensureTables) MigrateTable(ctx context.Context) (context.Context, error
 		sysModel.SysParams{},
 		sysModel.SysVersion{},
 		appmgr.AppVersion{},
+		appmgr.MemberConfig{},
+		appmgr.RechargeOrder{},
+		appmgr.AppUser{},
 		adapter.CasbinRule{},
 		model.Info{},
 	}

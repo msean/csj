@@ -4,6 +4,7 @@ import (
 	"app/pkg/utils"
 	"app/service/common"
 	"app/service/model"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -38,4 +39,10 @@ func (dao *userDao) FromUUID(db *gorm.DB, uuid string) (user model.User, err err
 		err = common.UnRegisterErr
 	}
 	return
+}
+
+// UpdateVipDeadline 更新用户会员截止时间
+func (dao *userDao) UpdateVipDeadline(db *gorm.DB, userUUID string, deadline time.Time) error {
+	return db.Model(&model.User{}).Where("uid = ?", userUUID).
+		Update("vip_deadline", deadline).Error
 }
