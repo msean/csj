@@ -6,6 +6,7 @@ import (
 	"app/service/cache"
 	"app/service/handler"
 	"app/service/model"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -34,7 +35,9 @@ func Run(cfgFilepath string, enableMigrate bool, enableShardMigrate bool) {
 	}
 
 	// 初始化分表：创建分表并迁移现有数据
+	log.Println(">>>>>>>>>>>>0", enableShardMigrate)
 	if enableShardMigrate {
+		log.Println(">>>>>>>>>>>>1")
 		if err := model.MigrateShardingTables(); err != nil {
 			global.Global.Logger.Error("创建分表失败", zap.Error(err))
 			panic(err)

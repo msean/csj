@@ -23,6 +23,21 @@ func (dao *userDao) Update(db *gorm.DB, user model.User) (err error) {
 	if user.Phone != "" {
 		toUpdate["phone"] = user.Phone
 	}
+	if user.ContactPhones != "" {
+		toUpdate["contact_phones"] = user.ContactPhones
+	}
+	if user.Province != "" {
+		toUpdate["province"] = user.Province
+	}
+	if user.MarketName != "" {
+		toUpdate["market_name"] = user.MarketName
+	}
+	if user.MarketAddress != "" {
+		toUpdate["market_address"] = user.MarketAddress
+	}
+	if user.StallName != "" {
+		toUpdate["stall_name"] = user.StallName
+	}
 	return utils.WhereUIDCond(user.UID).Cond(db.Model(&model.User{})).Updates(toUpdate).Error
 }
 

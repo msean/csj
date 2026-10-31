@@ -63,6 +63,11 @@ func (logic *PaymentLogic) QuickPay(req request.QuickPayReq) (rsp response.Quick
 	}
 	// 记录还款前客户赊欠总额（订单级 CreditAmount 之和）
 	beforeCredit := c.Credit
+	// 还款金额不能超过当前欠款金额
+	if utils.FloatGreat(req.Amount, c.Credit) {
+		err = common.PayAmountExceedCreditErr
+		return
+	}
 	// 2. 开始事务
 
 	orders, err := dao.OrderDao.FindOrdersWithCredit(
@@ -175,6 +180,13 @@ func (logic *PaymentLogic) QuickPay(req request.QuickPayReq) (rsp response.Quick
 
 	// 4. 创建还款记录（使用分表 DAO）
 	payDetailsJSON, _ := json.Marshal(payDetails)
+	// 实际抵扣金额 = 还款金额+优惠 - 未用完的剩余金额
+	// 包含用于原始债务和订单赊欠的总和（Debt 是总欠款，扣减一致）
+	actualPaid := req.Amount + req.DisCount - remainingAmount
+	afterCredit := beforeCredit - actualPaid
+	if afterCredit < 0 {
+		afterCredit = 0
+	}
 
 	payRecord := model.BatchOrderPay{
 		CustomerUUID:   req.CustomerUUID,
@@ -185,6 +197,7 @@ func (logic *PaymentLogic) QuickPay(req request.QuickPayReq) (rsp response.Quick
 		PayType:        req.PayType,
 		PayDetails:     string(payDetailsJSON),
 		BeforeCredit:   beforeCredit,
+		AfterCredit:    afterCredit,
 	}
 
 	if err = dao.PaymentDao.CreatePay(tx, &payRecord); err != nil {
@@ -192,18 +205,15 @@ func (logic *PaymentLogic) QuickPay(req request.QuickPayReq) (rsp response.Quick
 	}
 
 	// 5. 扣减客户总欠款 Customer.Debt
-	//    注意：实际抵扣金额 = 还款金额+优惠 - 未用完的剩余金额
-	//    包含用于原始债务和订单赊欠的总和（Debt 是总欠款，扣减一致）
-	actualPaid := req.Amount + req.DisCount - remainingAmount
 	if actualPaid > 0 {
 		if err = dao.CustomerDao.DecrDebt(tx, req.CustomerUUID, actualPaid); err != nil {
 			return
 		}
 	}
 
-	// 6. 创建消息记录
+	// 6. 创建消息记录（同时记录还款后剩余欠款）
 	if err = logic.createMessage(tx, req.CustomerUUID, 1, "快捷还款",
-		fmt.Sprintf("还款 %.2f 元", req.Amount), payRecord.UID); err != nil {
+		fmt.Sprintf("还款 %.2f 元，剩余欠款 %.2f 元", req.Amount, afterCredit), payRecord.UID); err != nil {
 		return
 	}
 
@@ -221,13 +231,19 @@ func (logic *PaymentLogic) QuickPay(req request.QuickPayReq) (rsp response.Quick
 
 // OrderPay 针对订单还款
 func (logic *PaymentLogic) OrderPay(req request.OrderPayReq) (rsp response.OrderPayRsp, err error) {
-	// 1. 使用 DAO 查询订单
+	// 1. 查询订单
 	order, err := dao.OrderDao.FindByUID(logic.runtime.DB, logic.OwnerUser, req.OrderUUID)
 	if err != nil {
 		return
 	}
 
-	// 2. 开始事务
+	// 2. 还款金额不能超过订单自身的赊欠金额
+	if utils.FloatGreat(req.Amount, order.CreditAmount) {
+		err = common.PayAmountExceedCreditErr
+		return
+	}
+
+	// 3. 开启事务
 	tx := logic.runtime.DB.Begin()
 	defer func() {
 		if err != nil {
@@ -235,68 +251,30 @@ func (logic *PaymentLogic) OrderPay(req request.OrderPayReq) (rsp response.Order
 		}
 	}()
 
-	// 3. 先判断客户是否存在未清的"原始债务"（Debt > PaidDebt）
-	//    还款优先级：先还原始债务 → 再还订单
-	c, err := dao.CustomerDao.FromUUID(tx, order.UserUUID)
-	if err != nil {
+	// 4. 记录还款前后订单赊欠快照
+	beforeCredit := order.CreditAmount
+	order.CreditAmount -= req.Amount
+	if order.CreditAmount <= 0 {
+		order.Status = common.BatchOrderFinish
+	}
+
+	if err = dao.OrderDao.UpdateOrderCreditStatus(tx, logic.OwnerUser, order.UID, order.CreditAmount, order.Status); err != nil {
 		return
 	}
-	pendingDebt := c.Debt - c.PaidDebt
-	if pendingDebt < 0 {
-		pendingDebt = 0
+
+	afterCredit := beforeCredit - req.Amount
+	if afterCredit < 0 {
+		afterCredit = 0
 	}
 
-	remainingAmount := req.Amount
-	var payDetails []model.PayDetail
-
-	// 3a. 优先偿还原始债务
-	debtPaidAmount := 0.0
-	if pendingDebt > 0 && remainingAmount > 0 {
-		debtPaidAmount = remainingAmount
-		if debtPaidAmount > pendingDebt {
-			debtPaidAmount = pendingDebt
-		}
-		remainingAmount -= debtPaidAmount
-
-		if err = dao.CustomerDao.Pay(tx, order.UserUUID, debtPaidAmount); err != nil {
-			return
-		}
-
-		payDetails = append(payDetails, model.PayDetail{
-			Type:      common.PayDetailTypeDebt,
-			OrderUUID: "",
-			Amount:    debtPaidAmount,
-		})
-	}
-
-	// 3b. 剩余金额抵扣订单赊欠
-	originalCredit := order.CreditAmount
-	orderCreditPaid := 0.0
-	if remainingAmount > 0 {
-		orderCreditPaid = remainingAmount
-		if orderCreditPaid > order.CreditAmount {
-			orderCreditPaid = order.CreditAmount
-		}
-		remainingAmount -= orderCreditPaid
-		order.CreditAmount -= orderCreditPaid
-
-		if order.CreditAmount <= 0 {
-			order.Status = common.BatchOrderFinish
-		}
-
-		if err = dao.OrderDao.UpdateOrderCreditStatus(tx, logic.OwnerUser, order.UID, order.CreditAmount, order.Status); err != nil {
-			return
-		}
-
-		payDetails = append(payDetails, model.PayDetail{
-			Type:      common.PayDetailTypeOrder,
-			OrderUUID: order.UID,
-			Amount:    orderCreditPaid,
-		})
-	}
-
-	// 4. 创建还款记录（使用分表 DAO）
+	// 5. 创建还款记录
+	payDetails := []model.PayDetail{{
+		Type:      common.PayDetailTypeOrder,
+		OrderUUID: order.UID,
+		Amount:    req.Amount,
+	}}
 	payDetailsJSON, _ := json.Marshal(payDetails)
+
 	payRecord := model.BatchOrderPay{
 		CustomerUUID:   order.UserUUID,
 		OwnerUser:      logic.OwnerUser,
@@ -304,39 +282,35 @@ func (logic *PaymentLogic) OrderPay(req request.OrderPayReq) (rsp response.Order
 		Amount:         req.Amount,
 		PayType:        req.PayType,
 		PayDetails:     string(payDetailsJSON),
+		BeforeCredit:   beforeCredit,
+		AfterCredit:    afterCredit,
 	}
 
 	if err = dao.PaymentDao.CreatePay(tx, &payRecord); err != nil {
 		return
 	}
 
-	// 5. 扣减客户总欠款 Customer.Debt
-	//    实际扣减 = 总还款 - 未用完的剩余金额 = 原始债务抵扣 + 订单赊欠抵扣
-	actualPaid := req.Amount - remainingAmount
-	if actualPaid > 0 {
-		if err = dao.CustomerDao.DecrDebt(tx, order.UserUUID, actualPaid); err != nil {
-			return
-		}
-	}
-
-	// 6. 创建消息记录
-	if err = logic.createMessage(tx, order.UserUUID, 1, "订单还款",
-		fmt.Sprintf("订单 %s 还款 %.2f 元", req.OrderUUID[:8]+"...", req.Amount), payRecord.UID); err != nil {
+	// 6. 扣减客户订单赊欠合计（credit 字段）
+	if err = dao.CustomerDao.DecrDebt(tx, order.UserUUID, req.Amount); err != nil {
 		return
 	}
 
-	// 7. 提交事务
+	// 7. 创建消息记录
+	if err = logic.createMessage(tx, order.UserUUID, 1, "订单还款",
+		fmt.Sprintf("订单还款 %.2f 元，剩余欠款 %.2f 元", req.Amount, afterCredit), payRecord.UID); err != nil {
+		return
+	}
+
+	// 8. 提交事务
 	if err = tx.Commit().Error; err != nil {
 		return
 	}
 
 	logic.runtime.Logger.Info("订单还款",
 		zap.String("orderUUID", req.OrderUUID),
-		zap.Float64("originalCredit", originalCredit),
-		zap.Float64("debtPaidAmount", debtPaidAmount),
-		zap.Float64("orderCreditPaid", orderCreditPaid),
+		zap.Float64("beforeCredit", beforeCredit),
 		zap.Float64("payAmount", req.Amount),
-		zap.Float64("newCredit", order.CreditAmount),
+		zap.Float64("afterCredit", afterCredit),
 		zap.Int("status", order.Status))
 
 	rsp.PayUUID = payRecord.UID
@@ -368,6 +342,8 @@ func (logic *PaymentLogic) PayHistory(req request.PayHistoryReq) (items []respon
 			CustomerUUID:  pay.CustomerUUID,
 			CustomerName:  customer.Name,
 			Amount:        pay.Amount,
+			BeforeCredit:  pay.BeforeCredit,
+			AfterCredit:   pay.AfterCredit,
 			PayType:       pay.PayType,
 			IsRevoked:     pay.IsRevoked,
 			RevokedAt:     pay.RevokedAt,
@@ -396,6 +372,8 @@ func (logic *PaymentLogic) PayDetail(req request.PayDetailReq) (rsp response.Pay
 		CustomerName:  customer.Name,
 		OrderUUID:     pay.BatchOrderUUID,
 		Amount:        pay.Amount,
+		BeforeCredit:  pay.BeforeCredit,
+		AfterCredit:   pay.AfterCredit,
 		PayType:       pay.PayType,
 		PayDetails:    pay.PayDetails,
 		IsRevoked:     pay.IsRevoked,

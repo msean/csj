@@ -136,6 +136,19 @@ func (dao *orderDao) CustomerCreditAmount(db *gorm.DB, ownerUser, userUUID strin
 	return
 }
 
+// CustomerCreditAmountBeforeOrder 查询客户在某订单之前（order_time < cutoff）已产生的未结清赊欠金额。
+// 用于分享某一笔旧订单时计算「前欠」口径：分享的是前天的单，前欠就是前天下单那一刻客户已有的总欠账。
+func (dao *orderDao) CustomerCreditAmountBeforeOrder(db *gorm.DB, ownerUser, userUUID string, orderTimeCutoff int64) (creditAmount float64, err error) {
+	err = db.Table(ShardOrderTable(ownerUser)).
+		Where("owner_user = ? AND user_uuid = ?", ownerUser, userUUID).
+		Where("status IN (?)", common.UnFinalStatusOrder).
+		Where("credit_amount > ?", 0).
+		Where("order_time > 0 AND order_time < ?", orderTimeCutoff).
+		Select("COALESCE(SUM(credit_amount), 0)").
+		Scan(&creditAmount).Error
+	return
+}
+
 func (dao *orderDao) FindOrdersWithCredit(db *gorm.DB, ownerUser, customerUUID string, validStatuses []int) ([]model.BatchOrder, error) {
 	var orders []model.BatchOrder
 	err := db.Table(ShardOrderTable(ownerUser)).Where("owner_user = ? AND user_uuid = ? AND status IN (?) AND credit_amount != 0",
@@ -274,16 +287,18 @@ func (dao *orderDao) FindGoodsByBatchAndGoodsUUID(db *gorm.DB, ownerUser, batchU
 
 // GetShareOrdersWithGoods 获取分享所需的订单及货品（分表）
 // 如果 orderUUID 不为空，返回该指定订单；否则返回当天或昨天最近的一单
-func (dao *orderDao) GetShareOrdersWithGoods(db *gorm.DB, ownerUser, customerUUID, orderUUID string) (orders []model.BatchOrder, previousCredit float64, err error) {
+func (dao *orderDao) GetShareOrdersWithGoods(db *gorm.DB, ownerUser, customerUUID, orderUUID string) (order model.BatchOrder, previousCredit float64, err error) {
 	orderTable := ShardOrderTable(ownerUser)
 	goodsTable := ShardOrderGoodsTable(ownerUser)
 
-	var targetOrder model.BatchOrder
 	if orderUUID != "" {
 		err = db.Table(orderTable).
+			Preload("GoodsListRelated", func(db *gorm.DB) *gorm.DB {
+				return db.Table(goodsTable)
+			}).
 			Where("uid = ? AND owner_user = ? AND user_uuid = ? AND status IN (?)",
 				orderUUID, ownerUser, customerUUID, common.UnFinalStatusOrder).
-			First(&targetOrder).Error
+			First(&order).Error
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				err = fmt.Errorf("订单不存在")
@@ -291,16 +306,14 @@ func (dao *orderDao) GetShareOrdersWithGoods(db *gorm.DB, ownerUser, customerUUI
 			return
 		}
 	} else {
-		now := time.Now()
-		todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-		yesterdayStart := todayStart.Add(-24 * time.Hour)
-		todayEnd := todayStart.Add(24 * time.Hour)
-
 		err = db.Table(orderTable).
-			Where("owner_user = ? AND user_uuid = ? AND status IN (?) AND order_time >= ? AND order_time < ?",
-				ownerUser, customerUUID, common.UnFinalStatusOrder, yesterdayStart.Unix(), todayEnd.Unix()).
+			Preload("GoodsListRelated", func(db *gorm.DB) *gorm.DB {
+				return db.Table(goodsTable)
+			}).
+			Where("owner_user = ? AND user_uuid = ? AND status IN (?)",
+				ownerUser, customerUUID, common.UnFinalStatusOrder).
 			Order("order_time DESC").
-			First(&targetOrder).Error
+			First(&order).Error
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				err = nil
@@ -308,13 +321,6 @@ func (dao *orderDao) GetShareOrdersWithGoods(db *gorm.DB, ownerUser, customerUUI
 			return
 		}
 	}
-
-	err = db.Table(orderTable).
-		Where("uid = ?", targetOrder.UID).
-		Preload("GoodsListRelated", func(db *gorm.DB) *gorm.DB {
-			return db.Table(goodsTable)
-		}).
-		Find(&orders).Error
 	return
 }
 

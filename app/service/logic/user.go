@@ -65,7 +65,12 @@ func (logic *UserLogic) Register() (token string, err error) {
 		return
 	}
 	user := model.User{
-		Phone: logic.Phone,
+		Phone:         logic.Phone,
+		ContactPhones: logic.ContactPhones,
+		Province:      logic.Province,
+		MarketName:    logic.MarketName,
+		MarketAddress: logic.MarketAddress,
+		StallName:     logic.StallName,
 	}
 	tx := logic.runTime.DB.Begin()
 	if err = utils.CreateObj(tx, &user); err != nil {

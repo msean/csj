@@ -9,7 +9,7 @@ import (
 
 func FloatGreat(a, b float64) bool {
 	if math.Abs(float64(a-b)) < 0.0001 {
-		return true
+		return false
 	}
 	return a > b
 }

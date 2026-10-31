@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf16"
 )
 
 //go:embed receipt.html.tmpl
@@ -43,21 +44,39 @@ type ReceiptData struct {
 	CustomerName           string
 	SerialNo               string
 	Date                   string
-	Contact                string
+	Contact                string         // 联系方式（手机号）
+	MarketName             string         // 市场名称（抬头第二行）
+	UserName               string         // 用户名（抬头第三行）
+	MarketAddress          string         // 市场地址（底部地址行）
+	StallName              string         // 档口名称（抬头第四行）
 	Orders                 []ReceiptOrder // 按订单分组，每单独立表格
 	CreditAmountStr        string         // 今日赊欠（所有订单合计）
 	TotalPreviousCreditStr string         // 前欠
 	TotalDebtStr           string         // 总欠
 }
 
-// UUIDToSerial 生成移动端展示的 6 位票号：
-// uuid.hashCode().abs() 后取前 6 位，不足 6 位左侧补 0
-func UUIDToSerial(uuid string) string {
-	var h int32
-	for i := 0; i < len(uuid); i++ {
-		h = 31*h + int32(uuid[i])
+// DartStringHashCode 复刻 Dart VM 中 String.hashCode 的算法：
+// Jenkins one-at-a-time（按 UTF-16 code unit 累加），最后与 0x3fffffff 掩码，
+// 保证结果落在 Dart Smi 范围内且恒为非负。
+// 注意：Dart 的 String.hashCode 与 Java 的 String.hashCode 不是同一套算法。
+func DartStringHashCode(s string) int32 {
+	var h uint32
+	for _, u := range utf16.Encode([]rune(s)) {
+		h += uint32(u)
+		h += h << 10
+		h ^= h >> 6
 	}
-	n := int64(h)
+	h += h << 3
+	h ^= h >> 11
+	h += h << 15
+	return int32(h & 0x3fffffff)
+}
+
+// UUIDToSerial 生成移动端展示的 6 位票号，与 Flutter 端保持一致：
+// uuid.hashCode.abs().toString().padLeft(6, '0').substring(0, 6)
+func UUIDToSerial(uuid string) string {
+	n := int64(DartStringHashCode(uuid))
+	// Dart hashCode 已做 30 位掩码，恒为非负，这里保留 .abs() 的语义
 	if n < 0 {
 		n = -n
 	}

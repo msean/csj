@@ -10,6 +10,9 @@ type (
 	// 一个订单对应多个订单货品
 	BatchOrder struct {
 		BaseModel
+		// AutoID 分表内自增ID（临时用于排序/排查，非全局唯一；uid 仍是主键）
+		// -:migration 表示该列由建表/迁移 SQL 显式维护，避免 AutoMigrate 误删 id 的唯一索引
+		AutoID           uint64             `gorm:"column:id;autoIncrement;-:migration" json:"id"`
 		BatchUUID        string             `gorm:"column:batch_uuid;type:varchar(64);comment:批次uuid" json:"batchUUID"`
 		OwnerUser        string             `gorm:"column:owner_user;type:varchar(64);comment:所属用户;index" json:"ownerUser"`
 		UserUUID         string             `gorm:"column:user_uuid;type:varchar(64);comment:开单uuid;index:idx_owner_user" json:"customerUUID"`
@@ -59,6 +62,7 @@ type (
 		RevokedReason  string     `gorm:"column:revoked_reason;type:varchar(255);comment:撤销原因" json:"revokedReason"`
 		Discount       float64    `gorm:"column:discount;type:decimal(10,2);comment:优惠金额（正数还款，负数撤销）" json:"discount"`
 		BeforeCredit   float64    `gorm:"column:before_credit;type:decimal(12,2);default:0;comment:还款前客户赊欠总额" json:"beforeCredit"`
+		AfterCredit    float64    `gorm:"column:after_credit;type:decimal(12,2);default:0;comment:还款后客户剩余赊欠总额" json:"afterCredit"`
 		// 快捷还款时存储多个订单的还款详情 JSON
 		// 格式：[{"orderUUID":"xxx","amount":100},{"orderUUID":"yyy","amount":200}]
 		PayDetails string `gorm:"column:pay_details;type:text;comment:还款详情JSON" json:"payDetails"`

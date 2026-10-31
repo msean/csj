@@ -31,6 +31,8 @@ type (
 		CustomerUUID  string     `json:"customerUUID"`
 		CustomerName  string     `json:"customerName"`
 		Amount        float64    `json:"amount"`
+		BeforeCredit  float64    `json:"beforeCredit"` // 还款前欠款
+		AfterCredit   float64    `json:"afterCredit"`  // 还款后剩余欠款
 		PayType       int32      `json:"payType"`
 		Remark        string     `json:"remark"`
 		IsRevoked     int        `json:"isRevoked"`
@@ -46,6 +48,8 @@ type (
 		CustomerName  string     `json:"customerName"`
 		OrderUUID     string     `json:"orderUUID"` // 订单UUID（快捷还款为空）
 		Amount        float64    `json:"amount"`
+		BeforeCredit  float64    `json:"beforeCredit"` // 还款前欠款
+		AfterCredit   float64    `json:"afterCredit"`  // 还款后剩余欠款
 		PayType       int32      `json:"payType"`
 		Remark        string     `json:"remark"`
 		PayDetails    string     `json:"payDetails"` // 快捷还款的订单详情JSON

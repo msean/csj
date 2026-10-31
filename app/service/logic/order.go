@@ -9,9 +9,12 @@ import (
 	"app/service/model"
 	"app/service/model/request"
 	"app/service/model/response"
+	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -64,6 +67,41 @@ func (logic *OrderLogic) isCashCustomer() (bool, error) {
 	return customer.Name == common.CashCustomerName, nil
 }
 
+// orderDedupTTL 同一客户在该时间段内提交相同货品时只允许创建一次订单
+const orderDedupTTL = 3 * time.Second
+
+// goodsFingerprint 生成货品明细指纹，用于识别两次提交是否为同一笔订单。
+func goodsFingerprint(goodsList []*model.BatchOrderGoods) string {
+	parts := make([]string, 0, len(goodsList))
+	for _, goods := range goodsList {
+		parts = append(parts, fmt.Sprintf("%s|%d|%.2f|%d|%.2f",
+			goods.GoodsUUID, goods.GoodType, goods.Price, goods.Mount, goods.Weight))
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ";")
+}
+
+// orderDedupKey 生成 Redis 幂等键：同一用户、同一客户、相同货品时键相同。
+func (logic *OrderLogic) orderDedupKey() string {
+	sum := sha256.Sum256([]byte(logic.UserUUID + "|" + goodsFingerprint(logic.GoodsListRelated)))
+	return fmt.Sprintf("order:dedup:%s:%x", logic.OwnerUser, sum)
+}
+
+// acquireOrderDedup 用 Redis SETNX 抢占本次下单的幂等键。
+// 键已存在说明 2 秒内已提交过相同订单，直接返回 false。
+// Redis 异常时不阻断正常下单，退化为不做防重。
+func (logic *OrderLogic) acquireOrderDedup() bool {
+	if global.Global.Redis == nil {
+		return true
+	}
+	ok, err := global.Global.Redis.SetNX(context.Background(), logic.orderDedupKey(), 1, orderDedupTTL).Result()
+	if err != nil {
+		global.Global.Logger.Warn("[OrderCreate] Redis 防重失败，跳过防重", zap.Error(err))
+		return true
+	}
+	return ok
+}
+
 // 码单
 func (logic *OrderLogic) TempCreate() (err error) {
 	logic.BatchOrder.DefaultSet()
@@ -92,6 +130,11 @@ func (logic *OrderLogic) TempCreate() (err error) {
 	}
 	if isCash {
 		return common.CashCustomerPayLessErr
+	}
+
+	// 同一客户 2 秒内重复提交相同货品时直接拦截
+	if !logic.acquireOrderDedup() {
+		return common.OrderDuplicateSubmitErr
 	}
 
 	// 创建订单 + 更新客户统计（使用事务保证一致性）
@@ -254,6 +297,11 @@ func (logic *OrderLogic) Create(orderReq request.OrderReq) (err error) {
 		goods.UserUUID = logic.UserUUID
 	}
 
+	// 用 Redis 幂等键防止网络抖动导致同一笔下单重复创建
+	if !logic.acquireOrderDedup() {
+		return common.OrderDuplicateSubmitErr
+	}
+
 	tx := logic.runtime.DB.Begin()
 
 	// 1. 先创建订单（不包含货品）
@@ -335,45 +383,53 @@ func (logic *OrderLogic) ShareOrder(req request.ShareDailyOrderReq) (rsp *respon
 		return nil, fmt.Errorf("customer not found: %w", err)
 	}
 
-	orders, _, err := dao.OrderDao.GetShareOrdersWithGoods(logic.runtime.DB, logic.OwnerUser, req.CustomerUUID, req.OrderUUID)
+	// 经营户（当前登录用户）的菜市场信息，用于分享单抬头与底部联系方式
+	owner, err := dao.UserDao.FromUUID(logic.runtime.DB, logic.OwnerUser)
+	if err != nil {
+		return nil, fmt.Errorf("owner user not found: %w", err)
+	}
+
+	order, _, err := dao.OrderDao.GetShareOrdersWithGoods(logic.runtime.DB, logic.OwnerUser, req.CustomerUUID, req.OrderUUID)
 	if err != nil {
 		return
 	}
 
 	// Build goods name map via cache
-	var goodsUUIDs []string
-	for _, o := range orders {
-		for _, g := range o.GoodsListRelated {
-			goodsUUIDs = append(goodsUUIDs, g.GoodsUUID)
-		}
+	goodsUUIDs := make([]string, 0, len(order.GoodsListRelated))
+	for _, g := range order.GoodsListRelated {
+		goodsUUIDs = append(goodsUUIDs, g.GoodsUUID)
 	}
 	goodsMap, _ := cache.GoodsCache.BatchGoodsFeildSet(goodsUUIDs, logic.OwnerUser)
 
-	// 订单时间：优先取下单时间 order_time，老数据缺失时回退创建时间
-	orderTimeOf := func(o model.BatchOrder) time.Time {
-		if o.OrderTime > 0 {
-			return time.Unix(int64(o.OrderTime), 0)
-		}
-		return o.CreatedAt
-	}
-
 	// 只取最近的一单（同批次、不同批次都只展示最新的那个）
-	var latest *model.BatchOrder
-	for i := range orders {
-		if latest == nil || orderTimeOf(orders[i]).After(orderTimeOf(*latest)) {
-			latest = &orders[i]
-		}
+	var latestCredit, latestTricycleFee float64
+	var previousCreditAmount float64
+	pendingDebt := customer.Debt - customer.PaidDebt
+	if pendingDebt < 0 {
+		pendingDebt = 0
 	}
 
-	// 今日赊欠 = 本单欠款；前欠 = 客户当前总赊欠 - 本单欠款
-	var latestCredit, latestTricycleFee float64
-	if latest != nil {
-		latestCredit = latest.CreditAmount
-		latestTricycleFee = latest.TricycleFee
-	}
-	previousCreditAmount := customer.Credit - latestCredit
-	if previousCreditAmount < 0 {
-		previousCreditAmount = 0
+	// 表示查到了
+	if order.UID != "" {
+		latestCredit = order.CreditAmount
+		latestTricycleFee = order.TricycleFee
+
+		preTime := order.CreatedAt
+		if order.OrderTime > 0 {
+			preTime = time.Unix(int64(order.OrderTime), 0)
+		}
+
+		// 历史单：精确回溯到该订单下单之前（只含订单赊欠，不含原始债务）
+		previousCreditAmount, err = dao.OrderDao.CustomerCreditAmountBeforeOrder(
+			logic.runtime.DB, logic.OwnerUser, req.CustomerUUID, preTime.Unix())
+		if err != nil {
+			global.Global.Logger.Error("[ShareOrder] 查询订单前欠失败，回退为客户总赊欠减本单赊欠", zap.Error(err))
+			previousCreditAmount = customer.Credit - latestCredit
+		} else {
+			previousCreditAmount += pendingDebt
+		}
+	} else {
+		previousCreditAmount += customer.Credit
 	}
 
 	rsp = &response.ShareDailyOrderRsp{
@@ -383,15 +439,16 @@ func (logic *OrderLogic) ShareOrder(req request.ShareDailyOrderReq) (rsp *respon
 	}
 
 	// 渲染这一单的货品明细
-	if latest != nil {
+	if order.UID != "" {
+		ot := time.Unix(int64(order.OrderTime), 0)
 		group := response.ShareDailyOrderGroup{
-			OrderUUID:   latest.UID,
-			SerialNo:    utils.UUIDToSerial(latest.UID),
-			DateStr:     orderTimeOf(*latest).Format("2006-01-02 15:04"),
-			TricycleFee: latest.TricycleFee,
-			TotalAmount: latest.CreditAmount,
+			OrderUUID:   order.UID,
+			SerialNo:    utils.UUIDToSerial(order.UID),
+			DateStr:     ot.Format("2006-01-02 15:04"),
+			TricycleFee: order.TricycleFee,
+			TotalAmount: order.CreditAmount,
 		}
-		for _, g := range latest.GoodsListRelated {
+		for _, g := range order.GoodsListRelated {
 			item := &response.ShareDailyOrderItem{
 				GoodsUUID: g.GoodsUUID,
 				GoodsName: goodsMap[g.GoodsUUID].GoodsName,
@@ -417,7 +474,7 @@ func (logic *OrderLogic) ShareOrder(req request.ShareDailyOrderReq) (rsp *respon
 		})
 		rsp.OrderGroups = append(rsp.OrderGroups, group)
 
-		rsp.Date = orderTimeOf(*latest).Format("2006-01-02 15:04")
+		rsp.Date = ot.Format("2006-01-02 15:04")
 	} else {
 		rsp.Date = time.Now().Format("2006-01-02 15:04")
 	}
@@ -425,13 +482,36 @@ func (logic *OrderLogic) ShareOrder(req request.ShareDailyOrderReq) (rsp *respon
 	// 计算总赊欠 = 前欠 + 今日赊欠
 	rsp.TotalCreditAmount = rsp.PreviousCreditAmount + rsp.TodayCreditAmount
 
-	rsp.Contact = logic.runtime.Viper.GetString("share.contact")
-	rsp.Title = logic.runtime.Viper.GetString("share.title")
-	if rsp.Title == "" {
-		rsp.Title = "账单详情"
+	// 抬头：<省份>食用农产品批发市场销售票据 / 市场名称 / 用户名 / 档口名称
+	province := strings.TrimSpace(owner.Province)
+	rsp.Title = province + "食用农产品批发市场销售票据"
+	rsp.MarketName = owner.MarketName
+	rsp.UserName = owner.Name
+	rsp.MarketAddress = owner.MarketAddress
+	rsp.StallName = owner.StallName
+	// 底部联系方式：优先用户自定义的分享联系方式（前端逗号分隔，展示用空格分隔），
+	// 未设置时回退到登录手机号，最后回退到配置文件
+	rsp.Contact = joinContactPhones(owner.ContactPhones)
+	if rsp.Contact == "" {
+		rsp.Contact = owner.Phone
+	}
+	if rsp.Contact == "" {
+		rsp.Contact = logic.runtime.Viper.GetString("share.contact")
 	}
 	rsp.CustomerName = customer.Name
 	return
+}
+
+// joinContactPhones 将前端用逗号分隔的多个联系方式转成展示用的空格分隔
+func joinContactPhones(raw string) string {
+	parts := strings.Split(raw, ",")
+	phones := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
+			phones = append(phones, part)
+		}
+	}
+	return strings.Join(phones, " ")
 }
 
 // buildReceiptData 从 ShareDailyOrderRsp 构建模板渲染数据，按订单分组。
@@ -465,6 +545,10 @@ func (logic *OrderLogic) buildReceiptData(rsp *response.ShareDailyOrderRsp) util
 		SerialNo:               fmt.Sprintf("%d", time.Now().Unix()%100000),
 		Date:                   rsp.Date,
 		Contact:                rsp.Contact,
+		MarketName:             rsp.MarketName,
+		UserName:               rsp.UserName,
+		MarketAddress:          rsp.MarketAddress,
+		StallName:              rsp.StallName,
 		Orders:                 orders,
 		CreditAmountStr:        utils.FormatFloat(rsp.TodayCreditAmount),
 		TotalPreviousCreditStr: utils.FormatFloat(rsp.PreviousCreditAmount),
@@ -524,23 +608,28 @@ func (logic *OrderLogic) UpdateStatus() (err error) {
 		return
 	}
 
-	if err = dao.OrderDao.UpdateStatus(logic.runtime.DB, logic.OwnerUser, logic.UID, logic.Status); err != nil {
+	// 订单状态更新 + 客户统计回退放在同一个事务内
+	tx := logic.runtime.DB.Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err = dao.OrderDao.UpdateStatus(tx, logic.OwnerUser, logic.UID, logic.Status); err != nil {
 		return
 	}
 
 	// 作废/退款/退货：减少客户统计
 	if logic.Status == common.BatchOrderCancel || logic.Status == common.BatchOrderRefund || logic.Status == common.BatchOrderReTurn {
-		if err = dao.CustomerDao.DecrOrderStats(logic.runtime.DB, oldOrder.UserUUID, oldOrder.TotalAmount, oldOrder.CreditAmount); err != nil {
+		if err = dao.CustomerDao.DecrOrderStats(tx, oldOrder.UserUUID, oldOrder.TotalAmount, oldOrder.CreditAmount); err != nil {
 			return
 		}
 	}
 
-	// switch logic.Status {
-	// case common.BatchOrderTemp:
-	// 	logic.Record(true, model.HistoryStepCredit, model.PayFeild{})
-	// case common.BatchOrderCancel, common.BatchOrderRefund:
-	// 	logic.Record(true, model.HistoryStepCrash, model.PayFeild{})
-	// }
+	if err = tx.Commit().Error; err != nil {
+		return
+	}
 	return
 }
 

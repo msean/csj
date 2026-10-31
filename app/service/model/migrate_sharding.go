@@ -5,48 +5,49 @@ import (
 	"app/pkg/utils"
 	"fmt"
 	"log"
-
-	"go.uber.org/zap"
 )
 
 // MigrateShardingTables 创建50张分表
 func MigrateShardingTables() error {
 	global.Global.Logger.Info("开始创建分表...")
-
-	// 0. 删除外键约束（分表架构不需要）
-	if err := dropForeignKeyConstraints(); err != nil {
-		global.Global.Logger.Warn("删除外键约束失败（可能已删除）", zap.Error(err))
-	}
-
 	// 1. 创建 batch_orders 分表
-	orderTables := utils.GetAllShardTableNames("batch_orders")
-	for i, tableName := range orderTables {
-		if err := createOrderTable(tableName); err != nil {
-			return fmt.Errorf("创建 batch_orders_%d 失败: %w", i, err)
-		}
-		global.Global.Logger.Info(fmt.Sprintf("创建分表成功: %s", tableName))
-	}
+	// orderTables := utils.GetAllShardTableNames("batch_orders")
+	// for i, tableName := range orderTables {
+	// 	if err := createOrderTable(tableName); err != nil {
+	// 		return fmt.Errorf("创建 batch_orders_%d 失败: %w", i, err)
+	// 	}
+	// 	global.Global.Logger.Info(fmt.Sprintf("创建分表成功: %s", tableName))
+	// }
 
-	// 创建 batch_order_goods 分表
-	goodsTables := utils.GetAllShardTableNames("batch_order_goods")
-	for i, tableName := range goodsTables {
-		if err := createGoodsTable(tableName); err != nil {
-			return fmt.Errorf("创建 batch_order_goods_%d 失败: %w", i, err)
-		}
-		global.Global.Logger.Info(fmt.Sprintf("创建分表成功: %s", tableName))
-	}
+	// // 创建 batch_order_goods 分表
+	// goodsTables := utils.GetAllShardTableNames("batch_order_goods")
+	// for i, tableName := range goodsTables {
+	// 	if err := createGoodsTable(tableName); err != nil {
+	// 		return fmt.Errorf("创建 batch_order_goods_%d 失败: %w", i, err)
+	// 	}
+	// 	global.Global.Logger.Info(fmt.Sprintf("创建分表成功: %s", tableName))
+	// }
 
-	// 创建 batch_order_pay 分表
-	payTables := utils.GetAllShardTableNames("batch_order_pay")
-	for i, tableName := range payTables {
-		if err := createPayTable(tableName); err != nil {
-			return fmt.Errorf("创建 batch_order_pay_%d 失败: %w", i, err)
-		}
-		global.Global.Logger.Info(fmt.Sprintf("创建分表成功: %s", tableName))
-	}
+	// // 创建 batch_order_pay 分表
+	// payTables := utils.GetAllShardTableNames("batch_order_pay")
+	// for i, tableName := range payTables {
+	// 	if err := createPayTable(tableName); err != nil {
+	// 		return fmt.Errorf("创建 batch_order_pay_%d 失败: %w", i, err)
+	// 	}
+	// 	global.Global.Logger.Info(fmt.Sprintf("创建分表成功: %s", tableName))
+	// }
+
+	log.Println(">>>>>>>>>>>>111")
+	// 为已存在的订单分表补充自增 id 字段（新建表已在 createOrderTable 中包含）
+	// if err := fixOrderTableAutoID(); err != nil {
+	// 	return fmt.Errorf("补充订单分表自增 id 失败: %w", err)
+	// }
 
 	// 自动同步分表结构（补齐 GORM 模型中新增的字段，无需手写 ALTER TABLE）
-	if err := AutoMigrateShardTables(); err != nil {
+	// if err := AutoMigrateShardTables(); err != nil {
+	// 	return fmt.Errorf("自动迁移分表字段失败: %w", err)
+	// }
+	if err := fixPayTableStructure(); err != nil {
 		return fmt.Errorf("自动迁移分表字段失败: %w", err)
 	}
 	// 创建 batch_goods 分表
@@ -128,21 +129,6 @@ func fixPayTableStructure() error {
 	fixedCount := 0
 
 	for _, tableName := range payTables {
-		// 检查是否已有customer_uuid字段
-		var colCount int64
-		err := global.Global.DB.Raw(
-			"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'customer_uuid'",
-			tableName).Scan(&colCount).Error
-
-		if err != nil {
-			log.Printf("[FixPayTable] 检查表 %s 结构失败: %v", tableName, err)
-			continue
-		}
-
-		if colCount > 0 {
-			continue // 字段已存在，跳过
-		}
-
 		// 检查表是否存在
 		var tableCount int64
 		global.Global.DB.Raw(
@@ -154,22 +140,39 @@ func fixPayTableStructure() error {
 		}
 
 		// 添加customer_uuid字段
-		sql := fmt.Sprintf(
-			"ALTER TABLE %s ADD COLUMN customer_uuid VARCHAR(64) NOT NULL DEFAULT '' AFTER uid",
-			tableName)
+		if !shardTableHasColumn(tableName, "customer_uuid") {
+			sql := fmt.Sprintf(
+				"ALTER TABLE %s ADD COLUMN customer_uuid VARCHAR(64) NOT NULL DEFAULT '' AFTER uid",
+				tableName)
 
-		if err := global.Global.DB.Exec(sql).Error; err != nil {
-			return fmt.Errorf("修复表 %s 失败: %w", tableName, err)
+			if err := global.Global.DB.Exec(sql).Error; err != nil {
+				return fmt.Errorf("修复表 %s 失败: %w", tableName, err)
+			}
+
+			// 添加索引
+			indexSQL := fmt.Sprintf(
+				"ALTER TABLE %s ADD INDEX idx_customer_uuid (customer_uuid)",
+				tableName)
+			global.Global.DB.Exec(indexSQL) // 忽略错误，可能索引已存在
+
+			fixedCount++
+			log.Printf("[FixPayTable] 修复表 %s 成功（customer_uuid）", tableName)
 		}
 
-		// 添加索引
-		indexSQL := fmt.Sprintf(
-			"ALTER TABLE %s ADD INDEX idx_customer_uuid (customer_uuid)",
-			tableName)
-		global.Global.DB.Exec(indexSQL) // 忽略错误，可能索引已存在
+		fmt.Println(">>>>>>>>>>>>>after_credit", shardTableHasColumn(tableName, "after_credit"))
+		// 添加after_credit字段，记录还款后剩余欠款
+		if !shardTableHasColumn(tableName, "after_credit") {
+			sql := fmt.Sprintf(
+				"ALTER TABLE %s ADD COLUMN after_credit DECIMAL(12,2) DEFAULT 0.00 COMMENT '还款后客户剩余赊欠总额' AFTER before_credit",
+				tableName)
 
-		fixedCount++
-		log.Printf("[FixPayTable] 修复表 %s 成功", tableName)
+			if err := global.Global.DB.Exec(sql).Error; err != nil {
+				return fmt.Errorf("修复表 %s 失败: %w", tableName, err)
+			}
+
+			fixedCount++
+			log.Printf("[FixPayTable] 修复表 %s 成功（after_credit）", tableName)
+		}
 	}
 
 	if fixedCount > 0 {
@@ -178,6 +181,72 @@ func fixPayTableStructure() error {
 		log.Println("[FixPayTable] 所有batch_order_pay分表结构正确")
 	}
 
+	return nil
+}
+
+// shardTableHasColumn 检查分表是否存在指定字段
+func shardTableHasColumn(tableName, columnName string) bool {
+	var count int64
+	err := global.Global.DB.Raw(
+		"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+		tableName, columnName).Scan(&count).Error
+	if err != nil {
+		log.Printf("[ShardTable] 检查表 %s 字段 %s 失败: %v", tableName, columnName, err)
+		return false
+	}
+	return count > 0
+}
+
+// fixOrderTableAutoID 为已存在的 batch_orders 分表补充自增 id 字段。
+// MySQL 要求 AUTO_INCREMENT 列必须建立索引，这里用 UNIQUE 内联创建索引，
+// uid 仍保持主键不变，避免影响现有查询和 GORM 主键约定。
+func fixOrderTableAutoID() error {
+	log.Println("[FixOrderAutoID] 开始检查订单分表自增 id...")
+
+	orderTables := utils.GetAllShardTableNames("batch_orders")
+	fixedCount := 0
+
+	for _, tableName := range orderTables {
+		// 表不存在则跳过（新建表已在 createOrderTable 中包含 id）
+		var tableCount int64
+		if err := global.Global.DB.Raw(
+			"SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
+			tableName).Scan(&tableCount).Error; err != nil {
+			log.Printf("[FixOrderAutoID] 检查表 %s 是否存在失败: %v", tableName, err)
+			continue
+		}
+		if tableCount == 0 {
+			continue
+		}
+
+		// id 列已存在则跳过
+		var colCount int64
+		if err := global.Global.DB.Raw(
+			"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'id'",
+			tableName).Scan(&colCount).Error; err != nil {
+			log.Printf("[FixOrderAutoID] 检查表 %s 字段失败: %v", tableName, err)
+			continue
+		}
+		if colCount > 0 {
+			continue
+		}
+
+		sql := fmt.Sprintf(
+			"ALTER TABLE %s ADD COLUMN id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE COMMENT '自增ID'",
+			tableName)
+		if err := global.Global.DB.Exec(sql).Error; err != nil {
+			return fmt.Errorf("为分表 %s 添加自增 id 失败: %w", tableName, err)
+		}
+
+		fixedCount++
+		log.Printf("[FixOrderAutoID] 为表 %s 添加自增 id 成功", tableName)
+	}
+
+	if fixedCount > 0 {
+		log.Printf("[FixOrderAutoID] 共修复了 %d 张 batch_orders 分表", fixedCount)
+	} else {
+		log.Println("[FixOrderAutoID] 所有 batch_orders 分表均已有 id 字段")
+	}
 	return nil
 }
 
@@ -332,7 +401,8 @@ func migrateOrderPayData() error {
 func createOrderTable(tableName string) error {
 	sql := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
-			uid VARCHAR(64) NOT NULL PRIMARY KEY,
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '自增ID',
+			uid VARCHAR(64) NOT NULL,
 			batch_uuid VARCHAR(64) NOT NULL,
 			owner_user VARCHAR(64) NOT NULL,
 			user_uuid VARCHAR(64) NOT NULL,
@@ -346,6 +416,8 @@ func createOrderTable(tableName string) error {
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL,
 			deleted_at DATETIME,
+			PRIMARY KEY (uid),
+			UNIQUE KEY uk_id (id),
 			INDEX idx_owner_user (owner_user),
 			INDEX idx_user_uuid (user_uuid),
 			INDEX idx_batch_uuid (batch_uuid),
@@ -397,6 +469,7 @@ func createPayTable(tableName string) error {
 			amount DECIMAL(10,2) DEFAULT 0.00 COMMENT '还款金额（正数还款，负数撤销）',
 			discount DECIMAL(10,2) DEFAULT 0.00 COMMENT '优惠金额（正数还款，负数撤销）',
 			before_credit DECIMAL(12,2) DEFAULT 0.00 COMMENT '还款前客户赊欠总额',
+			after_credit DECIMAL(12,2) DEFAULT 0.00 COMMENT '还款后客户剩余赊欠总额',
 			is_revoked TINYINT DEFAULT 0 COMMENT '是否已撤销 0-否 1-是',
 			revoked_at DATETIME NULL COMMENT '撤销时间',
 			revoked_reason VARCHAR(255) DEFAULT '' COMMENT '撤销原因',

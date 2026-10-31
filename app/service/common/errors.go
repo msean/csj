@@ -35,12 +35,18 @@ var (
 	BatchUUIDRequireErr       = errors.New("批次UUID不能为空")
 	BatchOrderGoodsRequireErr = errors.New("开单货品不能为空")
 	CashCustomerPayLessErr    = errors.New("现金客户付款金额不能小于订单金额")
+	OrderDuplicateSubmitErr   = errors.New("请勿重复提交订单")
 )
 
 // common
 var (
 	ObjectNotExistErr = errors.New("object not found")
 	RequestUIDMustErr = errors.New("UUID不能为空")
+)
+
+// payment
+var (
+	PayAmountExceedCreditErr = errors.New("还款金额不能超过当前欠款金额")
 )
 
 // recharge
