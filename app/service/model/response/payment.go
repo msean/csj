@@ -62,6 +62,8 @@ type (
 
 	// MessageItem 消息项
 	MessageItem struct {
+		Source       string    `json:"source"`
+		Title        string    `json:"title"`
 		MessageUUID  string    `json:"messageUUID"`
 		Type         int       `json:"type"`
 		Event        string    `json:"event"`

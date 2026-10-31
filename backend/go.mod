@@ -23,6 +23,8 @@ require (
 	github.com/mholt/archives v0.1.5
 	github.com/minio/minio-go/v7 v7.0.95
 	github.com/mojocn/base64Captcha v1.3.8
+	github.com/msean/csj/shared v0.0.0
+	github.com/oklog/ulid/v2 v2.1.1 // indirect
 	github.com/otiai10/copy v1.14.1
 	github.com/pkg/errors v0.9.1
 	github.com/qiniu/go-sdk/v7 v7.25.4
@@ -189,3 +191,5 @@ require (
 	modernc.org/memory v1.8.2 // indirect
 	modernc.org/sqlite v1.34.5 // indirect
 )
+
+replace github.com/msean/csj/shared => ../shared

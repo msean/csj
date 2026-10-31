@@ -1,13 +1,29 @@
 package middleware
 
-import "testing"
+import (
+	"app/global"
+	"testing"
+
+	"github.com/spf13/viper"
+)
 
 func TestGetToken(t *testing.T) {
-	token := `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwaG9uZSI6IjEyMzEyMzEyMzEyIiwidXVpZCI6IjczZjJlMmM4LTc3ODQtNDA4YS05YmI3LWY2NmUyMjkwMjIxYSIsInN1YiI6ImNhaXNodWppIiwiYXVkIjpbImNhaXNodWppIl0sImV4cCI6MTcxNDUxNDE5OCwibmJmIjoxNzEzMDc0MTk4LCJpYXQiOjE3MTMwNzQxOTgsImp0aSI6IjEifQ.jBWQKmU-juMnkDrq-qZYyffjiaSWcwgniLBHnBEK-l8`
-	c, err := GetTokenClaims(token)
+	// Keep the test independent of app startup and an expired hard-coded token.
+	previous := global.Global
+	config := viper.New()
+	config.Set("env.signkey", "unit-test-signing-key")
+	config.Set("env.tokenex", 60)
+	global.Global = &global.RunTime{Viper: config}
+	t.Cleanup(func() { global.Global = previous })
+	token, err := SetToken("test-phone", "test-user")
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
-	t.Log(c.ExpiresAt)
+	claims, err := GetTokenClaims(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claims.UUID != "test-user" || claims.Phone != "test-phone" {
+		t.Fatalf("unexpected token claims: %+v", claims)
+	}
 }

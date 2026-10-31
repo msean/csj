@@ -6,6 +6,6 @@ import "github.com/msean/csj/backend/model/common/request"
 type RechargeOrderSearch struct {
 	UserUUID  string `json:"userUUID" form:"userUUID"`
 	OrderNo   string `json:"orderNo" form:"orderNo"`
-	PayStatus int    `json:"payStatus" form:"payStatus"`
+	PayStatus *int   `json:"payStatus" form:"payStatus" binding:"omitempty,oneof=0 1 2 3"`
 	request.PageInfo
 }

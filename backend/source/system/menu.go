@@ -53,6 +53,8 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 
 	// 定义所有菜单
 	allMenus := []SysBaseMenu{
+		{MenuLevel: 0, ParentId: 0, Path: "appManagement", Name: "appManagement", Component: "view/routerHolder.vue", Sort: 10, Meta: Meta{Title: "App业务管理", Icon: "management"}},
+
 		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "dashboard", Name: "dashboard", Component: "view/dashboard/index.vue", Sort: 1, Meta: Meta{Title: "仪表盘", Icon: "odometer"}},
 		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "about", Name: "about", Component: "view/about/index.vue", Sort: 9, Meta: Meta{Title: "关于我们", Icon: "info-filled"}},
 		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "admin", Name: "superAdmin", Component: "view/superAdmin/index.vue", Sort: 3, Meta: Meta{Title: "超级管理员", Icon: "user"}},
@@ -77,6 +79,20 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 
 	// 定义子菜单，并设置正确的ParentId
 	childMenus := []SysBaseMenu{
+		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "appUser", Name: "AppUser", Component: "view/appUser/index.vue", Sort: 1, Meta: Meta{Title: "注册用户", Icon: "tickets"}},
+		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "appVersion", Name: "AppVersion", Component: "view/appVersion/index.vue", Sort: 2, Meta: Meta{Title: "App版本", Icon: "tickets"}},
+		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "memberConfig", Name: "MemberConfig", Component: "view/memberConfig/index.vue", Sort: 3, Meta: Meta{Title: "会员配置", Icon: "tickets"}},
+		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "rechargeOrder", Name: "RechargeOrder", Component: "view/rechargeOrder/index.vue", Sort: 4, Meta: Meta{Title: "充值订单", Icon: "tickets"}},
+		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "officialMessage", Name: "officialMessage", Component: "view/officialMessage/index.vue", Sort: 5, Meta: Meta{Title: "官方消息", Icon: "tickets"}},
+		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "customers", Name: "AppCustomers", Component: "view/appData/AppCustomers.vue", Sort: 6, Meta: Meta{Title: "客户管理", Icon: "tickets"}},
+		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "goods-categories", Name: "AppGoodsCategories", Component: "view/appData/AppGoodsCategories.vue", Sort: 7, Meta: Meta{Title: "商品分类", Icon: "tickets"}},
+		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "goods", Name: "AppGoods", Component: "view/appData/AppGoods.vue", Sort: 8, Meta: Meta{Title: "商品管理", Icon: "tickets"}},
+		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "batches", Name: "AppBatches", Component: "view/appData/AppBatches.vue", Sort: 9, Meta: Meta{Title: "批次管理", Icon: "tickets"}},
+		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "orders", Name: "AppOrders", Component: "view/appData/AppOrders.vue", Sort: 10, Meta: Meta{Title: "订单查询", Icon: "tickets"}},
+		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "payments", Name: "AppPayments", Component: "view/appData/AppPayments.vue", Sort: 11, Meta: Meta{Title: "还款查询", Icon: "tickets"}},
+		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "messages", Name: "AppMessages", Component: "view/appData/AppMessages.vue", Sort: 12, Meta: Meta{Title: "个人消息", Icon: "tickets"}},
+		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "shares", Name: "AppShares", Component: "view/appData/AppShares.vue", Sort: 13, Meta: Meta{Title: "分享记录", Icon: "tickets"}},
+
 		// superAdmin子菜单
 		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "authority", Name: "authority", Component: "view/superAdmin/authority/authority.vue", Sort: 1, Meta: Meta{Title: "角色管理", Icon: "avatar"}},
 		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "menu", Name: "menu", Component: "view/superAdmin/menu/menu.vue", Sort: 2, Meta: Meta{Title: "菜单管理", Icon: "tickets", KeepAlive: true}},

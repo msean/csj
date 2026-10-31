@@ -137,6 +137,9 @@ func (logic *UserLogic) Profile(userUID string) (rsp response.UserProfileRsp, er
 
 	amount, _ := dao.OrderDao.MonthSales(global.Global.DB, userUID)
 	creditAmount, _ := dao.OrderDao.CreditAmountTotal(global.Global.DB, userUID)
+	if rsp.HasUnreadMessage, err = dao.PaymentDao.HasUnreadMessage(logic.runTime.DB, userUID); err != nil {
+		return
+	}
 	rsp.User = user
 	rsp.CreditAmount = utils.FloatReserveStr(creditAmount, 1)
 	rsp.MonthSales = utils.FloatReserveStr(amount, 1)

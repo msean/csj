@@ -1,9 +1,9 @@
 package model
 
 import (
-	"app/pkg/utils"
-	"app/service/common"
 	"fmt"
+	common "github.com/msean/csj/shared/constants"
+	utils "github.com/msean/csj/shared/internal/modelutil"
 )
 
 type (

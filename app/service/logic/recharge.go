@@ -70,7 +70,7 @@ func (logic *RechargeLogic) CreateRechargeOrder(memberType int) (rsp response.Cr
 
 	// 查询会员配置价格
 	var config model.MemberConfig
-	if err = logic.runtime.DB.Where("type = ?", memberType).First(&config).Error; err != nil {
+	if err = logic.runtime.DB.Where("type = ? AND deleted_at IS NULL", memberType).First(&config).Error; err != nil {
 		err = common.MemberTypeInvalidErr
 		return
 	}

@@ -544,8 +544,19 @@ func (logic *PaymentLogic) RevokePay(req request.RevokePayReq) (err error) {
 
 // MessageList 消息列表
 func (logic *PaymentLogic) MessageList(req request.MessageListReq) (items []response.MessageItem, summary response.MessageSummary, err error) {
+	now := time.Now()
+	if req.Page < 1 {
+		req.Page = 1
+	}
+	if req.PageCount <= 0 {
+		req.PageCount = 20
+	}
+	if req.PageCount > 100 {
+		req.PageCount = 100
+	}
+	items = make([]response.MessageItem, 0)
 	// 使用 DAO 统计消息
-	totalCount, unreadCount, err := dao.PaymentDao.CountMessages(logic.runtime.DB, logic.OwnerUser)
+	totalCount, unreadCount, err := dao.PaymentDao.CountAllMessages(logic.runtime.DB, logic.OwnerUser, now)
 	if err != nil {
 		return
 	}
@@ -559,7 +570,7 @@ func (logic *PaymentLogic) MessageList(req request.MessageListReq) (items []resp
 		offset = (req.Page - 1) * req.PageCount
 	}
 
-	messages, err := dao.PaymentDao.FindMessages(logic.runtime.DB, logic.OwnerUser, offset, req.PageCount)
+	messages, err := dao.PaymentDao.FindAllMessages(logic.runtime.DB, logic.OwnerUser, now, offset, req.PageCount)
 	if err != nil {
 		return
 	}
@@ -567,7 +578,9 @@ func (logic *PaymentLogic) MessageList(req request.MessageListReq) (items []resp
 	// 获取客户名称
 	customerUUIDs := make(map[string]bool)
 	for _, msg := range messages {
-		customerUUIDs[msg.CustomerUUID] = true
+		if msg.CustomerUUID != "" {
+			customerUUIDs[msg.CustomerUUID] = true
+		}
 	}
 
 	var uuids []string
@@ -575,10 +588,15 @@ func (logic *PaymentLogic) MessageList(req request.MessageListReq) (items []resp
 		uuids = append(uuids, uuid)
 	}
 
-	customerMap, _ := cache.CustomerCache.BatchCustomerFeildSet(uuids, logic.OwnerUser)
+	customerMap := make(map[string]model.CustomerFeild)
+	if len(uuids) > 0 {
+		customerMap, _ = cache.CustomerCache.BatchCustomerFeildSet(uuids, logic.OwnerUser)
+	}
 
 	for _, msg := range messages {
 		items = append(items, response.MessageItem{
+			Source:       msg.Source,
+			Title:        msg.Title,
 			MessageUUID:  msg.UID,
 			Type:         msg.Type,
 			Event:        msg.Event,
@@ -610,6 +628,12 @@ func (logic *PaymentLogic) createMessage(tx *gorm.DB, customerUUID string, msgTy
 
 // MessageRead 标记消息为已读
 func (logic *PaymentLogic) MessageRead(req request.MessageReadReq) error {
+	if req.Source == "official" {
+		return dao.PaymentDao.MarkOfficialRead(logic.runtime.DB, logic.OwnerUser, req.UUID)
+	}
+	if req.Source != "" && req.Source != "personal" {
+		return fmt.Errorf("不支持的消息来源")
+	}
 	return dao.PaymentDao.MarkMessageRead(logic.runtime.DB, logic.OwnerUser, req.UUID)
 }
 

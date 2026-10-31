@@ -3,6 +3,8 @@ package initialize
 import (
 	"os"
 
+	"github.com/msean/csj/backend/model/appmgr"
+
 	"github.com/msean/csj/backend/global"
 
 	"go.uber.org/zap"
@@ -83,5 +85,5 @@ func RegisterTables() {
 
 func bizModel() error {
 	db := global.GVA_MYSQL
-	return db.AutoMigrate()
+	return db.AutoMigrate(&appmgr.OfficialMessage{})
 }

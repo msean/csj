@@ -164,6 +164,7 @@
 
   const onReset = () => {
     searchInfo.value = {}
+ page.value = 1
     getTableData()
   }
 
@@ -174,6 +175,7 @@
 
   const handleSizeChange = (val) => {
     pageSize.value = val
+ page.value = 1
     getTableData()
   }
 

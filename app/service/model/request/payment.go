@@ -50,7 +50,8 @@ type (
 	}
 	// MessageReadReq 消息已读请求
 	MessageReadReq struct {
-		UUID string `json:"messageUUID" binding:"required"`
+		UUID   string `json:"messageUUID" binding:"required"`
+		Source string `json:"source" binding:"omitempty,oneof=personal official"`
 	}
 	PaymentShareReq struct {
 		CustomerUUID string `json:"customerUUID" binding:"required"` // UserUUID of the customer

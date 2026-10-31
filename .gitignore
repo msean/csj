@@ -7,3 +7,4 @@ deploy/*yaml
 *log
 *DS_Store
 Makefile
+*clerk

@@ -1,7 +1,6 @@
 package model
 
 import (
-	"app/pkg/utils"
 	"time"
 )
 
@@ -19,7 +18,7 @@ type User struct {
 }
 
 func (u *User) Title() string {
-	if utils.IsBlankString(u.Name) {
+	if u.Name == "" {
 		return u.Phone
 	}
 	return u.Name

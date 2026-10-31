@@ -22,6 +22,6 @@ func NewMemberLogic(context *gin.Context) *MemberLogic {
 // GetMemberConfigs 获取当前会员收费配置
 func (logic *MemberLogic) GetMemberConfigs() (configs []model.MemberConfig, err error) {
 	configs = make([]model.MemberConfig, 0)
-	err = logic.runtime.DB.Model(&model.MemberConfig{}).Order("type asc").Find(&configs).Error
+	err = logic.runtime.DB.Model(&model.MemberConfig{}).Where("deleted_at IS NULL").Order("type asc").Find(&configs).Error
 	return
 }

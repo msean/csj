@@ -60,6 +60,7 @@
         <el-table-column align="left" label="创建时间" prop="createdAt" width="180">
           <template #default="scope">{{ formatDate(scope.row.createdAt) }}</template>
         </el-table-column>
+        <el-table-column label="操作" fixed="right" width="90"><template #default="{ row }"><el-button type="primary" link @click="openDetail(row)">详情</el-button></template></el-table-column>
       </el-table>
       <div class="gva-pagination">
         <el-pagination
@@ -73,10 +74,14 @@
         />
       </div>
     </div>
+    <el-drawer v-model="detailVisible" title="记录详情" size="min(850px, 95vw)" destroy-on-close>
+      <div v-loading="detailLoading"><RecordDetail :record="detail" /></div></el-drawer>
   </div>
 </template>
 
 <script setup>
+  import RecordDetail from '@/components/appData/RecordDetail.vue'
+
   import { findRechargeOrder, getRechargeOrderList } from '@/api/rechargeOrder'
   import { formatDate } from '@/utils/format'
   import { ref } from 'vue'
@@ -127,6 +132,7 @@
 
   const onReset = () => {
     searchInfo.value = {}
+ page.value = 1
     getTableData()
   }
 
@@ -137,6 +143,7 @@
 
   const handleSizeChange = (val) => {
     pageSize.value = val
+ page.value = 1
     getTableData()
   }
 
@@ -157,6 +164,16 @@
       page.value = table.data.page
       pageSize.value = table.data.pageSize
     }
+  }
+
+
+  const detailVisible = ref(false), detailLoading = ref(false), detail = ref({})
+  let detailSequence = 0
+  const openDetail = async (row) => {
+    const current = ++detailSequence
+    detail.value = {}; detailVisible.value = true; detailLoading.value = true
+    try { const res = await findRechargeOrder({ uid: row.uid }); if (current === detailSequence && res.code === 0) detail.value = res.data }
+    finally { if (current === detailSequence) detailLoading.value = false }
   }
 
   getTableData()

@@ -38,7 +38,7 @@ func (logic *CommonLogic) Init() (result any, err error) {
 
 	// 2. 查询最新的版本记录
 	var latestVersion model.AppVersion
-	err = logic.runtime.DB.Order("created_at desc").First(&latestVersion).Error
+	err = logic.runtime.DB.Where("deleted_at IS NULL").Order("created_at desc").First(&latestVersion).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return result, nil

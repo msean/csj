@@ -1,12 +1,14 @@
+//go:generate go mod tidy
+//go:generate go mod download
+//go:generate go run gen.go
+
 package main
 
 import (
-	"path/filepath" //go:generate go mod tidy
+	"path/filepath"
 
-	"gorm.io/gen"
-	//go:generate go mod download
-	//go:generate go run gen.go
 	"github.com/msean/csj/backend/plugin/announcement/model"
+	"gorm.io/gen"
 )
 
 func main() {

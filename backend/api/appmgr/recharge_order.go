@@ -26,7 +26,7 @@ func (api *RechargeOrderApi) FindRechargeOrder(c *gin.Context) {
 		response.FailWithMessage("查询失败:"+err.Error(), c)
 		return
 	}
-	response.OkWithData(res, c)
+	response.OkWithData(presentAppRecord(res), c)
 }
 
 // GetRechargeOrderList 分页获取充值订单列表
@@ -45,6 +45,7 @@ func (api *RechargeOrderApi) GetRechargeOrderList(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
+	pageInfo.Page, pageInfo.PageSize = appmgrReq.NormalizePage(pageInfo.Page, pageInfo.PageSize)
 	list, total, err := rechargeOrderService.GetRechargeOrderInfoList(pageInfo)
 	if err != nil {
 		global.GVA_LOG.Error("获取失败!", zap.Error(err))
@@ -52,7 +53,7 @@ func (api *RechargeOrderApi) GetRechargeOrderList(c *gin.Context) {
 		return
 	}
 	response.OkWithDetailed(response.PageResult{
-		List:     list,
+		List:     presentAppRecord(list),
 		Total:    total,
 		Page:     pageInfo.Page,
 		PageSize: pageInfo.PageSize,

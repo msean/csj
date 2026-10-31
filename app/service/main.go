@@ -28,7 +28,10 @@ func Run(cfgFilepath string, enableMigrate bool, enableShardMigrate bool) {
 
 	// 根据命令行参数决定是否执行迁移
 	if enableMigrate {
-		model.Migrate()
+		if err := model.Migrate(); err != nil {
+			global.Global.Logger.Error("数据库迁移失败", zap.Error(err))
+			panic(err)
+		}
 		global.Global.Logger.Info("数据库迁移已执行")
 	} else {
 		global.Global.Logger.Info("数据库迁移已跳过（使用 -m 或 --migrate 参数启用）")

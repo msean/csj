@@ -10,15 +10,16 @@ type AppUserService struct{}
 
 // GetAppUser 根据uid获取用户
 func (s *AppUserService) GetAppUser(uid string) (user appmgr.AppUser, err error) {
-	err = global.GVA_MYSQL.Where("uid = ?", uid).First(&user).Error
+	err = global.GVA_MYSQL.Where("uid = ? AND deleted_at IS NULL", uid).First(&user).Error
 	return
 }
 
 // GetAppUserInfoList 分页获取用户列表
 func (s *AppUserService) GetAppUserInfoList(info appmgrReq.AppUserSearch) (list []appmgr.AppUser, total int64, err error) {
+	info.Page, info.PageSize = appmgrReq.NormalizePage(info.Page, info.PageSize)
 	limit := info.PageSize
 	offset := info.PageSize * (info.Page - 1)
-	db := global.GVA_MYSQL.Model(&appmgr.AppUser{})
+	db := global.GVA_MYSQL.Model(&appmgr.AppUser{}).Where("deleted_at IS NULL")
 	if info.Phone != "" {
 		db = db.Where("phone LIKE ?", "%"+info.Phone+"%")
 	}
@@ -32,6 +33,6 @@ func (s *AppUserService) GetAppUserInfoList(info appmgrReq.AppUserSearch) (list 
 	if limit != 0 {
 		db = db.Limit(limit).Offset(offset)
 	}
-	err = db.Order("created_at DESC").Find(&list).Error
+	err = db.Order("created_at DESC, uid DESC").Find(&list).Error
 	return list, total, err
 }

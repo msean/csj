@@ -22,7 +22,7 @@ type AppVersionApi struct{}
 // @Router /appVersion/createAppVersion [post]
 func (api *AppVersionApi) CreateAppVersion(c *gin.Context) {
 	var appVersion appmgr.AppVersion
-	err := c.ShouldBindJSON(&appVersion)
+	err := bindAppRecord(c, &appVersion)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
@@ -85,7 +85,7 @@ func (api *AppVersionApi) DeleteAppVersionByIds(c *gin.Context) {
 // @Router /appVersion/updateAppVersion [put]
 func (api *AppVersionApi) UpdateAppVersion(c *gin.Context) {
 	var appVersion appmgr.AppVersion
-	err := c.ShouldBindJSON(&appVersion)
+	err := bindAppRecord(c, &appVersion)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
@@ -115,7 +115,7 @@ func (api *AppVersionApi) FindAppVersion(c *gin.Context) {
 		response.FailWithMessage("查询失败:"+err.Error(), c)
 		return
 	}
-	response.OkWithData(res, c)
+	response.OkWithData(presentAppRecord(res), c)
 }
 
 // GetAppVersionList 分页获取App版本列表
@@ -134,6 +134,7 @@ func (api *AppVersionApi) GetAppVersionList(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
+	pageInfo.Page, pageInfo.PageSize = appmgrReq.NormalizePage(pageInfo.Page, pageInfo.PageSize)
 	list, total, err := appVersionService.GetAppVersionInfoList(pageInfo)
 	if err != nil {
 		global.GVA_LOG.Error("获取失败!", zap.Error(err))
@@ -141,7 +142,7 @@ func (api *AppVersionApi) GetAppVersionList(c *gin.Context) {
 		return
 	}
 	response.OkWithDetailed(response.PageResult{
-		List:     list,
+		List:     presentAppRecord(list),
 		Total:    total,
 		Page:     pageInfo.Page,
 		PageSize: pageInfo.PageSize,

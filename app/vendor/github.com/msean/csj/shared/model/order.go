@@ -1,0 +1,137 @@
+package model
+
+import (
+	common "github.com/msean/csj/shared/constants"
+	utils "github.com/msean/csj/shared/internal/modelutil"
+	"time"
+)
+
+type (
+	// 一个订单对应多个订单货品
+	BatchOrder struct {
+		BaseModel
+		// AutoID 分表内自增ID（临时用于排序/排查，非全局唯一；uid 仍是主键）
+		// -:migration 表示该列由建表/迁移 SQL 显式维护，避免 AutoMigrate 误删 id 的唯一索引
+		AutoID           uint64             `gorm:"column:id;autoIncrement;-:migration" json:"id"`
+		BatchUUID        string             `gorm:"column:batch_uuid;type:varchar(64);comment:批次uuid" json:"batchUUID"`
+		OwnerUser        string             `gorm:"column:owner_user;type:varchar(64);comment:所属用户;index" json:"ownerUser"`
+		UserUUID         string             `gorm:"column:user_uuid;type:varchar(64);comment:开单uuid;index:idx_owner_user" json:"customerUUID"`
+		SharedTime       int                `gorm:"column:share_time;comment:分享时间" json:"sharedTime"`
+		Status           int                `gorm:"column:status;comment:状态" json:"status"`
+		TotalAmount      float64            `gorm:"column:amount;comment:金额" json:"totalAmount"`
+		CreditAmount     float64            `gorm:"column:credit_amount;comment:赊欠金额" json:"creditAmount"`
+		Discount         float64            `gorm:"column:discount;type:decimal(10,2);comment:优惠金额" json:"discount"`
+		TricycleFee      float64            `gorm:"column:tricycle_fee;type:decimal(10,2);default:0;comment:三轮车费用" json:"tricycleFee"`
+		GoodsListRelated []*BatchOrderGoods `gorm:"foreignKey:BatchOrderUID;references:UID" json:"goodsList"`
+		OrderTime        int                `gorm:"column:order_time;comment:下单时间" json:"orderTime"`
+		CustomerFeild
+		Shared int `gorm:"column:shared;comment:是否分享单" json:"shared"`
+	}
+	BatchOrderGoods struct {
+		BaseModel
+		BatchOrderUID string  `gorm:"column:batch_order_uuid;type:varchar(64);comment:批次uuid" json:"batchOrderUUID"`
+		BatchUUID     string  `gorm:"column:batch_uuid;type:varchar(64);comment:批次uuid" json:"batchUUID"`
+		GoodsUUID     string  `gorm:"column:goods_uuid;type:varchar(64);comment:货品uuid" json:"goodsUUID"`
+		OwnerUser     string  `gorm:"column:owner_user;type:varchar(64);comment:所属用户;index" json:"ownerUser"`
+		UserUUID      string  `gorm:"column:user_uuid;type:varchar(64);comment:开单uuid" json:"customerUUID"`
+		GoodType      int     `gorm:"column:good_type;comment:批次序号" json:"-"`
+		Price         float64 `gorm:"column:price;type:decimal(10,2);comment:单价" json:"price"`
+		Weight        float64 `gorm:"column:weight;type:decimal(10,2);comment:重量" json:"weight"`
+		Mount         int     `gorm:"column:mount;comment:数量" json:"mount"`                    // 定装 件数 散装 斤数
+		Total         float64 `gorm:"column:total;type:decimal(10,2);comment:小计" json:"total"` // 小记
+		CustomerFeild
+		GoodsFeild
+	}
+	// 订单操作记录
+	BatchOrderOpr struct {
+		BaseModel
+		BatchOrderUID string `gorm:"column:batch_order_uuid;comment:批次uuid" json:"batchOrderUUID"`
+		OwnerUser     string `gorm:"column:owner_user;comment:所属用户" json:"ownerUser"`
+		UserUUID      string `gorm:"column:user_uuid;comment:开单uuid" json:"customerUUID"`
+		History       Array  `gorm:"column:history;comment:历史" json:"History"`
+	}
+	BatchOrderPay struct {
+		BaseModel
+		CustomerUUID   string     `gorm:"column:customer_uuid;type:varchar(64);comment:客户UUID" json:"customerUUID"`
+		OwnerUser      string     `gorm:"column:owner_user;type:varchar(64);comment:所属用户;index" json:"ownerUser"`
+		BatchOrderUUID string     `gorm:"column:batch_order_uuid;type:varchar(64);comment:订单UUID（快捷还款为空）" json:"batchOrderUUID"`
+		Amount         float64    `gorm:"column:amount;type:decimal(10,2);comment:还款金额（正数还款，负数撤销）" json:"amount"`
+		PayType        int32      `gorm:"column:pay_type;comment:付款方式 1-现金 2-微信 3-支付宝" json:"payType"`
+		IsRevoked      int        `gorm:"column:is_revoked;default:0;comment:是否已撤销 0-否 1-是" json:"isRevoked"`
+		RevokedAt      *time.Time `gorm:"column:revoked_at;comment:撤销时间" json:"revokedAt"`
+		RevokedReason  string     `gorm:"column:revoked_reason;type:varchar(255);comment:撤销原因" json:"revokedReason"`
+		Discount       float64    `gorm:"column:discount;type:decimal(10,2);comment:优惠金额（正数还款，负数撤销）" json:"discount"`
+		BeforeCredit   float64    `gorm:"column:before_credit;type:decimal(12,2);default:0;comment:还款前客户赊欠总额" json:"beforeCredit"`
+		AfterCredit    float64    `gorm:"column:after_credit;type:decimal(12,2);default:0;comment:还款后客户剩余赊欠总额" json:"afterCredit"`
+		// 快捷还款时存储多个订单的还款详情 JSON
+		// 格式：[{"orderUUID":"xxx","amount":100},{"orderUUID":"yyy","amount":200}]
+		PayDetails string `gorm:"column:pay_details;type:text;comment:还款详情JSON" json:"payDetails"`
+	}
+
+	// PayDetail 还款详情（用于快捷还款记录多个订单）
+	PayDetail struct {
+		Type      int     `json:"type"`      // 1-还原始债务(PaidDebt) 2-还订单赊欠
+		OrderUUID string  `json:"orderUUID"` // type=2 时有值，对应订单UUID
+		Amount    float64 `json:"amount"`    // 本次还款金额
+	}
+)
+
+func (b *BatchOrder) DefaultSet() {
+	b.Status = common.BatchOrderTemp
+	// b.Shared = common.BatchOrderUnshare
+}
+
+func (b *BatchOrderGoods) Amount() float64 {
+	// 件数量为0 则是散装
+	if b.GoodType == common.GoodsTypeBulk {
+		return b.Price * float64(b.Weight)
+	}
+	return b.Price * float64(b.Mount)
+}
+
+func (b *BatchOrderGoods) Sell() float64 {
+	// 件数量为0 则是散装
+	if b.GoodType == common.GoodsTypeBulk {
+		return b.Weight
+	}
+	return float64(b.Mount)
+}
+
+// func (b *BatchOrderGoods) GType() int {
+// 	// 件数量为0 则是散装
+// 	if b.Mount == 0 {
+// 		return common.GoodsTypeBulk
+// 	}
+// 	return common.GoodsTypeFix
+// }
+
+// func (b *BatchOrder) SetTotalAmount() float64 {
+// 	var t float64
+// 	for _, batchGoods := range b.GoodsListRelated {
+// 		t += batchGoods.Amount()
+// 	}
+// 	return float64(math.Round(float64(t)))
+// }
+
+// func (b *BatchOrder) SetCreditAmount(pay float64) {
+// 	b.CreditAmount -= pay
+// }
+
+// 设置小计件
+func (b *BatchOrderGoods) SetTotal() float64 {
+	if b.GoodType == common.GoodsTypeBulk {
+		b.Total = utils.FloatReserve(b.Price*b.Weight, 0)
+	} else {
+		b.Total = utils.FloatReserve(float64(b.Mount)*b.Price, 0)
+	}
+	return b.Total
+}
+
+// func (bg *BatchOrderGoods) Amount() (amount string) {
+// 	if bg.Type == common.GoodsTypeFix {
+// 		amount = fmt.Sprintf("%d", bg.Mount)
+// 		return
+// 	}
+// 	amount = fmt.Sprintf("%.2f", bg.Mount)
+// 	return
+// }

@@ -22,7 +22,7 @@ type MemberConfigApi struct{}
 // @Router /memberConfig/createMemberConfig [post]
 func (api *MemberConfigApi) CreateMemberConfig(c *gin.Context) {
 	var memberConfig appmgr.MemberConfig
-	err := c.ShouldBindJSON(&memberConfig)
+	err := bindAppRecord(c, &memberConfig)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
@@ -85,7 +85,7 @@ func (api *MemberConfigApi) DeleteMemberConfigByIds(c *gin.Context) {
 // @Router /memberConfig/updateMemberConfig [put]
 func (api *MemberConfigApi) UpdateMemberConfig(c *gin.Context) {
 	var memberConfig appmgr.MemberConfig
-	err := c.ShouldBindJSON(&memberConfig)
+	err := bindAppRecord(c, &memberConfig)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
@@ -115,7 +115,7 @@ func (api *MemberConfigApi) FindMemberConfig(c *gin.Context) {
 		response.FailWithMessage("查询失败:"+err.Error(), c)
 		return
 	}
-	response.OkWithData(res, c)
+	response.OkWithData(presentAppRecord(res), c)
 }
 
 // GetMemberConfigList 分页获取会员收费配置列表
@@ -134,6 +134,7 @@ func (api *MemberConfigApi) GetMemberConfigList(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
+	pageInfo.Page, pageInfo.PageSize = appmgrReq.NormalizePage(pageInfo.Page, pageInfo.PageSize)
 	list, total, err := memberConfigService.GetMemberConfigInfoList(pageInfo)
 	if err != nil {
 		global.GVA_LOG.Error("获取失败!", zap.Error(err))
@@ -141,7 +142,7 @@ func (api *MemberConfigApi) GetMemberConfigList(c *gin.Context) {
 		return
 	}
 	response.OkWithDetailed(response.PageResult{
-		List:     list,
+		List:     presentAppRecord(list),
 		Total:    total,
 		Page:     pageInfo.Page,
 		PageSize: pageInfo.PageSize,

@@ -1,7 +1,7 @@
 package model
 
 import (
-	"app/service/common"
+	common "github.com/msean/csj/shared/constants"
 	"strings"
 
 	"gorm.io/gorm"

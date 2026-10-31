@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"app/pkg/utils"
+	utils "github.com/msean/csj/shared/internal/modelutil"
 
 	"gorm.io/gorm"
 )
@@ -45,14 +45,14 @@ type (
 
 func (bo *BatchOrder) Record(db *gorm.DB, stepType int32, pay PayFeild) (err error) {
 	var boh BatchOrderHistory
-	if err = utils.Find(db, &boh, utils.NewWhereCond("batch_order_uuid", bo.UID)); err != nil {
+	if err = db.Where("batch_order_uuid = ?", bo.UID).Find(&boh).Error; err != nil {
 		return
 	}
 	step := bo.NewHistoryStep(stepType, pay)
 	boh.History = append(boh.History, step)
 	boh.BatchOrderUID = bo.UID
 	if boh.UID == "" {
-		return utils.CreateObj(db, &boh)
+		return db.Create(&boh).Error
 	}
 	return db.Save(&boh).Error
 }
