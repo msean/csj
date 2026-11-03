@@ -296,8 +296,8 @@ func (dao *orderDao) GetShareOrdersWithGoods(db *gorm.DB, ownerUser, customerUUI
 			Preload("GoodsListRelated", func(db *gorm.DB) *gorm.DB {
 				return db.Table(goodsTable)
 			}).
-			Where("uid = ? AND owner_user = ? AND user_uuid = ? AND status IN (?)",
-				orderUUID, ownerUser, customerUUID, common.UnFinalStatusOrder).
+			Where("uid = ? AND owner_user = ? AND user_uuid = ?",
+				orderUUID, ownerUser, customerUUID).
 			First(&order).Error
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {

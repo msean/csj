@@ -12,3 +12,12 @@ type (
 		Search string `json:"search"`
 	}
 )
+
+type CustomerPurchasesReq struct {
+	UserUUID   string `json:"userUUID" binding:"required"`
+	Page       int    `json:"page"`
+	PageCount  int    `json:"pageCount"`
+	StartTime  int64  `json:"startTime" binding:"min=0"`
+	EndTime    int64  `json:"endTime" binding:"min=0"`
+	CreditOnly bool   `json:"creditOnly"`
+}

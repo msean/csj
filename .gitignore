@@ -8,3 +8,4 @@ deploy/*yaml
 *DS_Store
 Makefile
 *clerk
+*web/dist/assets/*

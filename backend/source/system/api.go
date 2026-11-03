@@ -83,6 +83,8 @@ func (i *initApi) InitializeData(ctx context.Context) (context.Context, error) {
 		{ApiGroup: "官方消息", Method: "DELETE", Path: "/officialMessage/deleteOfficialMessageByIds", Description: "官方消息批量删除"},
 		{ApiGroup: "官方消息", Method: "GET", Path: "/officialMessage/findOfficialMessage", Description: "官方消息详情"},
 		{ApiGroup: "官方消息", Method: "GET", Path: "/officialMessage/getOfficialMessageList", Description: "官方消息列表"},
+		{ApiGroup: "官方消息", Method: "GET", Path: "/officialMessage/supportConfig", Description: "客服配置查询"},
+		{ApiGroup: "官方消息", Method: "PUT", Path: "/officialMessage/supportConfig", Description: "客服配置保存"},
 
 		{ApiGroup: "jwt", Method: "POST", Path: "/jwt/jsonInBlacklist", Description: "jwt加入黑名单(退出，必选)"},
 

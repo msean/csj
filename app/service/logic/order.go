@@ -402,7 +402,7 @@ func (logic *OrderLogic) ShareOrder(req request.ShareDailyOrderReq) (rsp *respon
 	goodsMap, _ := cache.GoodsCache.BatchGoodsFeildSet(goodsUUIDs, logic.OwnerUser)
 
 	// 只取最近的一单（同批次、不同批次都只展示最新的那个）
-	var latestCredit, latestTricycleFee float64
+	var latestCredit float64
 	var previousCreditAmount float64
 	pendingDebt := customer.Debt - customer.PaidDebt
 	if pendingDebt < 0 {
@@ -412,7 +412,6 @@ func (logic *OrderLogic) ShareOrder(req request.ShareDailyOrderReq) (rsp *respon
 	// 表示查到了
 	if order.UID != "" {
 		latestCredit = order.CreditAmount
-		latestTricycleFee = order.TricycleFee
 
 		preTime := order.CreatedAt
 		if order.OrderTime > 0 {
@@ -435,7 +434,6 @@ func (logic *OrderLogic) ShareOrder(req request.ShareDailyOrderReq) (rsp *respon
 	rsp = &response.ShareDailyOrderRsp{
 		PreviousCreditAmount: previousCreditAmount,
 		TodayCreditAmount:    latestCredit,
-		TricycleFee:          latestTricycleFee,
 	}
 
 	// 渲染这一单的货品明细
@@ -487,7 +485,6 @@ func (logic *OrderLogic) ShareOrder(req request.ShareDailyOrderReq) (rsp *respon
 	rsp.Title = province + "食用农产品批发市场销售票据"
 	rsp.MarketName = owner.MarketName
 	rsp.UserName = owner.Name
-	rsp.MarketAddress = owner.MarketAddress
 	rsp.StallName = owner.StallName
 	// 底部联系方式：优先用户自定义的分享联系方式（前端逗号分隔，展示用空格分隔），
 	// 未设置时回退到登录手机号，最后回退到配置文件
@@ -547,28 +544,12 @@ func (logic *OrderLogic) buildReceiptData(rsp *response.ShareDailyOrderRsp) util
 		Contact:                rsp.Contact,
 		MarketName:             rsp.MarketName,
 		UserName:               rsp.UserName,
-		MarketAddress:          rsp.MarketAddress,
 		StallName:              rsp.StallName,
 		Orders:                 orders,
 		CreditAmountStr:        utils.FormatFloat(rsp.TodayCreditAmount),
 		TotalPreviousCreditStr: utils.FormatFloat(rsp.PreviousCreditAmount),
 		TotalDebtStr:           utils.FormatFloat(rsp.TotalCreditAmount),
 	}
-}
-
-// GenerateSharePDF builds the receipt PDF for a customer's daily order and returns the raw PDF bytes.
-func (logic *OrderLogic) GenerateSharePDF(req request.ShareDailyOrderReq) (pdfBytes []byte, err error) {
-	rsp, err := logic.ShareOrder(req)
-	if err != nil {
-		return
-	}
-
-	receiptData := logic.buildReceiptData(rsp)
-	pdfBytes, err = utils.GeneratePDFBytes(receiptData)
-	if err != nil {
-		logic.runtime.Logger.Error("GenerateSharePDF failed", zap.Error(err))
-	}
-	return
 }
 
 // GenerateShareHTML builds the receipt HTML for a customer's daily order and returns the HTML string.
@@ -582,21 +563,6 @@ func (logic *OrderLogic) GenerateShareHTML(req request.ShareDailyOrderReq) (html
 	html, err = utils.GenerateHTML(receiptData)
 	if err != nil {
 		logic.runtime.Logger.Error("GenerateShareHTML failed", zap.Error(err))
-	}
-	return
-}
-
-// GenerateShareImage builds the receipt image (PNG) for a customer's daily order, optimized for mobile sharing (WeChat).
-func (logic *OrderLogic) GenerateShareImage(req request.ShareDailyOrderReq) (imageBytes []byte, err error) {
-	rsp, err := logic.ShareOrder(req)
-	if err != nil {
-		return
-	}
-
-	receiptData := logic.buildReceiptData(rsp)
-	imageBytes, err = utils.GenerateImageBytes(receiptData)
-	if err != nil {
-		logic.runtime.Logger.Error("GenerateShareImage failed", zap.Error(err))
 	}
 	return
 }

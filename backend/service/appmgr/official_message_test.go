@@ -38,12 +38,12 @@ func TestOfficialMessageLifecycle(t *testing.T) {
 		t.Fatal("missing generated UID/publication time")
 	}
 	// Updating must persist zero values and a cleared expiry, so admins can withdraw messages.
-	m.Status, m.Sort, m.ExpiresAt = 0, 0, nil
+	m.Status, m.Sort, m.ExpiresAt, m.Level = 0, 0, nil, 2
 	if err = service.UpdateOfficialMessage(m); err != nil {
 		t.Fatal(err)
 	}
 	got, err := service.GetOfficialMessage(m.UID)
-	if err != nil || got.Status != 0 || got.Sort != 0 || got.ExpiresAt != nil {
+	if err != nil || got.Status != 0 || got.Sort != 0 || got.ExpiresAt != nil || got.Level != 2 {
 		t.Fatalf("draft update not persisted: %+v, %v", got, err)
 	}
 	published := 1
@@ -73,6 +73,7 @@ func TestOfficialMessageValidation(t *testing.T) {
 	}{
 		{"blank title", appmgr.OfficialMessage{Title: " ", Content: "内容"}},
 		{"blank content", appmgr.OfficialMessage{Title: "标题", Content: " "}},
+		{"invalid level", appmgr.OfficialMessage{Title: "标题", Content: "内容", Level: 3}},
 		{"invalid status", appmgr.OfficialMessage{Title: "标题", Content: "内容", Status: 2}},
 		{"expired at publication", appmgr.OfficialMessage{Title: "标题", Content: "内容", PublishedAt: now, ExpiresAt: &now}},
 	} {

@@ -93,6 +93,8 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "messages", Name: "AppMessages", Component: "view/appData/AppMessages.vue", Sort: 12, Meta: Meta{Title: "个人消息", Icon: "tickets"}},
 		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "shares", Name: "AppShares", Component: "view/appData/AppShares.vue", Sort: 13, Meta: Meta{Title: "分享记录", Icon: "tickets"}},
 
+		{MenuLevel: 1, ParentId: menuNameMap["appManagement"], Path: "supportConfig", Name: "SupportConfig", Component: "view/supportConfig/index.vue", Sort: 14, Meta: Meta{Title: "客服配置", Icon: "service"}},
+
 		// superAdmin子菜单
 		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "authority", Name: "authority", Component: "view/superAdmin/authority/authority.vue", Sort: 1, Meta: Meta{Title: "角色管理", Icon: "avatar"}},
 		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "menu", Name: "menu", Component: "view/superAdmin/menu/menu.vue", Sort: 2, Meta: Meta{Title: "菜单管理", Icon: "tickets", KeepAlive: true}},

@@ -33,6 +33,7 @@ type (
 	PayFeild            = shared.PayFeild
 	BatchStatFeild      = shared.BatchStatFeild
 	MessageCenter       = shared.MessageCenter
+	SupportConfig       = shared.SupportConfig
 	OfficialMessage     = shared.OfficialMessage
 	OfficialMessageRead = shared.OfficialMessageRead
 	Customer            = shared.Customer

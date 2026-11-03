@@ -16,6 +16,9 @@ func messageRouter(g *gin.RouterGroup) {
 		messageGroup.POST("/list", MessageList)
 		// 标记消息已读
 		messageGroup.POST("/read", MessageRead)
+		messageGroup.POST("/readAll", MessageReadAll)
+		messageGroup.POST("/official/list", OfficialMessageList)
+		messageGroup.POST("/official/read", OfficialMessageRead)
 	}
 }
 
@@ -57,4 +60,27 @@ func MessageRead(c *gin.Context) {
 	}
 
 	common.Response(c, nil, nil)
+}
+
+func OfficialMessageList(c *gin.Context) {
+	var req request.MessageListReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	items, total, err := logic.NewPaymentLogic(c).OfficialMessageList(req)
+	common.Response(c, err, gin.H{"items": items, "summary": gin.H{"totalCount": total}})
+}
+func OfficialMessageRead(c *gin.Context) {
+	var req request.MessageReadReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	req.Source = "official"
+	common.Response(c, logic.NewPaymentLogic(c).MessageRead(req), nil)
+}
+
+func MessageReadAll(c *gin.Context) {
+	common.Response(c, logic.NewPaymentLogic(c).MessageReadAll(), nil)
 }

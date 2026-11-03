@@ -43,21 +43,23 @@ type (
 
 	// PayDetailRsp 还款详情响应
 	PayDetailRsp struct {
-		PayUUID       string     `json:"payUUID"`
-		CustomerUUID  string     `json:"customerUUID"`
-		CustomerName  string     `json:"customerName"`
-		OrderUUID     string     `json:"orderUUID"` // 订单UUID（快捷还款为空）
-		Amount        float64    `json:"amount"`
-		BeforeCredit  float64    `json:"beforeCredit"` // 还款前欠款
-		AfterCredit   float64    `json:"afterCredit"`  // 还款后剩余欠款
-		PayType       int32      `json:"payType"`
-		Remark        string     `json:"remark"`
-		PayDetails    string     `json:"payDetails"` // 快捷还款的订单详情JSON
-		IsRevoked     int        `json:"isRevoked"`
-		RevokedAt     *time.Time `json:"revokedAt"`
-		RevokedReason string     `json:"revokedReason"`
-		CreatedAt     time.Time  `json:"createdAt"`
-		Discount      int        `json:"discount"`
+		Allocations     []RepaymentAllocation `json:"allocations"`
+		RecordOwnerName string                `json:"recordOwnerName"`
+		PayUUID         string                `json:"payUUID"`
+		CustomerUUID    string                `json:"customerUUID"`
+		CustomerName    string                `json:"customerName"`
+		OrderUUID       string                `json:"orderUUID"` // 订单UUID（快捷还款为空）
+		Amount          float64               `json:"amount"`
+		BeforeCredit    float64               `json:"beforeCredit"` // 还款前欠款
+		AfterCredit     float64               `json:"afterCredit"`  // 还款后剩余欠款
+		PayType         int32                 `json:"payType"`
+		Remark          string                `json:"remark"`
+		PayDetails      string                `json:"payDetails"` // 快捷还款的订单详情JSON
+		IsRevoked       int                   `json:"isRevoked"`
+		RevokedAt       *time.Time            `json:"revokedAt"`
+		RevokedReason   string                `json:"revokedReason"`
+		CreatedAt       time.Time             `json:"createdAt"`
+		Discount        float64               `json:"discount"`
 	}
 
 	// MessageItem 消息项
@@ -81,3 +83,15 @@ type (
 		UnreadCount int `json:"unreadCount"`
 	}
 )
+
+// RepaymentAllocation combines the stored payment allocation with current order data.
+// Order metadata is absent for historical debt, deleted orders, or unavailable links.
+type RepaymentAllocation struct {
+	Type             int        `json:"type"`
+	OrderUUID        string     `json:"orderUUID"`
+	Amount           float64    `json:"amount"`
+	OrderAvailable   bool       `json:"orderAvailable"`
+	OrderTime        *time.Time `json:"orderTime,omitempty"`
+	OrderTotalAmount *float64   `json:"orderTotalAmount,omitempty"`
+	OrderStatus      *int       `json:"orderStatus,omitempty"`
+}

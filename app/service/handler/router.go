@@ -19,6 +19,7 @@ func InitEngine(engine *gin.Engine) {
 			})
 		})
 		commonRouter(apiGroup)
+		apiGroup.POST("/support/config", SupportConfig)
 		userRouter(apiGroup)
 		customerRouter(apiGroup)
 		goodsRouter(apiGroup)

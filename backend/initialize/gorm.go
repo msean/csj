@@ -85,5 +85,5 @@ func RegisterTables() {
 
 func bizModel() error {
 	db := global.GVA_MYSQL
-	return db.AutoMigrate(&appmgr.OfficialMessage{})
+	return db.AutoMigrate(&appmgr.OfficialMessage{}, &appmgr.SupportConfig{})
 }

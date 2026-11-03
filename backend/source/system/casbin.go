@@ -79,6 +79,8 @@ func (i *initCasbin) InitializeData(ctx context.Context) (context.Context, error
 		{Ptype: "p", V0: "888", V1: "/appData/shares/detail", V2: "GET"},
 
 		{Ptype: "p", V0: "888", V1: "/officialMessage/getOfficialMessageList", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/officialMessage/supportConfig", V2: "GET"},
+		{Ptype: "p", V0: "888", V1: "/officialMessage/supportConfig", V2: "PUT"},
 		{Ptype: "p", V0: "888", V1: "/officialMessage/findOfficialMessage", V2: "GET"},
 		{Ptype: "p", V0: "888", V1: "/officialMessage/deleteOfficialMessageByIds", V2: "DELETE"},
 		{Ptype: "p", V0: "888", V1: "/officialMessage/deleteOfficialMessage", V2: "DELETE"},

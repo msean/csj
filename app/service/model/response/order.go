@@ -28,12 +28,10 @@ type (
 		Contact              string                 `json:"contact"`              // 联系方式（用户手机号）
 		MarketName           string                 `json:"marketName"`           // 市场名称（抬头第二行）
 		UserName             string                 `json:"userName"`             // 用户名（抬头第三行）
-		MarketAddress        string                 `json:"marketAddress"`        // 市场地址（底部地址行）
 		StallName            string                 `json:"stallName"`            // 档口名称（抬头第四行）
 		TotalCreditAmount    float64                `json:"totalCreditAmount"`    // 总赊欠（前欠+本单赊欠）
 		TodayCreditAmount    float64                `json:"todayCreditAmount"`    // 本单赊欠（最近一单的欠款）
 		PreviousCreditAmount float64                `json:"previousCreditAmount"` // 前欠（总赊欠 - 本单赊欠）
-		TricycleFee          float64                `json:"tricycleFee"`          // 三轮车费用（当前订单）
 		OrderGroups          []ShareDailyOrderGroup `json:"orderGroups"`          // 按订单分组
 	}
 )

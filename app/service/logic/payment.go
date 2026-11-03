@@ -61,6 +61,9 @@ func (logic *PaymentLogic) QuickPay(req request.QuickPayReq) (rsp response.Quick
 	if err != nil {
 		return
 	}
+	if c.OwnerUser != logic.OwnerUser {
+		return rsp, fmt.Errorf("客户不存在或无权操作")
+	}
 	// 记录还款前客户赊欠总额（订单级 CreditAmount 之和）
 	beforeCredit := c.Credit
 	// 还款金额不能超过当前欠款金额
@@ -69,13 +72,13 @@ func (logic *PaymentLogic) QuickPay(req request.QuickPayReq) (rsp response.Quick
 		return
 	}
 	// 2. 开始事务
-
 	orders, err := dao.OrderDao.FindOrdersWithCredit(
 		logic.runtime.DB, logic.OwnerUser, req.CustomerUUID, common.UnFinalStatusOrder)
 	if err != nil {
 		return
 	}
 
+	snapshot, _ := json.Marshal(orders)
 	tx := logic.runtime.DB.Begin()
 	defer func() {
 		if err != nil {
@@ -176,6 +179,20 @@ func (logic *PaymentLogic) QuickPay(req request.QuickPayReq) (rsp response.Quick
 	} else {
 		// 还款金额全部用于还原始债务，订单赊欠一笔都没抵 —— 肯定未还清
 		hasUnpaid = true
+	}
+
+	// Keep anomaly evidence outside the payment transaction so rollback cannot erase it.
+	if utils.FloatGreat(remainingAmount, 0) {
+		allocations, _ := json.Marshal(payDetails)
+		audit := model.QuickPayAudit{OwnerUser: logic.OwnerUser, CustomerUUID: req.CustomerUUID,
+			BeforeCredit: beforeCredit, BeforeDebt: c.Debt, BeforePaidDebt: c.PaidDebt,
+			Received: req.Amount, Discount: req.DisCount, Remaining: remainingAmount,
+			Snapshot: string(snapshot), Allocations: string(allocations)}
+		if err = logic.runtime.DB.Create(&audit).Error; err != nil {
+			return
+		}
+		// err = fmt.Errorf("还款抵扣异常，剩余 %.2f 元未分配，请核对欠款（记录 %d）", remainingAmount, audit.ID)
+		return
 	}
 
 	// 4. 创建还款记录（使用分表 DAO）
@@ -365,24 +382,27 @@ func (logic *PaymentLogic) PayDetail(req request.PayDetailReq) (rsp response.Pay
 
 	// 获取客户名称
 	customer, _ := dao.CustomerDao.FromUUID(logic.runtime.DB, pay.CustomerUUID)
+	owner, _ := dao.UserDao.FromUUID(logic.runtime.DB, pay.OwnerUser)
 
 	rsp = response.PayDetailRsp{
-		PayUUID:       pay.UID,
-		CustomerUUID:  pay.CustomerUUID,
-		CustomerName:  customer.Name,
-		OrderUUID:     pay.BatchOrderUUID,
-		Amount:        pay.Amount,
-		BeforeCredit:  pay.BeforeCredit,
-		AfterCredit:   pay.AfterCredit,
-		PayType:       pay.PayType,
-		PayDetails:    pay.PayDetails,
-		IsRevoked:     pay.IsRevoked,
-		RevokedAt:     pay.RevokedAt,
-		RevokedReason: pay.RevokedReason,
-		Discount:      int(pay.Discount),
-		CreatedAt:     pay.CreatedAt,
+		PayUUID:         pay.UID,
+		RecordOwnerName: owner.Name,
+		CustomerUUID:    pay.CustomerUUID,
+		CustomerName:    customer.Name,
+		OrderUUID:       pay.BatchOrderUUID,
+		Amount:          pay.Amount,
+		BeforeCredit:    pay.BeforeCredit,
+		AfterCredit:     pay.AfterCredit,
+		PayType:         pay.PayType,
+		PayDetails:      pay.PayDetails,
+		IsRevoked:       pay.IsRevoked,
+		RevokedAt:       pay.RevokedAt,
+		RevokedReason:   pay.RevokedReason,
+		Discount:        pay.Discount,
+		CreatedAt:       pay.CreatedAt,
 	}
 
+	rsp.Allocations, err = repaymentAllocations(logic.runtime.DB, logic.OwnerUser, pay)
 	return
 }
 
@@ -544,7 +564,6 @@ func (logic *PaymentLogic) RevokePay(req request.RevokePayReq) (err error) {
 
 // MessageList 消息列表
 func (logic *PaymentLogic) MessageList(req request.MessageListReq) (items []response.MessageItem, summary response.MessageSummary, err error) {
-	now := time.Now()
 	if req.Page < 1 {
 		req.Page = 1
 	}
@@ -556,7 +575,7 @@ func (logic *PaymentLogic) MessageList(req request.MessageListReq) (items []resp
 	}
 	items = make([]response.MessageItem, 0)
 	// 使用 DAO 统计消息
-	totalCount, unreadCount, err := dao.PaymentDao.CountAllMessages(logic.runtime.DB, logic.OwnerUser, now)
+	totalCount, unreadCount, err := dao.PaymentDao.CountMessages(logic.runtime.DB, logic.OwnerUser)
 	if err != nil {
 		return
 	}
@@ -570,7 +589,7 @@ func (logic *PaymentLogic) MessageList(req request.MessageListReq) (items []resp
 		offset = (req.Page - 1) * req.PageCount
 	}
 
-	messages, err := dao.PaymentDao.FindAllMessages(logic.runtime.DB, logic.OwnerUser, now, offset, req.PageCount)
+	messages, err := dao.PaymentDao.FindPersonalMessages(logic.runtime.DB, logic.OwnerUser, offset, req.PageCount)
 	if err != nil {
 		return
 	}
@@ -714,4 +733,21 @@ func (logic *PaymentLogic) GenerateShareHTML(req request.PaymentShareReq) (html 
 		logic.runtime.Logger.Error("GenerateShareHTML failed", zap.Error(err))
 	}
 	return
+}
+
+func (logic *PaymentLogic) OfficialMessageList(req request.MessageListReq) ([]model.OfficialMessage, int64, error) {
+	if req.Page < 1 {
+		req.Page = 1
+	}
+	if req.PageCount < 1 {
+		req.PageCount = 20
+	}
+	if req.PageCount > 100 {
+		req.PageCount = 100
+	}
+	return dao.PaymentDao.OfficialMessages(logic.runtime.DB, time.Now(), (req.Page-1)*req.PageCount, req.PageCount)
+}
+
+func (logic *PaymentLogic) MessageReadAll() error {
+	return dao.PaymentDao.MarkAllMessagesRead(logic.runtime.DB, logic.OwnerUser)
 }

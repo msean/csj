@@ -9,6 +9,7 @@ import (
 	"app/service/model"
 	"app/service/model/request"
 	"app/service/model/response"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -31,13 +32,14 @@ func NewCustomerLogic(context *gin.Context) *CustomerLogic {
 }
 
 func (logic *CustomerLogic) Check() (duplicate bool, err error) {
-	var _c model.Customer
-	if err = utils.Find(logic.runtime.DB, &_c, utils.WhereNameCond(logic.Name), utils.WhereUIDCond(logic.UID)); err != nil {
-		return
+	logic.Name = strings.TrimSpace(logic.Name)
+	var count int64
+	query := logic.runtime.DB.Model(&model.Customer{}).Where("owner_user = ? AND name = ?", logic.OwnerUser, logic.Name)
+	if logic.UID != "" {
+		query = query.Where("uid <> ?", logic.UID)
 	}
-	if _c.UID != "" && _c.UID != logic.UID {
-		duplicate = true
-	}
+	err = query.Count(&count).Error
+	duplicate = count > 0
 	return
 }
 
@@ -56,6 +58,13 @@ func (logic *CustomerLogic) Create() (err error) {
 }
 
 func (logic *CustomerLogic) Update() (err error) {
+	duplicate, err := logic.Check()
+	if err != nil {
+		return err
+	}
+	if duplicate {
+		return common.CustomerDuplicateErr
+	}
 	return logic.runtime.DB.Transaction(func(tx *gorm.DB) (err error) {
 		if err = dao.CustomerDao.Update(logic.runtime.DB, logic.Customer); err != nil {
 			return
@@ -92,18 +101,19 @@ func (logic *CustomerLogic) ListCustomersByOwnerUser(conditons request.CustomerL
 }
 
 func (logic *CustomerLogic) Detail() (rsp response.CustomerDetailRsp, err error) {
-	if logic.Customer, err = dao.CustomerDao.FromUUID(global.Global.DB, logic.UID); err != nil {
+	if err = global.Global.DB.Where("uid = ? AND owner_user = ? AND deleted_at IS NULL", logic.UID, logic.OwnerUser).First(&logic.Customer).Error; err != nil {
 		return
 	}
 
 	rsp.Name = logic.Customer.Name
-	rsp.OrderCount = float64(logic.Customer.OrderCount)
-	rsp.OrderAmount = logic.Customer.TotalAmount
+	count, amount, summaryErr := dao.CustomerPurchaseSummary(global.Global.DB, logic.OwnerUser, logic.UID, 0, 0, false)
+	if summaryErr != nil {
+		err = summaryErr
+		return
+	}
+	rsp.OrderCount = float64(count)
+	rsp.OrderAmount = amount
 	rsp.Credit = logic.Customer.Credit
 
-	// 赊欠金额实时查
-	// if rsp.CreditAmount, err = dao.OrderDao.CustomerCreditAmount(global.Global.DB, logic.OwnerUser, logic.UID); err != nil {
-	// 	return
-	// }
 	return
 }

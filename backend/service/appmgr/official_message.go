@@ -44,7 +44,7 @@ func (s *OfficialMessageService) UpdateOfficialMessage(officialMessage appmgr.Of
 		return
 	}
 	err = global.GVA_MYSQL.Model(&appmgr.OfficialMessage{}).Where("uid = ? AND deleted_at IS NULL", officialMessage.UID).
-		Select("title", "content", "status", "published_at", "expires_at", "sort").
+		Select("title", "content", "status", "published_at", "expires_at", "sort", "level").
 		Updates(officialMessage).Error
 	return err
 }
@@ -89,6 +89,12 @@ func validateOfficialMessage(m *appmgr.OfficialMessage) error {
 	}
 	if utf8.RuneCountInString(m.Title) > 200 {
 		return fmt.Errorf("标题不能超过200字")
+	}
+	if m.Level == 0 {
+		m.Level = 1
+	}
+	if m.Level != 1 && m.Level != 2 {
+		return fmt.Errorf("无效的通知等级")
 	}
 	if m.Status != 0 && m.Status != 1 {
 		return fmt.Errorf("无效的发布状态")

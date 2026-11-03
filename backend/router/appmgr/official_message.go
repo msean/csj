@@ -12,12 +12,14 @@ func (s *OfficialMessageRouter) InitOfficialMessageRouter(Router *gin.RouterGrou
 	officialMessageRouter := Router.Group("officialMessage").Use(middleware.OperationRecord())
 	officialMessageRouterWithoutRecord := Router.Group("officialMessage")
 	{
+		officialMessageRouter.PUT("supportConfig", officialMessageApi.SaveSupportConfig)
 		officialMessageRouter.POST("createOfficialMessage", officialMessageApi.CreateOfficialMessage)             // 新建官方消息
 		officialMessageRouter.DELETE("deleteOfficialMessage", officialMessageApi.DeleteOfficialMessage)           // 删除官方消息
 		officialMessageRouter.DELETE("deleteOfficialMessageByIds", officialMessageApi.DeleteOfficialMessageByIds) // 批量删除官方消息
 		officialMessageRouter.PUT("updateOfficialMessage", officialMessageApi.UpdateOfficialMessage)              // 更新官方消息
 	}
 	{
+		officialMessageRouterWithoutRecord.GET("supportConfig", officialMessageApi.GetSupportConfig)
 		officialMessageRouterWithoutRecord.GET("findOfficialMessage", officialMessageApi.FindOfficialMessage)       // 根据uid获取官方消息
 		officialMessageRouterWithoutRecord.GET("getOfficialMessageList", officialMessageApi.GetOfficialMessageList) // 获取官方消息列表
 	}

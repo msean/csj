@@ -19,6 +19,7 @@ func orderRouter(g *gin.RouterGroup) {
 		OrderGroup.POST("/update_status", OrderUpdateStatus)
 		OrderGroup.POST("/detail", OrderDetail)
 		OrderGroup.POST("/list", OrderList)
+		OrderGroup.POST("/customer_purchases", CustomerPurchases)
 		OrderGroup.POST("/share", OrderShared)
 		OrderGroup.POST("/latest_by_goods", OrderGoodsLatest)
 		OrderGroup.POST("/credit/list", CreditList)
@@ -186,4 +187,14 @@ func ShareGenerateHTML(c *gin.Context) {
 
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.String(200, html)
+}
+
+func CustomerPurchases(c *gin.Context) {
+	var req request.CustomerPurchasesReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	rsp, err := logic.NewOrderLogic(c).CustomerPurchases(req)
+	common.Response(c, err, rsp)
 }

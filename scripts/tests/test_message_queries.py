@@ -10,9 +10,9 @@ import sqlite3
 import unittest
 
 SOURCE = (Path(__file__).resolve().parents[2] / 'app/service/dao/message.go').read_text()
-LIST_SQL = re.search(r'db.Raw\(`(SELECT \* FROM .*?)`, owner, owner, now, now, limit, offset\)', SOURCE, re.S).group(1)
+PERSONAL_SQL = re.search(r'db.Raw\(`(SELECT \*, .*?)`, owner, limit, offset\)', SOURCE, re.S).group(1)
+LIST_SQL = re.search(r'db.Raw\(`(SELECT o\.\* FROM.*?)`, now, now, limit, offset\)', SOURCE, re.S).group(1)
 VISIBILITY = re.search(r'Where\("(deleted_at IS NULL AND status.*?)", now, now\)', SOURCE).group(1)
-UNREAD = re.search(r'Where\("(NOT EXISTS.*?)", owner\)', SOURCE).group(1)
 NOW = '2026-10-31 12:00:00'
 
 
@@ -49,39 +49,30 @@ class MessageQueriesTest(unittest.TestCase):
                             (uid, uid, '公告内容', status, published, expires, deleted, sort))
 
     def messages(self, owner='alice', offset=0, limit=20):
-        return self.db.execute(LIST_SQL, (owner, owner, NOW, NOW, limit, offset)).fetchall()
+        return self.db.execute(LIST_SQL, (NOW, NOW, limit, offset)).fetchall()
 
-    def unread(self, owner='alice'):
-        return self.db.execute('SELECT count(*) FROM official_messages WHERE ' + VISIBILITY + ' AND ' + UNREAD,
-                               (NOW, NOW, owner)).fetchone()[0]
-
-    def test_pinned_sort_visibility_and_user_isolation(self):
+    def test_official_visibility_and_personal_user_isolation(self):
         rows = self.messages()
-        self.assertEqual([r['uid'] for r in rows], ['a2', 'a1', 'p1', 'p2'])
-        self.assertEqual([r['source'] for r in rows], ['official', 'official', 'personal', 'personal'])
+        self.assertEqual([r['uid'] for r in rows], ['a2', 'a1'])
+        personal = self.db.execute(PERSONAL_SQL, ('alice', 20, 0)).fetchall()
+        self.assertEqual([r['uid'] for r in personal], ['p1', 'p2'])
+        self.assertEqual([r['source'] for r in personal], ['personal', 'personal'])
         self.assertEqual(rows[0]['title'], 'a2')
-        self.assertEqual(rows[0]['type'], 3)
-        self.assertEqual(self.unread(), 2)
 
-    def test_combined_pagination_has_no_repeated_announcements(self):
-        pages = [self.messages(offset=i, limit=1)[0]['uid'] for i in range(4)]
-        self.assertEqual(pages, ['a2', 'a1', 'p1', 'p2'])
-        self.assertEqual(self.messages(offset=4), [])
-        self.assertEqual([r['uid'] for r in self.messages(offset=1, limit=2)], ['a1', 'p1'])
+    def test_official_pagination_has_no_repeated_announcements(self):
+        pages = [self.messages(offset=i, limit=1)[0]['uid'] for i in range(2)]
+        self.assertEqual(pages, ['a2', 'a1'])
+        self.assertEqual(self.messages(offset=2), [])
+        self.assertEqual([r['uid'] for r in self.messages(offset=1, limit=2)], ['a1'])
 
-    def test_receipts_are_per_user_and_idempotent(self):
-        for _ in range(2):
-            self.db.execute('INSERT OR IGNORE INTO official_message_reads VALUES (?, ?, ?)', ('alice', 'a2', NOW))
-        self.assertEqual(self.db.execute('SELECT count(*) FROM official_message_reads').fetchone()[0], 1)
-        self.assertEqual([r['is_read'] for r in self.messages()], [1, 0, 0, 1])
-        self.assertEqual(self.unread('alice'), 1)
-        self.assertEqual(self.unread('bob'), 2)
-        self.db.execute('INSERT INTO official_message_reads VALUES (?, ?, ?)', ('alice', 'a1', NOW))
-        self.assertEqual(self.unread('alice'), 0)
-        self.db.execute("UPDATE official_messages SET content = '改文案' WHERE uid = 'a1'")
-        self.assertEqual(self.unread('alice'), 0)
-        self.db.execute("UPDATE official_messages SET status = 0 WHERE uid = 'a2'")
-        self.assertEqual([r['uid'] for r in self.messages()], ['a1', 'p1', 'p2'])
+    def test_bulk_read_is_owner_scoped_and_idempotent(self):
+        predicate = re.search(r'Where\("(owner_user = \? AND is_read = 0)", owner\)', SOURCE).group(1)
+        sql = 'UPDATE message_centers SET is_read = 1 WHERE ' + predicate
+        self.assertEqual(self.db.execute(sql, ('alice',)).rowcount, 1)
+        self.assertEqual(self.db.execute(sql, ('alice',)).rowcount, 0)
+        self.assertEqual(self.db.execute("SELECT is_read FROM message_centers WHERE uid='other'").fetchone()[0], 0)
+        self.assertEqual(self.db.execute('SELECT count(*) FROM official_message_reads').fetchone()[0], 0)
+
 
 
 if __name__ == '__main__':

@@ -66,6 +66,7 @@
   "/src/view/superAdmin/operation/sysOperationRecord.vue": "SysOperationRecord",
   "/src/view/superAdmin/params/sysParams.vue": "SysParams",
   "/src/view/superAdmin/user/user.vue": "User",
+  "/src/view/supportConfig/index.vue": "SupportConfig",
   "/src/view/systemTools/autoCode/component/fieldDialog.vue": "FieldDialog",
   "/src/view/systemTools/autoCode/component/previewCodeDialog.vue": "PreviewCodeDialog",
   "/src/view/systemTools/autoCode/index.vue": "AutoCode",

@@ -7,6 +7,7 @@ import (
 func Migrate() (err error) {
 	return global.Global.DB.AutoMigrate(
 		&User{},
+		&QuickPayAudit{},
 		&Customer{},
 		&GoodsCategory{},
 		&Goods{},
@@ -17,6 +18,7 @@ func Migrate() (err error) {
 		&Sms{},
 		&MessageCenter{},
 		&OfficialMessage{},
+		&SupportConfig{},
 		&OfficialMessageRead{},
 		&ShareRecord{},
 		&AppVersion{},
