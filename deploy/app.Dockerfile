@@ -1,7 +1,8 @@
 FROM alpine:latest
 
-# 安装时区数据
-RUN apk add --no-cache tzdata
+# 使用国内镜像源，避免拉取 alpine 包（尤其是 font-noto-cjk）过慢
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
+    && apk add --no-cache tzdata font-noto-cjk
 
 # 设置时区
 ENV TZ=Asia/Shanghai

@@ -16,6 +16,7 @@ func paymentRouter(g *gin.RouterGroup) {
 		paymentGroup.POST("/quick/list", QuickPayList)
 		// 快捷还款
 		paymentGroup.POST("/quick/pay", QuickPay)
+		paymentGroup.POST("/order/summary", OrderRepaymentSummary)
 		// 针对订单还款
 		paymentGroup.POST("/order/pay", OrderPay)
 		// 还款历史
@@ -68,6 +69,17 @@ func QuickPay(c *gin.Context) {
 	}
 
 	common.Response(c, nil, rsp)
+}
+
+func OrderRepaymentSummary(c *gin.Context) {
+	var req request.OrderRepaymentSummaryReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+
+	rsp, err := logic.NewPaymentLogic(c).OrderRepaymentSummary(req.OrderUUID)
+	common.Response(c, err, rsp)
 }
 
 // OrderPay 针对订单还款

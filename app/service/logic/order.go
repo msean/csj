@@ -139,6 +139,10 @@ func (logic *OrderLogic) TempCreate() (err error) {
 
 	// 创建订单 + 更新客户统计（使用事务保证一致性）
 	tx := logic.runtime.DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback()
 
 	// 1. 先创建订单（不包含货品）
 	goodsList := logic.GoodsListRelated
@@ -171,9 +175,10 @@ func (logic *OrderLogic) TempCreate() (err error) {
 		return
 	}
 
-	tx.Commit()
-	// logic.SetFeilds()
-	return
+	if err = saveOrderTicketSettlement(tx, logic.BatchOrder, 0, 0); err != nil {
+		return
+	}
+	return tx.Commit().Error
 }
 
 func (logic *OrderLogic) FillGoodsWeightWithTotal(db *gorm.DB) (err error) {
@@ -303,6 +308,10 @@ func (logic *OrderLogic) Create(orderReq request.OrderReq) (err error) {
 	}
 
 	tx := logic.runtime.DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback()
 
 	// 1. 先创建订单（不包含货品）
 	goodsList := logic.GoodsListRelated
@@ -340,7 +349,12 @@ func (logic *OrderLogic) Create(orderReq request.OrderReq) (err error) {
 		return
 	}
 
-	tx.Commit()
+	if err = saveOrderTicketSettlement(tx, logic.BatchOrder, orderReq.FPayAmount, orderReq.PayType); err != nil {
+		return
+	}
+	if err = tx.Commit().Error; err != nil {
+		return
+	}
 	// if utils.FloatGreat(0.0, logic.CreditAmount) {
 	// 	go logic.Record(false, model.HistoryStepCash, model.PayFeild{
 	// 		PayFee:  utils.Violent2String(orderReq.TotalAmount),
@@ -607,6 +621,8 @@ func (logic *OrderLogic) Update(orderReq request.OrderReq) (err error) {
 	}
 	logic.BatchOrder = orderReq.BatchOrder // owner_user重置成了空字符串
 	logic.BatchUUID = old.BatchUUID
+	logic.AutoID = old.AutoID
+	logic.CreatedAt = old.CreatedAt
 
 	if logic.BatchOrder.OrderTime == 0 {
 		logic.BatchOrder.OrderTime = old.OrderTime
@@ -639,6 +655,10 @@ func (logic *OrderLogic) Update(orderReq request.OrderReq) (err error) {
 	}
 
 	tx := logic.runtime.DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback()
 	// 分表删除：删除原货品记录（走分表，避免外键约束）
 	if err = dao.OrderDao.DeleteGoodsByOrderUUID(tx, logic.OwnerUser, logic.UID); err != nil {
 		tx.Rollback()
@@ -665,6 +685,7 @@ func (logic *OrderLogic) Update(orderReq request.OrderReq) (err error) {
 		"amount":        logic.BatchOrder.TotalAmount,
 		"credit_amount": logic.BatchOrder.CreditAmount,
 		"tricycle_fee":  logic.BatchOrder.TricycleFee,
+		"discount":      logic.BatchOrder.Discount,
 		"order_time":    logic.BatchOrder.OrderTime,
 		"user_uuid":     logic.BatchOrder.UserUUID,
 	}
@@ -710,7 +731,12 @@ func (logic *OrderLogic) Update(orderReq request.OrderReq) (err error) {
 		}
 	}
 
-	tx.Commit()
+	if err = saveOrderTicketSettlement(tx, logic.BatchOrder, orderReq.FPayAmount, orderReq.PayType); err != nil {
+		return
+	}
+	if err = tx.Commit().Error; err != nil {
+		return
+	}
 	// if utils.FloatGreat(0.0, logic.CreditAmount) {
 	// 	go logic.Record(false, model.HistoryStepCash, model.PayFeild{
 	// 		PayFee:  utils.Violent2String(orderReq.TotalAmount),

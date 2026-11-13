@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type PaymentLogic struct {
@@ -55,9 +56,44 @@ func (logic *PaymentLogic) QuickPayList(req request.QuickPayListReq) (items []re
 	return
 }
 
+// OrderRepaymentSummary 查询截至本单的应收金额，仅在进入还款时调用。
+func (logic *PaymentLogic) OrderRepaymentSummary(orderUUID string) (rsp response.OrderRepaymentSummary, err error) {
+	db := logic.runtime.DB
+	order, err := dao.OrderDao.FindByUID(db, logic.OwnerUser, orderUUID)
+	if err != nil {
+		return rsp, err
+	}
+	if order.OwnerUser != logic.OwnerUser || order.UserUUID == "" || order.DeletedAt != nil ||
+		order.Status != common.BatchOrderTemp || order.CreditAmount <= 0 {
+		return rsp, fmt.Errorf("订单没有可还款的赊欠")
+	}
+	customer, err := dao.CustomerDao.FromUUID(db, order.UserUUID)
+	if err != nil {
+		return rsp, err
+	}
+	if customer.OwnerUser != logic.OwnerUser {
+		return rsp, fmt.Errorf("客户不存在或无权操作")
+	}
+	previousOrderCredit, err := dao.OrderDao.HistoricalRepaymentCredit(db, order)
+	if err != nil {
+		return rsp, err
+	}
+	previousCredit := previousOrderCredit + max(customer.Debt-customer.PaidDebt, 0)
+	return response.OrderRepaymentSummary{
+		PreviousCreditAmount: utils.FloatReserve(previousCredit, 2),
+		TotalCreditAmount:    utils.FloatReserve(previousCredit+order.CreditAmount, 2),
+	}, nil
+}
+
 // QuickPay 快捷还款 - 按时间顺序还款
 func (logic *PaymentLogic) QuickPay(req request.QuickPayReq) (rsp response.QuickPayRsp, err error) {
-	c, err := dao.CustomerDao.FromUUID(logic.runtime.DB, req.CustomerUUID)
+	tx := logic.runtime.DB.Begin()
+	if tx.Error != nil {
+		return rsp, tx.Error
+	}
+	defer tx.Rollback()
+
+	c, err := dao.CustomerDao.FromUUID(tx.Clauses(clause.Locking{Strength: "UPDATE"}), req.CustomerUUID)
 	if err != nil {
 		return
 	}
@@ -71,31 +107,44 @@ func (logic *PaymentLogic) QuickPay(req request.QuickPayReq) (rsp response.Quick
 		err = common.PayAmountExceedCreditErr
 		return
 	}
-	// 2. 开始事务
-	orders, err := dao.OrderDao.FindOrdersWithCredit(
-		logic.runtime.DB, logic.OwnerUser, req.CustomerUUID, common.UnFinalStatusOrder)
+	var orders []model.BatchOrder
+	if req.ThroughOrderUUID != "" {
+		order, findErr := dao.OrderDao.FindByUID(tx, logic.OwnerUser, req.ThroughOrderUUID)
+		if findErr != nil {
+			return rsp, findErr
+		}
+		if order.OwnerUser != logic.OwnerUser || order.UserUUID != req.CustomerUUID {
+			return rsp, fmt.Errorf("订单与还款客户不一致")
+		}
+		orders, err = dao.OrderDao.LockRepaymentOrdersThrough(tx, order)
+	} else {
+		orders, err = dao.OrderDao.FindOrdersWithCredit(
+			tx, logic.OwnerUser, req.CustomerUUID, common.UnFinalStatusOrder)
+	}
 	if err != nil {
 		return
 	}
 
 	snapshot, _ := json.Marshal(orders)
-	tx := logic.runtime.DB.Begin()
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
 
 	// 3. 先判断客户是否存在未清的"原始债务"（Debt > PaidDebt）
 	//    还款优先级：先还原始债务（PaidDebt）→ 还完后再抵扣订单赊欠
 
-	pendingDebt := c.Debt - c.PaidDebt
-	if pendingDebt < 0 {
-		pendingDebt = 0
-	}
+	pendingDebt := max(c.Debt-c.PaidDebt, 0)
 
 	// 还款总可用资金 = 用户还款 + 优惠
 	remainingAmount := req.Amount + req.DisCount
+	if req.ThroughOrderUUID != "" {
+		// 订单详情还款包含未清原始欠款，以及本单及之前的订单赊欠。
+		scopedCredit := pendingDebt
+		for _, order := range orders {
+			scopedCredit += order.CreditAmount
+		}
+		if req.Amount <= 0 || req.DisCount < 0 ||
+			utils.FloatGreat(remainingAmount, scopedCredit) || utils.FloatGreat(remainingAmount, beforeCredit) {
+			return rsp, common.PayAmountExceedCreditErr
+		}
+	}
 	var payDetails []model.PayDetail
 
 	// 3a. 优先偿还原始债务
@@ -203,6 +252,9 @@ func (logic *PaymentLogic) QuickPay(req request.QuickPayReq) (rsp response.Quick
 	afterCredit := beforeCredit - actualPaid
 	if afterCredit < 0 {
 		afterCredit = 0
+	}
+	if req.ThroughOrderUUID != "" {
+		hasUnpaid = utils.FloatGreat(afterCredit, 0)
 	}
 
 	payRecord := model.BatchOrderPay{

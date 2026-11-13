@@ -1,8 +1,9 @@
 package model
 
 import (
-	common "github.com/msean/csj/shared/constants"
 	"strings"
+
+	common "github.com/msean/csj/shared/constants"
 
 	"gorm.io/gorm"
 )

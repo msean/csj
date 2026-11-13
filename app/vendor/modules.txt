@@ -127,6 +127,12 @@ github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.2
 ## explicit; go 1.12
 github.com/modern-go/reflect2
+# github.com/msean/csj/shared v0.0.0 => ../shared
+## explicit; go 1.24.6
+github.com/msean/csj/shared/constants
+github.com/msean/csj/shared/internal/modelutil
+github.com/msean/csj/shared/model
+github.com/msean/csj/shared/sharding
 # github.com/oklog/ulid/v2 v2.1.1
 ## explicit; go 1.15
 github.com/oklog/ulid/v2
@@ -258,6 +264,13 @@ golang.org/x/exp/slices
 golang.org/x/exp/slog
 golang.org/x/exp/slog/internal
 golang.org/x/exp/slog/internal/buffer
+# golang.org/x/image v0.25.0
+## explicit; go 1.23.0
+golang.org/x/image/font
+golang.org/x/image/font/opentype
+golang.org/x/image/font/sfnt
+golang.org/x/image/math/fixed
+golang.org/x/image/vector
 # golang.org/x/net v0.25.0
 ## explicit; go 1.18
 golang.org/x/net/html
@@ -276,8 +289,10 @@ golang.org/x/sys/windows
 ## explicit; go 1.25.0
 golang.org/x/text/cases
 golang.org/x/text/encoding
+golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/internal
 golang.org/x/text/encoding/internal/identifier
+golang.org/x/text/encoding/simplifiedchinese
 golang.org/x/text/encoding/unicode
 golang.org/x/text/internal
 golang.org/x/text/internal/language
@@ -329,11 +344,4 @@ gorm.io/gorm/utils
 # moul.io/zapgorm2 v1.3.0
 ## explicit; go 1.15
 moul.io/zapgorm2
-
-# github.com/msean/csj/shared v0.0.0 => ../shared
-## explicit; go 1.24.6
-github.com/msean/csj/shared/constants
-github.com/msean/csj/shared/internal/modelutil
-github.com/msean/csj/shared/model
-github.com/msean/csj/shared/sharding
 # github.com/msean/csj/shared => ../shared

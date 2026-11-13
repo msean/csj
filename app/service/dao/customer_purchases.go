@@ -2,6 +2,7 @@ package dao
 
 import (
 	"app/service/model"
+
 	"gorm.io/gorm"
 )
 
@@ -32,7 +33,9 @@ func CustomerPurchaseSummary(db *gorm.DB, owner, customer string, start, end int
 func CustomerPurchaseList(db *gorm.DB, owner, customer string, start, end int64, creditOnly bool, offset, limit int) ([]*model.BatchOrder, error) {
 	rows := make([]*model.BatchOrder, 0)
 	err := CustomerPurchaseQuery(db, owner, customer, start, end, creditOnly).
-		Preload("GoodsListRelated", func(q *gorm.DB) *gorm.DB { return q.Table(ShardOrderGoodsTable(owner)).Where("owner_user = ?", owner) }).
+		Preload("GoodsListRelated", func(q *gorm.DB) *gorm.DB {
+			return OrderGoodsInSequence(q.Table(ShardOrderGoodsTable(owner)).Where("owner_user = ?", owner))
+		}).
 		Order("order_time DESC, uid DESC").Offset(offset).Limit(limit).Find(&rows).Error
 	return rows, err
 }

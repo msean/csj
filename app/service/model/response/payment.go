@@ -18,6 +18,12 @@ type (
 		NeedPop  bool    `json:"needPop"`  // 是否弹窗
 	}
 
+	// OrderRepaymentSummary 订单详情发起还款时的应收金额。
+	OrderRepaymentSummary struct {
+		PreviousCreditAmount float64 `json:"previousCreditAmount"`
+		TotalCreditAmount    float64 `json:"totalCreditAmount"`
+	}
+
 	// OrderPayRsp 订单还款响应
 	OrderPayRsp struct {
 		PayUUID     string  `json:"payUUID"`

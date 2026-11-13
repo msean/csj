@@ -13,16 +13,18 @@ import (
 func orderRouter(g *gin.RouterGroup) {
 	OrderGroup := g.Group("/batch_order", middleware.AuthMiddleware())
 	{
-		OrderGroup.POST("/temp/create", TempOrderCreate) // 记账单
-		OrderGroup.POST("/create", OrderCreate)          // 下单
-		OrderGroup.POST("/update", OrderUpdate)
-		OrderGroup.POST("/update_status", OrderUpdateStatus)
-		OrderGroup.POST("/detail", OrderDetail)
-		OrderGroup.POST("/list", OrderList)
+		OrderGroup.POST("/temp/create", TempOrderCreate)     // 记账单
+		OrderGroup.POST("/create", OrderCreate)              // 下单
+		OrderGroup.POST("/update", OrderUpdate)              // 改单
+		OrderGroup.POST("/update_status", OrderUpdateStatus) // 更新状态
+		OrderGroup.POST("/detail", OrderDetail)              // 详情
+		OrderGroup.POST("/print/ticket", OrderPrintTicket)
+		OrderGroup.POST("/list", OrderList) // 列表
 		OrderGroup.POST("/customer_purchases", CustomerPurchases)
-		OrderGroup.POST("/share", OrderShared)
-		OrderGroup.POST("/latest_by_goods", OrderGoodsLatest)
-		OrderGroup.POST("/credit/list", CreditList)
+		OrderGroup.POST("/customer_memory", CustomerMemory)   // 快捷下单
+		OrderGroup.POST("/share", OrderShared)                // 当日分享 废除 前端做
+		OrderGroup.POST("/latest_by_goods", OrderGoodsLatest) // 最近一单货品信息
+		OrderGroup.POST("/credit/list", CreditList)           // 赊欠
 		OrderGroup.POST("/share/generate_html", ShareGenerateHTML)
 		OrderGroup.POST("/share/daily", ShareDailyOrder)
 	}
@@ -107,6 +109,16 @@ func OrderDetail(c *gin.Context) {
 	order := logic.NewOrderLogic(c)
 	err = order.FromUUID(payLoad.UUID)
 	common.Response(c, err, order)
+}
+
+func OrderPrintTicket(c *gin.Context) {
+	var req request.OrderTicketReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	rsp, err := logic.NewOrderLogic(c).PrintTicket(req)
+	common.Response(c, err, rsp)
 }
 
 func OrderGoodsLatest(c *gin.Context) {
@@ -196,5 +208,18 @@ func CustomerPurchases(c *gin.Context) {
 		return
 	}
 	rsp, err := logic.NewOrderLogic(c).CustomerPurchases(req)
+	common.Response(c, err, rsp)
+}
+
+// CustomerMemory returns the latest valid order goods for the authenticated merchant.
+func CustomerMemory(c *gin.Context) {
+	var req struct {
+		CustomerUUID string `json:"customerUUID" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	rsp, err := logic.NewOrderLogic(c).CustomerMemory(req.CustomerUUID)
 	common.Response(c, err, rsp)
 }

@@ -10,11 +10,16 @@ type (
 
 	// QuickPayReq 快捷还款请求
 	QuickPayReq struct {
-		CustomerUUID string  `json:"customerUUID" binding:"required"`
-		Amount       float64 `json:"amount" binding:"required"`
-		PayType      int32   `json:"payType"`
-		DisCount     float64 `json:"discount"` // 优惠
-		Remark       string  `json:"remark"`
+		CustomerUUID     string  `json:"customerUUID" binding:"required"`
+		ThroughOrderUUID string  `json:"throughOrderUUID"`
+		Amount           float64 `json:"amount" binding:"required"`
+		PayType          int32   `json:"payType"`
+		DisCount         float64 `json:"discount"` // 优惠
+		Remark           string  `json:"remark"`
+	}
+
+	OrderRepaymentSummaryReq struct {
+		OrderUUID string `json:"orderUUID" binding:"required"`
 	}
 
 	// OrderPayReq 针对订单还款请求

@@ -1,0 +1,3000 @@
+// To parse this JSON data, do
+//
+//     final batchResult = batchResultFromJson(jsonString);
+
+import 'dart:convert';
+
+import 'package:clerk/repository/repo.dart';
+
+BatchResult batchResultFromJson(String str) =>
+    BatchResult.fromJson(json.decode(str));
+
+String batchResultToJson(BatchResult data) => json.encode(data.toJson());
+
+class BatchResult {
+  String uuid;
+  String createTime;
+  String updateTime;
+  String ownerUser;
+  int storageTime;
+  String serialNo;
+  int serialID;
+  int status;
+  List<GoodsList> goodsList;
+
+  // 统计字段
+  int statMount; // 总件数
+  double statWeight; // 总重量
+  int statSellMount; // 总卖货件数
+  double statSellWeight; // 卖出重量
+  int statInventoryMount; // 库存件数
+  double statInventoryWeight; // 库存重量
+  String statSalesAmount; // 卖货总货款
+  double statSellProfit; // 盈利
+
+  BatchResult({
+    required this.uuid,
+    required this.createTime,
+    required this.updateTime,
+    required this.ownerUser,
+    required this.storageTime,
+    required this.serialNo,
+    required this.serialID,
+    required this.status,
+    required this.goodsList,
+    this.statMount = 0,
+    this.statWeight = 0.0,
+    this.statSellMount = 0,
+    this.statSellWeight = 0.0,
+    this.statInventoryMount = 0,
+    this.statInventoryWeight = 0.0,
+    this.statSalesAmount = '0',
+    this.statSellProfit = 0.0,
+  });
+
+  BatchResult copyWith({
+    String? uuid,
+    String? createTime,
+    String? updateTime,
+    String? ownerUser,
+    int? storageTime,
+    String? serialNo,
+    int? serialID,
+    int? status,
+    List<GoodsList>? goodsList,
+    int? statMount,
+    double? statWeight,
+    int? statSellMount,
+    double? statSellWeight,
+    int? statInventoryMount,
+    double? statInventoryWeight,
+    String? statSalesAmount,
+    double? statSellProfit,
+  }) =>
+      BatchResult(
+        uuid: uuid ?? this.uuid,
+        createTime: createTime ?? this.createTime,
+        updateTime: updateTime ?? this.updateTime,
+        ownerUser: ownerUser ?? this.ownerUser,
+        storageTime: storageTime ?? this.storageTime,
+        serialNo: serialNo ?? this.serialNo,
+        serialID: serialID ?? this.serialID,
+        status: status ?? this.status,
+        goodsList: goodsList ?? this.goodsList,
+        statMount: statMount ?? this.statMount,
+        statWeight: statWeight ?? this.statWeight,
+        statSellMount: statSellMount ?? this.statSellMount,
+        statSellWeight: statSellWeight ?? this.statSellWeight,
+        statInventoryMount: statInventoryMount ?? this.statInventoryMount,
+        statInventoryWeight: statInventoryWeight ?? this.statInventoryWeight,
+        statSalesAmount: statSalesAmount ?? this.statSalesAmount,
+        statSellProfit: statSellProfit ?? this.statSellProfit,
+      );
+
+  factory BatchResult.fromJson(Map<String, dynamic> json) => BatchResult(
+        uuid: json["uuid"],
+        createTime: json["createTime"],
+        updateTime: json["updateTime"],
+        ownerUser: json["ownerUser"],
+        storageTime: json["storageTime"] is int
+            ? json["storageTime"]
+            : (json["storageTime"]?.toString().isNotEmpty == true
+                ? int.tryParse(json["storageTime"].toString()) ?? 0
+                : 0),
+        serialNo: json["serialNo"]?.toString() ?? '',
+        serialID: json["serialID"] is int
+            ? json["serialID"]
+            : (json["serialID"]?.toString().isNotEmpty == true
+                ? int.tryParse(json["serialID"].toString()) ?? 0
+                : 0),
+        status: json["status"] is int
+            ? json["status"]
+            : (json["status"]?.toString().isNotEmpty == true
+                ? int.tryParse(json["status"].toString()) ?? 0
+                : 0),
+        goodsList: List<GoodsList>.from(
+            json["goodsList"].map((x) => GoodsList.fromJson(x))),
+        statMount: json["statMount"] is int
+            ? json["statMount"]
+            : (json["statMount"]?.toString().isNotEmpty == true
+                ? int.tryParse(json["statMount"].toString()) ?? 0
+                : 0),
+        statWeight: json["statWeight"] is double
+            ? json["statWeight"]
+            : json["statWeight"] is int
+                ? json["statWeight"].toDouble()
+                : (json["statWeight"]?.toString().isNotEmpty == true
+                    ? double.tryParse(json["statWeight"].toString()) ?? 0.0
+                    : 0.0),
+        statSellMount: json["statSellMount"] is int
+            ? json["statSellMount"]
+            : (json["statSellMount"]?.toString().isNotEmpty == true
+                ? int.tryParse(json["statSellMount"].toString()) ?? 0
+                : 0),
+        statSellWeight: json["statSellWeight"] is double
+            ? json["statSellWeight"]
+            : json["statSellWeight"] is int
+                ? json["statSellWeight"].toDouble()
+                : (json["statSellWeight"]?.toString().isNotEmpty == true
+                    ? double.tryParse(json["statSellWeight"].toString()) ?? 0.0
+                    : 0.0),
+        statInventoryMount: json["statInventoryMount"] is int
+            ? json["statInventoryMount"]
+            : (json["statInventoryMount"]?.toString().isNotEmpty == true
+                ? int.tryParse(json["statInventoryMount"].toString()) ?? 0
+                : 0),
+        statInventoryWeight: json["statInventoryWeight"] is double
+            ? json["statInventoryWeight"]
+            : json["statInventoryWeight"] is int
+                ? json["statInventoryWeight"].toDouble()
+                : (json["statInventoryWeight"]?.toString().isNotEmpty == true
+                    ? double.tryParse(json["statInventoryWeight"].toString()) ??
+                        0.0
+                    : 0.0),
+        statSalesAmount: json["statSalesAmount"]?.toString().isNotEmpty == true
+            ? json["statSalesAmount"].toString()
+            : '0',
+        statSellProfit: json["statSellProfit"] is double
+            ? json["statSellProfit"]
+            : json["statSellProfit"] is int
+                ? json["statSellProfit"].toDouble()
+                : (json["statSellProfit"]?.toString().isNotEmpty == true
+                    ? double.tryParse(json["statSellProfit"].toString()) ?? 0.0
+                    : 0.0),
+      );
+
+  Map<String, dynamic> toJson() => {
+        "uuid": uuid,
+        "createTime": createTime,
+        "updateTime": updateTime,
+        "ownerUser": ownerUser,
+        "storageTime": storageTime,
+        "serialNo": serialNo,
+        "serialID": serialID,
+        "status": status,
+        "goodsList": List<dynamic>.from(goodsList.map((x) => x.toJson())),
+        "statMount": statMount,
+        "statWeight": statWeight,
+        "statSellMount": statSellMount,
+        "statSellWeight": statSellWeight,
+        "statInventoryMount": statInventoryMount,
+        "statInventoryWeight": statInventoryWeight,
+        "statSalesAmount": statSalesAmount,
+        "statSellProfit": statSellProfit,
+      };
+}
+
+class GoodsList {
+  String uuid;
+  String createTime;
+  String updateTime;
+  String ownerUser;
+  String batchUUID;
+  String serialNo;
+  String goodsUUID;
+  double price;
+  double weight;
+  int mount;
+  String name;
+  String? surplus;
+  int type;
+
+  /// 销量
+  String? sellAmount;
+
+  /// 销售均价
+  String? sellAvgPrice;
+
+  /// 销售货款
+  String? sellTotalAmount;
+
+  /// 开单价格
+  double? salePrice;
+
+  /// 开单数量
+  int? saleMount;
+
+  /// 计量单位：type=2 散装→斤，其余（定装）→件
+  /// 全App 统一以此为准，避免各处判断口径不一致
+  String get unit => type == 2 ? '斤' : '件';
+
+  GoodsList(
+      {required this.uuid,
+      required this.createTime,
+      required this.updateTime,
+      required this.ownerUser,
+      required this.batchUUID,
+      required this.serialNo,
+      required this.goodsUUID,
+      required this.price,
+      required this.weight,
+      required this.mount,
+      required this.name,
+      required this.surplus,
+      required this.type,
+      this.sellAmount,
+      this.sellAvgPrice,
+      this.sellTotalAmount,
+      this.saleMount,
+      this.salePrice});
+
+  void copyWith(
+      {String? uuid,
+      String? createTime,
+      String? updateTime,
+      String? ownerUser,
+      String? batchUUID,
+      String? serialNo,
+      String? goodsUUID,
+      double? price,
+      double? weight,
+      int? mount,
+      String? name,
+      String? surplus,
+      int? type,
+      String? sellAmount,
+      String? sellAvgPrice,
+      String? sellTotalAmount,
+      int? saleMount,
+      double? salePrice}) {
+    this.uuid = uuid ?? this.uuid;
+    this.createTime = createTime ?? this.createTime;
+    this.updateTime = updateTime ?? this.updateTime;
+    this.ownerUser = ownerUser ?? this.ownerUser;
+    this.batchUUID = batchUUID ?? this.batchUUID;
+    this.serialNo = serialNo ?? this.serialNo;
+    this.goodsUUID = goodsUUID ?? this.goodsUUID;
+    this.price = price ?? this.price;
+    this.weight = weight ?? this.weight;
+    this.mount = mount ?? this.mount;
+    this.name = name ?? this.name;
+    this.surplus = surplus ?? this.surplus;
+    this.type = type ?? this.type;
+    this.sellAmount = sellAmount ?? this.sellAmount;
+    this.sellAvgPrice = sellAvgPrice ?? this.sellAvgPrice;
+    this.sellTotalAmount = sellTotalAmount ?? this.sellTotalAmount;
+    this.saleMount = saleMount ?? this.saleMount;
+    this.salePrice = salePrice ?? this.salePrice;
+  }
+
+  factory GoodsList.fromJson(Map<String, dynamic> json) => GoodsList(
+        uuid: json["uuid"],
+        createTime: json["createTime"],
+        updateTime: json["updateTime"],
+        ownerUser: json["ownerUser"],
+        batchUUID: json["batchUUID"],
+        serialNo: json["serialNo"]?.toString() ?? '',
+        goodsUUID: json["goodsUUID"],
+        price: json["price"]?.toDouble() ?? 0.0,
+        weight: json["weight"]?.toDouble() ?? 0.0,
+        mount: json["mount"] is int
+            ? json["mount"]
+            : (json["mount"]?.toString().isNotEmpty == true
+                ? int.tryParse(json["mount"].toString()) ?? 0
+                : 0),
+        name: json["name"],
+        surplus: json["surplus"],
+        type: json["type"] is int
+            ? json["type"]
+            : (json["type"]?.toString().isNotEmpty == true
+                ? int.tryParse(json["type"].toString()) ?? 1
+                : 1),
+        sellAmount: json["sellAmount"]?.toString().isNotEmpty == true
+            ? json["sellAmount"].toString()
+            : null,
+        sellAvgPrice: json["sellAvgPrice"]?.toString().isNotEmpty == true
+            ? json["sellAvgPrice"].toString()
+            : null,
+        sellTotalAmount: json["sellTotalAmount"]?.toString().isNotEmpty == true
+            ? json["sellTotalAmount"].toString()
+            : null,
+      );
+
+  Map<String, dynamic> toJson() => {
+        "uuid": uuid,
+        "createTime": createTime,
+        "updateTime": updateTime,
+        "ownerUser": ownerUser,
+        "batchUUID": batchUUID,
+        "serialNo": serialNo,
+        "goodsUUID": goodsUUID,
+        "price": price,
+        "weight": weight,
+        "mount": mount,
+        "name": name,
+        "surplus": surplus,
+        "type": type,
+        "sellAmount": sellAmount,
+        "sellAvgPrice": sellAvgPrice,
+        "sellTotalAmount": sellTotalAmount,
+        "saleMount": saleMount,
+        "salePrice": salePrice,
+      };
+
+  static int _cloneCounter = 0;
+
+  static GoodsList copyFrom(GoodsList other) {
+    return GoodsList(
+        uuid: other.uuid,
+        createTime: other.createTime,
+        updateTime: other.updateTime,
+        ownerUser: other.ownerUser,
+        batchUUID: other.batchUUID,
+        serialNo: other.serialNo,
+        goodsUUID: other.goodsUUID,
+        price: other.price,
+        weight: other.weight,
+        mount: other.mount,
+        name: other.name,
+        surplus: other.surplus,
+        type: other.type,
+        sellAmount: other.sellAmount,
+        sellAvgPrice: other.sellAvgPrice,
+        sellTotalAmount: other.sellTotalAmount,
+        saleMount: other.saleMount,
+        salePrice: other.salePrice);
+  }
+
+  /// 克隆一份用于购物车（生成新的临时 UUID，支持同品多条记录）
+  static GoodsList cloneForCart(GoodsList other, {int? mount, double? price}) {
+    _cloneCounter++;
+    return GoodsList(
+        uuid: 'cart_${DateTime.now().millisecondsSinceEpoch}_$_cloneCounter',
+        createTime: other.createTime,
+        updateTime: other.updateTime,
+        ownerUser: other.ownerUser,
+        batchUUID: other.batchUUID,
+        serialNo: other.serialNo,
+        goodsUUID: other.goodsUUID,
+        price: other.price,
+        weight: other.weight,
+        mount: other.mount,
+        name: other.name,
+        surplus: other.surplus,
+        type: other.type,
+        saleMount: mount ?? other.saleMount,
+        salePrice: price ?? other.salePrice);
+  }
+
+  /// 货物信息
+  String getGoodInfo() {
+    String weight = '${this.weight}';
+    String packageType = packageTypes[type - 1];
+    if (type == 2) {
+      /// 散装
+      return packageType;
+    } else {
+      return '$packageType $weight 斤/件';
+    }
+  }
+
+  /// 根据包装类型，返回开单数量信息
+  String getGoodSaleInfo() {
+    if (type == 2) {
+      /// 散装
+      return '$saleMount斤';
+    } else {
+      return '$saleMount件\n$weight斤';
+    }
+  }
+
+  /// 获取销售件数
+  int getSalePiece() {
+    if (type == 2) {
+      /// 散装
+      return 0;
+    } else {
+      return saleMount ?? 0;
+    }
+  }
+
+  /// 获取数量
+  int getMount() {
+    return mount ?? 0;
+  }
+
+  /// 获取商品指定数量的金额（四舍五入取整）
+  int getTotalPrice() {
+    if (saleMount == null ||
+        saleMount! <= 0 ||
+        salePrice == null ||
+        salePrice! <= 0) {
+      return 0;
+    }
+    return (saleMount! * salePrice!).round();
+  }
+
+  /// 获取总重量
+  int getTotalWeight() {
+    if (saleMount == null) {
+      return 0;
+    }
+    if (type == 2) {
+      // 散装：saleMount就是斤数
+      return saleMount!.round();
+    } else {
+      // 定装：件数 × 每件重量
+      return (saleMount! * weight).round();
+    }
+  }
+}
+// To parse this JSON data, do
+//
+//     final goodRequest = goodRequestFromJson(jsonString);
+
+import 'dart:convert';
+
+import 'package:clerk/model/batch_result.dart';
+
+GoodRequest goodRequestFromJson(String str) => GoodRequest.fromJson(json.decode(str));
+
+String goodRequestToJson(GoodRequest data) => json.encode(data.toJson());
+
+class GoodRequest {
+  String goodsUuid;
+  double price;
+  double weight;
+  int mount;
+
+  GoodRequest({
+    required this.goodsUuid,
+    required this.price,
+    required this.weight,
+    required this.mount,
+  });
+
+  GoodRequest copyWith({
+    String? goodsUuid,
+    double? price,
+    double? weight,
+    int? mount,
+  }) =>
+      GoodRequest(
+        goodsUuid: goodsUuid ?? this.goodsUuid,
+        price: price ?? this.price,
+        weight: weight ?? this.weight,
+        mount: mount ?? this.mount,
+      );
+
+  factory GoodRequest.fromJson(Map<String, dynamic> json) => GoodRequest(
+    goodsUuid: json["goodsUUID"],
+    price: json["price"]?.toDouble(),
+    weight: json["weight"]?.toDouble(),
+    mount: json["mount"],
+  );
+
+  Map<String, dynamic> toJson() => {
+    "goodsUUID": goodsUuid,
+    "price": price,
+    "weight": weight,
+    "mount": mount,
+  };
+
+  static GoodRequest fromGoodsList(GoodsList item) {
+    GoodRequest newItem = GoodRequest(goodsUuid: item.goodsUUID, price: item.salePrice!, weight: 0, mount: 0);
+    if (item.type == 2) {/// 散装
+      newItem.weight = item.saleMount!.toDouble();
+      newItem.mount = 0;
+    } else {
+      newItem.mount = item.saleMount!;
+      newItem.weight = item.saleMount! * item.weight;
+    }
+    return newItem;
+  }
+}
+import 'package:json_annotation/json_annotation.dart';
+
+part 'customer_model.g.dart';
+
+@JsonSerializable()
+class CustomerModel extends Object {
+
+  @JsonKey(name: 'uuid')
+  String uuid;
+
+  @JsonKey(name: 'createTime')
+  String createTime;
+
+  @JsonKey(name: 'updateTime')
+  String updateTime;
+
+  @JsonKey(name: 'name')
+  String name;
+
+  @JsonKey(name: 'phone')
+  String phone;
+
+  @JsonKey(name: 'carNo')
+  String carNo;
+
+  @JsonKey(name: 'remark')
+  String remark;
+
+  @JsonKey(name: 'credit')
+  double credit;
+
+  @JsonKey(name: 'addr')
+  String addr;
+
+  @JsonKey(name: 'latestBillDate')
+  int latestBillDate;
+
+  CustomerModel(this.uuid,this.createTime,this.updateTime,this.name,this.phone,this.carNo,this.remark,this.credit,this.addr,this.latestBillDate,);
+
+  factory CustomerModel.fromJson(Map<String, dynamic> srcJson) => _$CustomerModelFromJson(srcJson);
+
+  Map<String, dynamic> toJson() => _$CustomerModelToJson(this);
+
+}
+
+
+// To parse this JSON data, do
+//
+//     final orderDetail1 = orderDetail1FromJson(jsonString);
+
+import 'dart:convert';
+import 'package:clerk/utils/order_ticket.dart';
+import 'package:intl/intl.dart';
+
+import 'order.dart';
+
+OrderDetail orderDetailFromJson(String str) => OrderDetail.fromJson(json.decode(str));
+
+String orderDetailToJson(OrderDetail data) => json.encode(data.toJson());
+
+class OrderDetail {
+  final String uuid;
+  final String createTime;
+  final String updateTime;
+  final String batchUuid;
+  final String ownerUser;
+  final String customerUuid;
+  final int shared;
+  final int sharedTime;
+  final int status;
+  final List<GoodsList> goodsList;
+  final String customerName;
+  final String customerPhone;
+  final History history;
+  final String? serialNo;      // 票号
+  final bool? onDuty;          // 当班标志
+  final String? customerCode;  // 客户编码（如 "75B8"）
+  final String? cashierName;   // 收银员
+  final String? billerName;    // 开票员
+  final String? creditTime;    // 赊欠时间
+  final double? creditAmount;  // 赊欠金额
+  final double? tricycleFee;   // 三轮车费
+  final double? totalAmount;   // 总费用
+  final double? discount;   // 总费用
+  final int? orderTime; // 下单时间（秒级时间戳，0 表示无）
+
+  OrderDetail({
+    required this.uuid,
+    required this.createTime,
+    required this.updateTime,
+    required this.batchUuid,
+    required this.ownerUser,
+    required this.customerUuid,
+    required this.shared,
+    required this.sharedTime,
+    required this.status,
+    required this.goodsList,
+    required this.customerName,
+    required this.customerPhone,
+    required this.history,
+    this.serialNo,
+    this.onDuty,
+    this.customerCode,
+    this.cashierName,
+    this.billerName,
+    this.creditTime,
+    this.creditAmount,
+    this.tricycleFee,
+    this.totalAmount,
+    this.orderTime,
+    this.discount,
+  });
+
+  OrderDetail copyWith({
+    String? uuid,
+    String? createTime,
+    String? updateTime,
+    String? batchUuid,
+    String? ownerUser,
+    String? customerUuid,
+    int? shared,
+    int? sharedTime,
+    int? status,
+    List<GoodsList>? goodsList,
+    String? customerName,
+    String? customerPhone,
+    History? history,
+    String? serialNo,
+    bool? onDuty,
+    String? customerCode,
+    String? cashierName,
+    String? billerName,
+    String? creditTime,
+    double? creditAmount,
+    double? tricycleFee,
+    double? totalAmount,
+    int? orderTime,
+    double? discount,
+  }) =>
+      OrderDetail(
+        uuid: uuid ?? this.uuid,
+        createTime: createTime ?? this.createTime,
+        updateTime: updateTime ?? this.updateTime,
+        batchUuid: batchUuid ?? this.batchUuid,
+        ownerUser: ownerUser ?? this.ownerUser,
+        customerUuid: customerUuid ?? this.customerUuid,
+        shared: shared ?? this.shared,
+        sharedTime: sharedTime ?? this.sharedTime,
+        status: status ?? this.status,
+        goodsList: goodsList ?? this.goodsList,
+        customerName: customerName ?? this.customerName,
+        customerPhone: customerPhone ?? this.customerPhone,
+        history: history ?? this.history,
+        serialNo: serialNo ?? this.serialNo,
+        onDuty: onDuty ?? this.onDuty,
+        customerCode: customerCode ?? this.customerCode,
+        cashierName: cashierName ?? this.cashierName,
+        billerName: billerName ?? this.billerName,
+        creditTime: creditTime ?? this.creditTime,
+        creditAmount: creditAmount ?? this.creditAmount,
+        tricycleFee: tricycleFee ?? this.tricycleFee,
+        totalAmount: totalAmount ?? this.totalAmount,
+        orderTime: orderTime ?? this.orderTime,
+        discount: discount?? this.discount,
+      );
+
+  factory OrderDetail.fromJson(Map<String, dynamic> json) => OrderDetail(
+    uuid: json["uuid"] ?? '',
+    createTime: json["createTime"] ?? json["CreateTime"] ?? '',
+    updateTime: json["updateTime"] ?? json["UpdateTime"] ?? '',
+    batchUuid: json["batchUUID"] ?? json["batchUuid"] ?? '',
+    ownerUser: json["ownerUser"] ?? json["OwnerUser"] ?? '',
+    customerUuid: json["customerUUID"] ?? json["customerUuid"] ?? '',
+    shared: json["shared"] ?? 0,
+    sharedTime: json["sharedTime"] ?? json["SharedTime"] ?? 0,
+    status: json["status"] ?? 0,
+    goodsList: (json["goodsList"] ?? json["GoodsList"]) != null
+        ? List<GoodsList>.from((json["goodsList"] ?? json["GoodsList"]).map((x) => GoodsList.fromJson(x)))
+        : [],
+    customerName: json["customerName"] ?? json["CustomerName"] ?? '',
+    customerPhone: json["customerPhone"] ?? json["CustomerPhone"] ?? '',
+    history: json["history"] != null
+        ? History.fromJson(json["history"])
+        : History(uuid: '', createTime: '', updateTime: '', batchOrderUuid: '', steps: []),
+    serialNo: json["serialNo"],
+    onDuty: json["onDuty"],
+    customerCode: json["customerCode"],
+    cashierName: json["cashierName"],
+    billerName: json["billerName"],
+    creditTime: json["creditTime"],
+    creditAmount: (json["creditAmount"] ?? 0).toDouble(),
+    tricycleFee: (json["tricycleFee"] ?? 0).toDouble(),
+    totalAmount: (json["totalAmount"] ?? 0).toDouble(),
+    orderTime: Order.parseOrderTime(json["orderTime"]),
+    discount: (json["discount"] ?? 0).toDouble(),
+  );
+
+  Map<String, dynamic> toJson() => {
+    "uuid": uuid,
+    "createTime": createTime,
+    "updateTime": updateTime,
+    "batchUUID": batchUuid,
+    "ownerUser": ownerUser,
+    "customerUUID": customerUuid,
+    "shared": shared,
+    "sharedTime": sharedTime,
+    "status": status,
+    "goodsList": List<dynamic>.from(goodsList.map((x) => x.toJson())),
+    "customerName": customerName,
+    "customerPhone": customerPhone,
+    "history": history.toJson(),
+    "serialNo": serialNo,
+    "onDuty": onDuty,
+    "customerCode": customerCode,
+    "cashierName": cashierName,
+    "billerName": billerName,
+    "creditTime": creditTime,
+    "creditAmount": creditAmount,
+    "tricycleFee": tricycleFee,
+    "totalAmount": totalAmount,
+    "orderTime": orderTime,
+    "discount": discount,
+  };
+
+  /// 生成显示用票号（从 uuid 截取）
+  String getTicketNo() {
+    return orderTicketNo(uuid);
+  }
+
+  /// 格式化创建时间
+  String formatCreateDate() {
+    DateTime dateTime = DateTime.parse(createTime).toLocal();
+    String formattedDate = DateFormat('yyyy-MM-dd HH:mm').format(dateTime);
+    return formattedDate;
+  }
+  
+  /// 格式化开单时间（orderTime 为秒级时间戳，无值时回退创建时间）
+  String formatOrderTime() {
+    final seconds = orderTime ?? 0;
+    if (seconds <= 0) {
+      return formatCreateDate();
+    }
+    final dateTime = DateTime.fromMillisecondsSinceEpoch(seconds * 1000).toLocal();
+    return DateFormat('yyyy-MM-dd HH:mm').format(dateTime);
+  }
+}
+
+class GoodsList {
+  final String uuid;
+  final String createTime;
+  final String updateTime;
+  final String batchOrderUuid;
+  final String batchUuid;
+  final String goodsUuid;
+  final String ownerUser;
+  final String customerUuid;
+  final String serialNo;
+  final double price;
+  final double weight;
+  final double goodsWeight;
+  final int mount;
+  final String customerName;
+  final String customerPhone;
+  final String name;
+  final int type;
+  final double? total;
+
+  GoodsList({
+    required this.uuid,
+    required this.createTime,
+    required this.updateTime,
+    required this.batchOrderUuid,
+    required this.batchUuid,
+    required this.goodsUuid,
+    required this.ownerUser,
+    required this.customerUuid,
+    required this.serialNo,
+    required this.price,
+    required this.weight,
+    required this.goodsWeight,
+    required this.mount,
+    required this.customerName,
+    required this.customerPhone,
+    required this.name,
+    required this.type,
+    required this.total,
+  });
+
+  GoodsList copyWith({
+    String? uuid,
+    String? createTime,
+    String? updateTime,
+    String? batchOrderUuid,
+    String? batchUuid,
+    String? goodsUuid,
+    String? ownerUser,
+    String? customerUuid,
+    String? serialNo,
+    double? price,
+    double? weight,
+    double? goodsWeight,
+    int? mount,
+    String? customerName,
+    String? customerPhone,
+    String? name,
+    int? type,
+    double? total,
+  }) =>
+      GoodsList(
+        uuid: uuid ?? this.uuid,
+        createTime: createTime ?? this.createTime,
+        updateTime: updateTime ?? this.updateTime,
+        batchOrderUuid: batchOrderUuid ?? this.batchOrderUuid,
+        batchUuid: batchUuid ?? this.batchUuid,
+        goodsUuid: goodsUuid ?? this.goodsUuid,
+        ownerUser: ownerUser ?? this.ownerUser,
+        customerUuid: customerUuid ?? this.customerUuid,
+        serialNo: serialNo ?? this.serialNo,
+        price: price ?? this.price,
+        goodsWeight: goodsWeight ?? this.goodsWeight,
+        weight: weight ?? this.weight,
+        mount: mount ?? this.mount,
+        customerName: customerName ?? this.customerName,
+        customerPhone: customerPhone ?? this.customerPhone,
+        name: name ?? this.name,
+        type: type ?? this.type,
+        total: total ?? this.total,
+      );
+
+  factory GoodsList.fromJson(Map<String, dynamic> json) => GoodsList(
+    uuid: json["uuid"] ?? '',
+    createTime: json["createTime"] ?? json["CreateTime"] ?? '',
+    updateTime: json["updateTime"] ?? json["UpdateTime"] ?? '',
+    batchOrderUuid: json["batchOrderUUID"] ?? json["batchOrderUuid"] ?? '',
+    batchUuid: json["batchUUID"] ?? json["batchUuid"] ?? '',
+    goodsUuid: json["goodsUUID"] ?? json["goodsUuid"] ?? '',
+    ownerUser: json["ownerUser"] ?? json["OwnerUser"] ?? '',
+    customerUuid: json["customerUUID"] ?? json["customerUuid"] ?? '',
+    serialNo: json["serialNo"] ?? json["SerialNo"] ?? '',
+    price: (json["price"] ?? 0).toDouble(),
+    goodsWeight: (json["goodsWeight"] ?? 0).toDouble(),
+    weight: (json["weight"] ?? 0).toDouble(),
+    mount: json["mount"] ?? 0,
+    customerName: json["customerName"] ?? json["CustomerName"] ?? '',
+    customerPhone: json["customerPhone"] ?? json["CustomerPhone"] ?? '',
+    name: json["name"] ?? json["Name"] ?? '',
+    type: json["type"] ?? json["Type"] ?? 0,
+    total: (json["total"] ?? json["Total"] ?? 0).toDouble(),
+  );
+
+  Map<String, dynamic> toJson() => {
+    "uuid": uuid,
+    "createTime": createTime,
+    "updateTime": updateTime,
+    "batchOrderUUID": batchOrderUuid,
+    "batchUUID": batchUuid,
+    "goodsUUID": goodsUuid,
+    "ownerUser": ownerUser,
+    "customerUUID": customerUuid,
+    "serialNo": serialNo,
+    "price": price,
+    "goodsWeight": goodsWeight,
+    "weight": weight,
+    "mount": mount,
+    "customerName": customerName,
+    "customerPhone": customerPhone,
+    "Name": name,
+    "type": type,
+    "total": total,
+  };
+
+  /// 获取数量显示文本
+  String getMountText() {
+    if (type == 2) {
+      // 散装：直接显示weight
+      return '${weight}斤';
+    } else {
+      // 定装：显示件数和weight
+      return '${mount}件\n(${weight}斤)';
+    }
+  }
+
+  /// 获取小计金额
+  int getSubtotal() {
+    // 如果有 total 字段值，直接返回
+    if (total != null) {
+      return total!.round();
+    }
+    // 否则根据类型计算
+    if (type == 2) {
+      // 散装：price * weight
+      return (price * weight).round();
+    } else {
+      // 定装：price * mount
+      return (price * mount).round();
+    }
+  }
+}
+
+class History {
+  final String uuid;
+  final String createTime;
+  final String updateTime;
+  final String batchOrderUuid;
+  final List<Step> steps;
+
+  History({
+    required this.uuid,
+    required this.createTime,
+    required this.updateTime,
+    required this.batchOrderUuid,
+    required this.steps,
+  });
+
+  History copyWith({
+    String? uuid,
+    String? createTime,
+    String? updateTime,
+    String? batchOrderUuid,
+    List<Step>? steps,
+  }) =>
+      History(
+        uuid: uuid ?? this.uuid,
+        createTime: createTime ?? this.createTime,
+        updateTime: updateTime ?? this.updateTime,
+        batchOrderUuid: batchOrderUuid ?? this.batchOrderUuid,
+        steps: steps ?? this.steps,
+      );
+
+  factory History.fromJson(Map<String, dynamic> json) => History(
+    uuid: json["uuid"] ?? '',
+    createTime: json["createTime"] ?? json["CreateTime"] ?? '',
+    updateTime: json["updateTime"] ?? json["UpdateTime"] ?? '',
+    batchOrderUuid: json["batchOrderUUID"] ?? json["batchOrderUuid"] ?? '',
+    steps: (json["steps"] ?? json["Steps"]) != null
+        ? List<Step>.from((json["steps"] ?? json["Steps"]).map((x) => Step.fromJson(x)))
+        : [],
+  );
+
+  Map<String, dynamic> toJson() => {
+    "uuid": uuid,
+    "createTime": createTime,
+    "updateTime": updateTime,
+    "batchOrderUUID": batchOrderUuid,
+    "steps": List<dynamic>.from(steps.map((x) => x.toJson())),
+  };
+}
+
+class Step {
+  final String operateTime;
+  final int stepType;
+  final String creditAmount;
+  final String customerName;
+  final String customerPhone;
+  final List<GoodsListElement> goodsList;
+  final String orderAmount;
+  final String paidFee;
+  final String payFee;
+  final int payType;
+
+  Step({
+    required this.operateTime,
+    required this.stepType,
+    required this.creditAmount,
+    required this.customerName,
+    required this.customerPhone,
+    required this.goodsList,
+    required this.orderAmount,
+    required this.paidFee,
+    required this.payFee,
+    required this.payType,
+  });
+
+  Step copyWith({
+    String? operateTime,
+    int? stepType,
+    String? creditAmount,
+    String? customerName,
+    String? customerPhone,
+    List<GoodsListElement>? goodsList,
+    String? orderAmount,
+    String? paidFee,
+    String? payFee,
+    int? payType,
+  }) =>
+      Step(
+        operateTime: operateTime ?? this.operateTime,
+        stepType: stepType ?? this.stepType,
+        creditAmount: creditAmount ?? this.creditAmount,
+        customerName: customerName ?? this.customerName,
+        customerPhone: customerPhone ?? this.customerPhone,
+        goodsList: goodsList ?? this.goodsList,
+        orderAmount: orderAmount ?? this.orderAmount,
+        paidFee: paidFee ?? this.paidFee,
+        payFee: payFee ?? this.payFee,
+        payType: payType ?? this.payType,
+      );
+
+  factory Step.fromJson(Map<String, dynamic> json) => Step(
+    operateTime: json["operate_time"] ?? json["operateTime"] ?? '',
+    stepType: json["step_type"] ?? json["stepType"] ?? 0,
+    creditAmount: json["creditAmount"] ?? json["CreditAmount"] ?? '',
+    customerName: json["customerName"] ?? json["CustomerName"] ?? '',
+    customerPhone: json["customerPhone"] ?? json["CustomerPhone"] ?? '',
+    goodsList: (json["goods_list"] ?? json["goodsList"]) != null
+        ? List<GoodsListElement>.from((json["goods_list"] ?? json["goodsList"]).map((x) => GoodsListElement.fromJson(x)))
+        : [],
+    orderAmount: json["orderAmount"] ?? json["OrderAmount"] ?? '',
+    paidFee: json["paidFee"] ?? json["PaidFee"] ?? "",
+    payFee: json["payFee"] ?? json["PayFee"] ?? "",
+    payType: json["payType"] ?? json["PayType"] ?? 0,
+  );
+
+  Map<String, dynamic> toJson() => {
+    "operate_time": operateTime,
+    "step_type": stepType,
+    "creditAmount": creditAmount,
+    "customerName": customerName,
+    "customerPhone": customerPhone,
+    "goods_list": List<dynamic>.from(goodsList.map((x) => x.toJson())),
+    "orderAmount": orderAmount,
+    "paidFee": paidFee,
+    "payFee": payFee,
+    "payType": payType,
+  };
+
+  /// 格式化操作时间
+  String formatOperateTime() {
+    DateTime dateTime = DateTime.parse(operateTime).toLocal();
+    String formattedDate = DateFormat('yyyy-MM-dd HH:mm').format(dateTime);
+    return formattedDate;
+  }
+}
+
+class GoodsListElement {
+  final String name;
+  final int type;
+  final String amount;
+  final int mount;
+  final double price;
+  final double weight;
+
+  GoodsListElement({
+    required this.name,
+    required this.type,
+    required this.amount,
+    required this.mount,
+    required this.price,
+    required this.weight,
+  });
+
+  GoodsListElement copyWith({
+    String? name,
+    int? type,
+    String? amount,
+    int? mount,
+    double? price,
+    double? weight,
+  }) =>
+      GoodsListElement(
+        name: name ?? this.name,
+        type: type ?? this.type,
+        amount: amount ?? this.amount,
+        mount: mount ?? this.mount,
+        price: price ?? this.price,
+        weight: weight ?? this.weight,
+      );
+
+  factory GoodsListElement.fromJson(Map<String, dynamic> json) => GoodsListElement(
+    name: json["name"] ?? json["Name"] ?? '',
+    type: json["type"] ?? json["Type"] ?? 0,
+    amount: json["amount"] ?? '',
+    mount: json["mount"] ?? 0,
+    price: (json["price"] ?? 0).toDouble(),
+    weight: (json["weight"] ?? 0).toDouble(),
+  );
+
+  Map<String, dynamic> toJson() => {
+    "Name": name,
+    "type": type,
+    "amount": amount,
+    "mount": mount,
+    "price": price,
+    "weight": weight,
+  };
+}
+import 'package:clerk/model/batch_result.dart';
+import 'package:clerk/model/good_list_model.dart';
+import 'package:clerk/model/warehouse_model.dart';
+import 'package:clerk/net/provider/batch_provider.dart';
+import 'package:clerk/utils/c_log.dart';
+import 'package:get/get.dart';
+
+/// 批次控制器
+class BatchController extends GetxController {
+  final BatchProvider _provider = Get.find();
+
+  RxList<Good> goodsList = <Good>[].obs;
+  RxInt serialId = 0.obs;
+
+  /// 修改模式下原始入库时间戳（秒），0 表示新增模式用当前时间
+  RxInt storageTimestamp = 0.obs;
+
+  /// 获取批次序号（新增模式下调用）
+  Future<void> fetchSerialId() async {
+    try {
+      final id = await _provider.preCreate();
+      CLog.d('获取批次序号: $id');
+      serialId.value = id;
+    } catch (e) {
+      CLog.e('获取批次序号失败: $e');
+      serialId.value = 0;
+    }
+  }
+
+  /// 加载前一批次的货品到 goodsList（新增模式下调用）
+  Future<void> loadPreviousBatchGoods() async {
+    try {
+      // 获取最近的批次列表
+      final batchList = await _provider.getBatchList(page: 1, pageCount: 2);
+      if (batchList.isEmpty) return;
+
+      // 取第一个批次（最新的）
+      final latestBatch = batchList.first;
+      final uuid = latestBatch['uuid'] as String?;
+      if (uuid == null || uuid.isEmpty) return;
+
+      // 获取该批次的详情
+      final resp = await _provider.getBatchDetail(uuid: uuid);
+      final result = BatchResult.fromJson(resp);
+
+      // 转换为 Good 对象，并将价格和重量置为 0
+      final goods = result.goodsList.map((gl) {
+        final g = Good(
+          gl.goodsUUID,
+          gl.createTime,
+          gl.updateTime,
+          '', // categoryID
+          gl.name,
+          gl.type,
+          0.0, // price 置为 0
+          gl.type == 1 ? gl.weight : 0.0, // weight: 定装保留单件重量，散装为 0
+          1, // status
+        );
+        g.mount = 0; // mount 置为 0
+        return g;
+      }).toList();
+
+      goodsList.assignAll(goods);
+    } catch (e) {
+      // 静默失败，不影响新增流程
+      CLog.e('加载前一批次货品失败: $e');
+    }
+  }
+
+  /// 新增批次
+  /// 返回新创建批次的 uuid，便于上层（如开单页）刷新后直接定位到该批次
+  Future<String> addBatch({String uuid = ''}) async {
+    int timestamp = DateTime.now().microsecondsSinceEpoch ~/ 1000000;
+
+    List<WarehouseModel> warehouseList = _buildWarehouseList();
+    try {
+      Map<String, dynamic> resp = await _provider.addBatch(
+          timestamp: timestamp, list: warehouseList, uuid: uuid);
+      final result = BatchResult.fromJson(resp);
+      final batchUuid = result.uuid;
+      if (batchUuid.isEmpty) {
+        // 接口未返回 uuid 时，回退拿取 uuid 字段，避免刷新时无法定位新批次
+        final raw = resp['uuid'];
+        if (raw is String && raw.isNotEmpty) return raw;
+      }
+      return batchUuid;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// 修改批次（使用原始入库时间，不覆盖）
+  Future<void> modifyBatch(String uuid) async {
+    final int timestamp = storageTimestamp.value > 0
+        ? storageTimestamp.value
+        : DateTime.now().microsecondsSinceEpoch ~/ 1000000;
+    List<WarehouseModel> warehouseList = _buildWarehouseList();
+    try {
+      await _provider.modifyBatch(
+          timestamp: timestamp, list: warehouseList, uuid: uuid);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  List<WarehouseModel> _buildWarehouseList() {
+    return goodsList.map((e) {
+      if (e.type == 2) {
+        return WarehouseModel(
+          goodsUUID: e.uuid,
+          price: e.price,
+          weight: (e.mount ?? 0).toDouble(),
+          mount: 0,
+        );
+      } else {
+        return WarehouseModel(
+          goodsUUID: e.uuid,
+          price: e.price,
+          weight: e.weight,
+          mount: e.mount ?? 0,
+        );
+      }
+    }).toList();
+  }
+
+  /// 加载批次详情到 goodsList（修改模式进入时调用）
+  Future<void> loadBatchForEdit(String uuid) async {
+    final resp = await _provider.getBatchDetail(uuid: uuid);
+    final result = BatchResult.fromJson(resp);
+    final goods = result.goodsList.map((gl) {
+      // 定装: weight=单件重量, mount=件数
+      // 散装: 入库时 Good.mount=斤数 被存到 warehouse.weight, 所以反向进行还原
+      final unitWeight = gl.type == 1 ? gl.weight : 0.0;
+      final mountVal = gl.type == 1 ? gl.mount : gl.weight.round();
+      final g = Good(
+        gl.goodsUUID,
+        gl.createTime,
+        gl.updateTime,
+        '', // categoryID
+        gl.name,
+        gl.type,
+        gl.price,
+        unitWeight,
+        1, // status
+      );
+      g.mount = mountVal;
+      return g;
+    }).toList();
+    goodsList.assignAll(goods);
+    serialId.value = result.serialID;
+    storageTimestamp.value = result.storageTime;
+  }
+
+  void updateGoodList(Map<String, Good> goods) {
+    goodsList.assignAll(goods.values.toList());
+  }
+
+  /// 更新件数
+  void updateMount(List<Good> goods) {
+    goodsList.assignAll(goods.toList());
+  }
+
+  /// 是否定装
+  bool isFix(int index) {
+    if (index < 0 || index >= goodsList.length) return false;
+    return goodsList[index].type == 1;
+  }
+
+  /// 获取数量信息
+  String getMountInfo(int index) {
+    if (index < 0 || index >= goodsList.length) return '0件';
+    return '${goodsList[index].mount ?? 0}${isFix(index) ? '件' : '斤'}';
+  }
+
+  /// 获取货品重量
+  String getWeight(int index) {
+    if (index < 0 || index >= goodsList.length) return '';
+    final Good good = goodsList[index];
+    final double weight = good.weight * good.getMount();
+    return weight > 0 ? '(${weight.toStringAsFixed(1)}斤)' : '';
+  }
+
+  /// 是否已经设置了数量
+  bool hasMount(int index) {
+    if (index < 0 || index >= goodsList.length) return false;
+    final mount = goodsList[index].mount;
+    return mount != null && mount > 0;
+  }
+
+  /// 设置货品价格
+  void setPrice(String uuid, double price) {
+    final index = goodsList.indexWhere((g) => g.uuid == uuid);
+    if (index != -1) {
+      goodsList[index].price = price;
+      goodsList.refresh();
+    }
+  }
+
+  /// 获取金额（价格 × 数量）
+  String getAmount(int index) {
+    if (index < 0 || index >= goodsList.length) return '-';
+    final good = goodsList[index];
+    final mount = good.mount ?? 0;
+    if (mount == 0 || good.price == 0) return '-';
+    final amount = good.price * mount;
+    return amount % 1 == 0
+        ? amount.toStringAsFixed(0)
+        : amount.toStringAsFixed(2);
+  }
+
+  /// 总件数（仅定装件数之和，散装不计入）
+  int getTotalMount() {
+    return goodsList.fold(
+        0, (sum, good) => sum + (good.type == 1 ? (good.mount ?? 0) : 0));
+  }
+
+  /// 总重量（只计算散装货品的重量，单位斤）
+  String getTotalWeight() {
+    double total = 0;
+    for (final good in goodsList) {
+      if (good.type == 2) {
+        // 散装：直接使用 mount 字段作为重量（斤）
+        total += (good.mount ?? 0);
+      }
+    }
+    return total % 1 == 0 ? total.toStringAsFixed(0) : total.toStringAsFixed(1);
+  }
+
+  /// 总金额（价格 × mount 之和）
+  String getTotalAmount() {
+    double total = 0;
+    for (final good in goodsList) {
+      total += good.price * (good.mount ?? 0);
+    }
+    return total % 1 == 0 ? total.toStringAsFixed(0) : total.toStringAsFixed(2);
+  }
+}
+import 'dart:async';
+import 'package:clerk/model/token.dart';
+import 'package:clerk/utils/recent_customers_store.dart';
+import 'package:clerk/err/data_error.dart';
+import 'package:clerk/model/batch_result.dart';
+import 'package:clerk/model/customer_model.dart';
+import 'package:clerk/model/good_latest_price.dart';
+import 'package:clerk/model/good_list_model.dart';
+import 'package:clerk/model/good_request.dart';
+import 'package:clerk/model/purchase_order.dart';
+import 'package:clerk/model/temp_order_result.dart';
+import 'package:clerk/model/warehouse_model.dart';
+import 'package:clerk/net/provider/batch_provider.dart';
+import 'package:clerk/net/provider/deal_provider.dart';
+import 'package:clerk/net/provider/customer_provider.dart';
+import 'package:clerk/net/provider/good_provider.dart';
+import 'package:clerk/net/provider/purchase_order_provider.dart';
+import 'package:clerk/utils/alphabet_indexer.dart';
+import 'package:clerk/utils/c_log.dart';
+import 'package:clerk/utils/utils.dart';
+import 'package:get/get.dart';
+
+class DealController extends GetxController {
+  final BatchProvider _batchProvider = Get.find();
+  final DealProvider _dealProvider = Get.find();
+  final CustomerProvider _customerProvider = Get.find<CustomerProvider>();
+  final PurchaseOrderProvider _purchaseOrderProvider = Get.find();
+  final GoodProvider _goodProvider = Get.find<GoodProvider>();
+
+  BatchResult? batchResult;
+
+  RxList<GoodsList> goodList = <GoodsList>[].obs;
+
+  /// 购物车货品列表（支持同一货品多条记录）
+  RxList<GoodsList> cartItems = <GoodsList>[].obs;
+
+  /// 三轮车费（下单时额外费用，随订单带到收银台）
+  RxDouble tricycleFee = 0.0.obs;
+
+  /// 是否为改单模式
+  bool isEditMode = false;
+
+  /// 按字母排序后的货品列表（分组）
+  RxMap<String, List<GoodsList>> sortedGoodListMap =
+      <String, List<GoodsList>>{}.obs;
+
+  /// 有数据的字母列表
+  RxList<String> activeLetters = <String>[].obs;
+
+  /// 是否启用字母排序（默认启用）
+  RxBool enableAlphabetSort = true.obs;
+
+  /// 客户map
+  Map<String, List<GoodsList>> clientMap = <String, List<GoodsList>>{};
+
+  /// 客户列表
+  RxList<CustomerModel> customerList = <CustomerModel>[].obs;
+
+  /// 选中客户index
+  RxInt customerIndex = 0.obs;
+
+  /// 货品最近一次交易信息
+  RxMap<String, dynamic> goodLatestMap = <String, dynamic>{}.obs;
+  RxInt selectIndex = 0.obs;
+
+  /// 客户
+  CustomerModel? customerModel;
+  CustomerModel? _cashCustomer;
+  bool _recentCustomersLoaded = false;
+  final Map<String, double> _clientFees = {};
+  final Map<String, DateTime?> _clientTimes = {};
+
+  /// 客户名字
+  RxString customerName = '现金客户'.obs;
+
+  /// 购物车/收银台选择的下单时间；null 表示未选择，接口按系统当前时间传
+  Rxn<DateTime> selectedTime = Rxn<DateTime>();
+
+  /// 接口用 orderTime（秒级时间戳）：已选择用所选时间，否则用系统当前时间
+  int get orderTimeSeconds =>
+      (selectedTime.value ?? DateTime.now()).millisecondsSinceEpoch ~/ 1000;
+
+  // ─── 左侧批次面板 ───
+
+  /// 在售批次列表
+  RxList<PurchaseOrder> availableBatches = <PurchaseOrder>[].obs;
+
+  /// 当前选中的批次 uuid
+  RxString selectedBatchUuid = ''.obs;
+
+  // ─── 货品分类（左侧面板下半部分） ───
+
+  /// 货品分类列表（来自货品库分类接口）
+  RxList<GoodListModel> goodsCategories = <GoodListModel>[].obs;
+
+  /// 选中的分类 uuid；null/空 = 全部
+  RxnString selectedCategoryUuid = RxnString();
+
+  /// 搜索关键字（货品名模糊匹配，与分类筛选叠加）
+  RxString searchKeyword = ''.obs;
+
+  /// 右侧首字索引栏选中的字；null/空 = 不过滤。
+  /// 点击索引栏后货品列表只保留首字命中的货品，再次点击同一个字可取消。
+  RxnString selectedFirstChar = RxnString();
+
+  /// 分类是否已加载过（避免重复请求）
+  bool _categoriesLoaded = false;
+
+  /// 加载货品分类
+  /// [force] = true 时忽略已加载缓存，重新请求（入库新增货品后需要）
+  Future<void> loadGoodsCategories({bool force = false}) async {
+    if (_categoriesLoaded && !force) return;
+    try {
+      final list = await _goodProvider.getGoodList();
+      goodsCategories.assignAll(list
+          .map((e) => GoodListModel.fromJson(e))
+          .where((c) => c.name.trim().isNotEmpty && c.name.trim() != '未分类')
+          .toList());
+      _categoriesLoaded = true;
+    } catch (e) {
+      CLog.e('加载货品分类失败: $e');
+    }
+  }
+
+  /// 入库（新增批次）返回开单页后的统一刷新：
+  /// 刷新批次列表 → 强制刷新货品分类 → 刷新当前批次货品；
+  /// [newBatchUuid] 为新建批次 uuid，非空时会切换并加载该批次。
+  Future<void> refreshAfterWarehouse({String? newBatchUuid}) async {
+    // 1. 批次列表（新建批次会出现在左侧面板）
+    try {
+      await loadAvailableBatches();
+    } catch (e) {
+      CLog.e('刷新批次列表失败: $e');
+    }
+
+    // 2. 货品分类（新增货品/新分类后必须重拉，否则筛选会把新货品过滤掉）
+    await loadGoodsCategories(force: true);
+
+    // 3. 切换到新批次（switchBatch 内部会清空购物车并加载该批次货品）
+    if (newBatchUuid != null &&
+        newBatchUuid.isNotEmpty &&
+        newBatchUuid != selectedBatchUuid.value) {
+      await switchBatch(newBatchUuid);
+      return;
+    }
+
+    // 4. 未新建批次时，至少刷新当前批次详情（库存变化、新增货品立即可见）
+    if (selectedBatchUuid.value.isNotEmpty) {
+      await getBatchDetail(uuid: selectedBatchUuid.value);
+    }
+  }
+
+  /// 按当前选中分类过滤货品列表（分类里的货品 uuid 与批次货品的 goodsUUID 匹配）
+  List<GoodsList> _filterByCategory(List<GoodsList> list) {
+    final catUuid = selectedCategoryUuid.value;
+    if (catUuid == null || catUuid.isEmpty) return list;
+    for (final c in goodsCategories) {
+      if (c.uuid == catUuid) {
+        final uuids = c.goodsList?.map((g) => g.uuid).toSet() ?? <String>{};
+        return list.where((g) => uuids.contains(g.goodsUUID)).toList();
+      }
+    }
+    return list;
+  }
+
+  /// 按关键字过滤（货品名模糊匹配，忽略大小写）
+  List<GoodsList> _filterByKeyword(List<GoodsList> list) {
+    final keyword = searchKeyword.value.trim().toLowerCase();
+    if (keyword.isEmpty) return list;
+    return list.where((g) => g.name.toLowerCase().contains(keyword)).toList();
+  }
+
+  /// 按首字过滤（右侧中文索引栏选中某个字时，列表只保留该字开头的货品）
+func (dao *orderDao) DeleteGoodsByOrderUUID(db *gorm.DB, ownerUser, batchOrderUUID string) error {
+	return db.Table(ShardOrderGoodsTable(ownerUser)).Where("batch_order_uuid = ?", batchOrderUUID).Delete(&model.BatchOrderGoods{}).Error
+}
+
+// DeletePayByOrderUUID 根据订单UUID删除还款记录（分表）
+func (dao *orderDao) DeletePayByOrderUUID(db *gorm.DB, ownerUser, batchOrderUUID string) error {
+	return db.Table(ShardPayTable(ownerUser)).Where("batch_order_uuid = ?", batchOrderUUID).Delete(&model.BatchOrderPay{}).Error
+}
+
+// UpdateOrderFields 更新订单指定字段（分表）
+// 仅更新传入的字段，避免 GORM 处理 GoodsListRelated 关联触犯外键约束。
+func (dao *orderDao) UpdateOrderFields(db *gorm.DB, ownerUser, uid string, fields map[string]interface{}) error {
+	return db.Table(ShardOrderTable(ownerUser)).Where("uid = ?", uid).Updates(fields).Error
+}
+
+// UpdateOrderCreditStatus 更新订单的赊欠金额和状态（分表）
+// 用于还款后/撤销还款后调整订单状态
+func (dao *orderDao) UpdateOrderCreditStatus(db *gorm.DB, ownerUser, uid string, creditAmount float64, status int) error {
+	return db.Table(ShardOrderTable(ownerUser)).Where("uid = ?", uid).
+		Updates(map[string]interface{}{
+			"credit_amount": creditAmount,
+			"status":        status,
+		}).Error
+}
+
+// CustomerCreditAmount 实时查询单个客户的赊欠金额（分表）
+func (dao *orderDao) CustomerCreditAmount(db *gorm.DB, ownerUser, userUUID string) (creditAmount float64, err error) {
+	err = db.Table(ShardOrderTable(ownerUser)).
+		Where("owner_user = ? AND user_uuid = ?", ownerUser, userUUID).
+		Where("status IN (?)", common.UnFinalStatusOrder).
+		Where("credit_amount > ?", 0).
+		Select("COALESCE(SUM(credit_amount), 0)").
+		Scan(&creditAmount).Error
+	return
+}
+
+// CustomerCreditAmountBeforeOrder 查询客户在某订单之前（order_time < cutoff）已产生的未结清赊欠金额。
+// 用于分享某一笔旧订单时计算「前欠」口径：分享的是前天的单，前欠就是前天下单那一刻客户已有的总欠账。
+func (dao *orderDao) CustomerCreditAmountBeforeOrder(db *gorm.DB, ownerUser, userUUID string, orderTimeCutoff int64) (creditAmount float64, err error) {
+	err = db.Table(ShardOrderTable(ownerUser)).
+		Where("owner_user = ? AND user_uuid = ?", ownerUser, userUUID).
+		Where("status IN (?)", common.UnFinalStatusOrder).
+		Where("credit_amount > ?", 0).
+		Where("order_time > 0 AND order_time < ?", orderTimeCutoff).
+		Select("COALESCE(SUM(credit_amount), 0)").
+		Scan(&creditAmount).Error
+	return
+}
+
+func (dao *orderDao) FindOrdersWithCredit(db *gorm.DB, ownerUser, customerUUID string, validStatuses []int) ([]model.BatchOrder, error) {
+	var orders []model.BatchOrder
+	err := db.Table(ShardOrderTable(ownerUser)).Where("owner_user = ? AND user_uuid = ? AND status IN (?) AND credit_amount != 0",
+		ownerUser, customerUUID, validStatuses).
+		Order("created_at ASC"). // 最早的订单优先
+		Find(&orders).Error
+	return orders, err
+}
+
+// CreditAmountTotal 统计赊欠总额（从 Customer 表汇总所有客户的 Credit）
+func (dao *orderDao) CreditAmountTotal(db *gorm.DB, ownerUser string) (creditAmount float64, err error) {
+	err = db.Model(&model.Customer{}).
+		Where("owner_user = ?", ownerUser).
+		Select("COALESCE(SUM(credit), 0)").
+		Scan(&creditAmount).Error
+
+	if err != nil {
+		return 0, fmt.Errorf("[CreditAmountTotal] 统计赊欠总额失败 %s: %w", ownerUser, err)
+	}
+
+	return creditAmount, nil
+}
+
+// FindCreditSummariesWithPage 分页查询有赊欠的客户汇总
+func (dao *orderDao) FindCreditSummariesWithPage(db *gorm.DB, ownerUser string, validStatuses []int, offset, limit int) ([]CreditSummary, int64, error) {
+	var summaries []CreditSummary
+	var total int64
+
+	query := db.Table(ShardOrderTable(ownerUser)).
+		Select("user_uuid, SUM(credit_amount) as total_credit").
+		Where("owner_user = ? AND status IN (?) AND credit_amount != 0", ownerUser, validStatuses).
+		Group("user_uuid")
+
+	// 获取总数
+	query.Count(&total)
+
+	// 分页
+	if limit > 0 {
+		query = query.Offset(offset).Limit(limit)
+	}
+
+	err := query.Scan(&summaries).Error
+	return summaries, total, err
+}
+
+// FindCreditSummaries 查询所有有赊欠的客户汇总
+func (dao *orderDao) FindCreditSummaries(db *gorm.DB, ownerUser string, validStatuses []int) ([]CreditSummary, error) {
+	var summaries []CreditSummary
+	err := db.Table(ShardOrderTable(ownerUser)).
+		Select("user_uuid, SUM(credit_amount) as total_credit").
+		Where("owner_user = ? AND status IN (?) AND credit_amount != 0", ownerUser, validStatuses).
+		Group("user_uuid").
+		Scan(&summaries).Error
+	return summaries, err
+}
+
+// MonthSales 月度销售额统计（分表）
+func (dao *orderDao) MonthSales(db *gorm.DB, ownerUser string) (amount float64, err error) {
+	now := time.Now()
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	err = db.Table(ShardOrderTable(ownerUser)).
+		Where("owner_user = ?", ownerUser).
+		Where("created_at >= ?", monthStart).
+		Where("status IN (?)", common.ValidOrder).
+		Select("COALESCE(SUM(amount), 0)").
+		Scan(&amount).Error
+
+	if err != nil {
+		return 0, fmt.Errorf("[MonthSales] 统计月度金额失败 %s: %w", ownerUser, err)
+	}
+
+	return amount, nil
+}
+
+// LatestOrderByCustomers 查询客户最近订单时间（分表）
+func (dao *orderDao) LatestOrderByCustomers(db *gorm.DB, ownerUser string, customers []model.Customer) (billingLatestDate map[string]int, err error) {
+	billingLatestDate = make(map[string]int)
+	customUUIDList := make([]string, 0)
+	for _, customer := range customers {
+		billingLatestDate[customer.UID] = utils.DurationDays(customer.CreatedAt)
+		customUUIDList = append(customUUIDList, customer.UID)
+	}
+
+	var results []struct {
+		UserUUID      string
+		LatestOrderAt time.Time
+	}
+
+	if err = db.Table(ShardOrderGoodsTable(ownerUser)).Where("user_uuid in (?)", customUUIDList).
+		Select("user_uuid, MAX(created_at) as latest_order_at").
+		Group("user_uuid").
+		Scan(&results).Error; err != nil {
+		return
+	}
+
+	for _, result := range results {
+		billingLatestDate[result.UserUUID] = utils.DurationDays(result.LatestOrderAt)
+	}
+
+	return
+}
+
+// ListByBatchUUIDIn 根据批次UUID和货品UUID列表查询（分表）
+func (dao *orderDao) ListByBatchUUIDIn(db *gorm.DB, ownerUser, batchUUID string, goodsUUIDList []string) (objects []model.BatchOrderGoods, err error) {
+	err = utils.Find(db.Table(ShardOrderGoodsTable(ownerUser)), &objects,
+		utils.NewWhereCond("batch_uuid", batchUUID),
+		utils.NewInCondFromString("goods_uuid", goodsUUIDList))
+	return
+}
+
+// UpdateGoods 更新订单货品（分表）
+func (dao *orderDao) UpdateGoods(db *gorm.DB, ownerUser string, object model.BatchOrderGoods) error {
+	return utils.WhereUIDCond(object.UID).Cond(db).Table(ShardOrderGoodsTable(ownerUser)).Updates(&model.BatchOrderGoods{
+		Price:  object.Price,
+		Mount:  object.Mount,
+		Weight: object.Weight,
+	}).Error
+}
+
+// FindGoodsByBatchAndGoodsUUID 按批次UUID和货品UUID查询订单货品列表（分表）
+// statuses 非空时，JOIN 订单表按订单状态筛选；按创建时间倒序排列，用于商品销售明细
+func (dao *orderDao) FindGoodsByBatchAndGoodsUUID(db *gorm.DB, ownerUser, batchUUID, goodsUUID string, statuses []int) (list []model.BatchOrderGoods, err error) {
+	goodsTable := ShardOrderGoodsTable(ownerUser)
+	query := db.Table(goodsTable).
+		Where(goodsTable+".batch_uuid = ? AND "+goodsTable+".goods_uuid = ?", batchUUID, goodsUUID)
+
+	if len(statuses) > 0 {
+		orderTable := ShardOrderTable(ownerUser)
+		query = query.Joins("JOIN "+orderTable+" ON "+orderTable+".uid = "+goodsTable+".batch_order_uuid").
+			Where(orderTable+".status IN (?)", statuses)
+	}
+
+	err = query.Order(goodsTable + ".created_at DESC").Find(&list).Error
+	return
+}
+
+// GetShareOrdersWithGoods 获取分享所需的订单及货品（分表）
+// 如果 orderUUID 不为空，返回该指定订单；否则返回当天或昨天最近的一单
+func (dao *orderDao) GetShareOrdersWithGoods(db *gorm.DB, ownerUser, customerUUID, orderUUID string) (order model.BatchOrder, previousCredit float64, err error) {
+	orderTable := ShardOrderTable(ownerUser)
+	goodsTable := ShardOrderGoodsTable(ownerUser)
+
+	if orderUUID != "" {
+		err = db.Table(orderTable).
+			Preload("GoodsListRelated", func(db *gorm.DB) *gorm.DB {
+				return OrderGoodsInSequence(db.Table(goodsTable))
+			}).
+			Where("uid = ? AND owner_user = ? AND user_uuid = ?",
+				orderUUID, ownerUser, customerUUID).
+			First(&order).Error
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				err = fmt.Errorf("订单不存在")
+			}
+			return
+		}
+	} else {
+		err = db.Table(orderTable).
+			Preload("GoodsListRelated", func(db *gorm.DB) *gorm.DB {
+				return OrderGoodsInSequence(db.Table(goodsTable))
+			}).
+			Where("owner_user = ? AND user_uuid = ? AND status IN (?)",
+				ownerUser, customerUUID, common.UnFinalStatusOrder).
+			Order("order_time DESC").
+			First(&order).Error
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				err = nil
+			}
+			return
+		}
+	}
+	return
+}
+
+// GetCreditList 赊欠列表查询
+// 总赊欠额从 Customer 表查询（包含客户初始设置的赊欠余额），
+// 今日赊欠、订单数、最长赊欠天数仍从订单分表查询
+func (dao *orderDao) GetCreditList(db *gorm.DB, ownerUser string, conditions request.CreditListReq) (*response.CreditListResponse, error) {
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	// 1. 从 Customer 表查询汇总（总赊欠额、赊欠人数）
+	var summary response.CreditSummary
+	err := db.Model(&model.Customer{}).
+		Where("owner_user = ? AND credit != 0 AND name <> ?", ownerUser, common.CashCustomerName).
+		Select("COALESCE(SUM(credit), 0) as total_credit_amount, COUNT(*) as total_credit_users").
+		Scan(&summary).Error
+	if err != nil {
+		global.Global.Logger.Error("[GetCreditList] 查询客户赊欠汇总失败", zap.Error(err))
+		return nil, err
+	}
+
+	// 2. 从订单分表查询订单维度的汇总（赊欠总单数、今日赊欠总额）
+	orderTable := ShardOrderTable(ownerUser)
+	var orderSummary struct {
+		TotalCreditOrders int64   `gorm:"column:total_credit_orders"`
+		TodayCreditAmount float64 `gorm:"column:today_credit_amount"`
+	}
+	err = db.Table(orderTable+" AS o").
+		Where("o.owner_user = ? AND o.status = ? AND o.credit_amount > 0", ownerUser, common.BatchOrderTemp).
+		Joins("JOIN customers c ON c.uid = o.user_uuid").
+		Where("c.name <> ?", common.CashCustomerName).
+		Select(`COUNT(*) as total_credit_orders,
+			COALESCE(SUM(CASE WHEN o.order_time >= ? THEN o.credit_amount ELSE 0 END), 0) as today_credit_amount`, todayStart.Unix()).
+		Scan(&orderSummary).Error
+	if err != nil {
+		global.Global.Logger.Error("[GetCreditList] 查询订单赊欠汇总失败", zap.Error(err))
+		return nil, err
+	}
+	summary.TotalCreditOrders = orderSummary.TotalCreditOrders
+	summary.TodayCreditAmount = orderSummary.TodayCreditAmount
+
+	// 3. 无赊欠客户直接返回
+	if summary.TotalCreditUsers == 0 {
+		return &response.CreditListResponse{
+			List:    []*response.CreditUserStat{},
+			Summary: summary,
+		}, nil
+	}
+
+	// 4. 从 Customer 表分页查询有赊欠的客户列表
+	type customerCredit struct {
+		UID    string  `gorm:"column:uid"`
+		Name   string  `gorm:"column:name"`
+		Credit float64 `gorm:"column:credit"`
+	}
+
+	customerQuery := db.Model(&model.Customer{}).
+		Select("uid, name, credit").
+		Where("owner_user = ? AND credit != 0 AND name <> ?", ownerUser, common.CashCustomerName)
+
+	if conditions.Search != "" {
+		like := "%" + conditions.Search + "%"
+		customerQuery = customerQuery.Where("name LIKE ? OR phone LIKE ?", like, like)
+	}
+
+	customerQuery = customerQuery.Order("credit DESC")
+
+	if !conditions.LoadAll && conditions.PageCount > 0 {
+		offset := (conditions.Page - 1) * conditions.PageCount
+		customerQuery = customerQuery.Offset(offset).Limit(conditions.PageCount)
+	}
+
+	var customers []customerCredit
+	if err = customerQuery.Scan(&customers).Error; err != nil {
+		global.Global.Logger.Error("[GetCreditList] 查询赊欠客户列表失败", zap.Error(err))
+		return nil, err
+	}
+
+	if len(customers) == 0 {
+		return &response.CreditListResponse{
+			List:    []*response.CreditUserStat{},
+			Summary: summary,
+		}, nil
+	}
+
+	// 5. 批量查询这些客户的订单维度数据（今日赊欠、订单数、最早赊欠时间）
+	userUUIDs := make([]string, len(customers))
+	for i, c := range customers {
+		userUUIDs[i] = c.UID
+	}
+
+	type orderStat struct {
+		UserUUID     string    `gorm:"column:user_uuid"`
+		TodayCredit  float64   `gorm:"column:today_credit"`
+		OrderCount   int64     `gorm:"column:order_count"`
+		FirstCreated time.Time `gorm:"column:first_created"`
+	}
+
+	var orderStats []orderStat
+	err = db.Table(orderTable+" AS o").
+		Where("o.owner_user = ? AND o.user_uuid IN ? AND o.status = ? AND o.credit_amount > 0",
+			ownerUser, userUUIDs, common.BatchOrderTemp).
+		Select(`o.user_uuid,
+			SUM(CASE WHEN o.order_time >= ? THEN o.credit_amount ELSE 0 END) as today_credit,
+			COUNT(*) as order_count,
+			MIN(o.created_at) as first_created`, todayStart.Unix()).
+		Group("o.user_uuid").
+		Scan(&orderStats).Error
+	if err != nil {
+		global.Global.Logger.Error("[GetCreditList] 查询客户订单统计失败", zap.Error(err))
+		return nil, err
+	}
+
+	orderStatMap := make(map[string]orderStat, len(orderStats))
+	for _, s := range orderStats {
+		orderStatMap[s.UserUUID] = s
+	}
+
+	// 6. 查询当天已分享的客户集合
+	sharedSet, err := ShareDao.SharedTodayCustomers(db, ownerUser)
+	if err != nil {
+		global.Global.Logger.Error("[GetCreditList] 查询当日分享记录失败", zap.Error(err))
+		return nil, err
+	}
+
+	// 7. 组装结果
+	list := make([]*response.CreditUserStat, len(customers))
+	for i, c := range customers {
+		longestDays := 0
+		todayCredit := 0.0
+		var orderCount int64
+		if s, ok := orderStatMap[c.UID]; ok {
+			todayCredit = s.TodayCredit
+			orderCount = s.OrderCount
+			if !s.FirstCreated.IsZero() {
+				longestDays = int(now.Sub(s.FirstCreated).Hours() / 24)
+			}
+		}
+
+		list[i] = &response.CreditUserStat{
+			UserUUID:    c.UID,
+			UserName:    c.Name,
+			TotalCredit: c.Credit,
+			TodayCredit: todayCredit,
+			LongestDays: longestDays,
+			OrderCount:  orderCount,
+			TodayShared: sharedSet[c.UID],
+		}
+	}
+
+	return &response.CreditListResponse{
+		List:    list,
+		Summary: summary,
+	}, nil
+}
+
+// OrderGoodsInSequence preserves submitted order, with a deterministic fallback
+// for historical rows written before sort_no existed.
+func OrderGoodsInSequence(db *gorm.DB) *gorm.DB {
+	return db.Order("sort_no ASC, created_at ASC, uid ASC")
+}
+
+func assignOrderGoodsSequence(goods []*model.BatchOrderGoods) {
+	for index, good := range goods {
+		good.SortNo = index + 1
+	}
+}
+package logic
+
+import (
+	"app/global"
+	"app/pkg/utils"
+	"app/service/cache"
+	"app/service/common"
+	"app/service/dao"
+	"app/service/model"
+	"app/service/model/request"
+	"app/service/model/response"
+	"context"
+	"crypto/sha256"
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+)
+
+type (
+	OrderLogic struct {
+		context *gin.Context
+		runtime *global.RunTime
+		model.BatchOrder
+		History model.BatchOrderHistory `json:"history"`
+	}
+	OrderGoodsLogic struct {
+		context *gin.Context
+		runtime *global.RunTime
+		*model.BatchOrderGoods
+	}
+)
+
+func NewOrderLogic(context *gin.Context) *OrderLogic {
+	logic := &OrderLogic{
+		context: context,
+		runtime: global.Global,
+	}
+	logic.OwnerUser = common.GetUserUUID(context)
+	return logic
+}
+
+func NewOrderGoodsLogic(context *gin.Context) *OrderGoodsLogic {
+	logic := &OrderGoodsLogic{
+		context: context,
+		runtime: global.Global,
+	}
+	logic.OwnerUser = common.GetUserUUID(context)
+	return logic
+}
+
+// isCashCustomer 判断当前订单的客户是否为现金客户
+func (logic *OrderLogic) isCashCustomer() (bool, error) {
+	if logic.UserUUID == "" {
+		return false, nil
+	}
+	customer, err := dao.CustomerDao.FromUUID(logic.runtime.DB, logic.UserUUID)
+	if err != nil {
+		return false, err
+	}
+	return customer.Name == common.CashCustomerName, nil
+}
+
+// orderDedupTTL 同一客户在该时间段内提交相同货品时只允许创建一次订单
+const orderDedupTTL = 3 * time.Second
+
+// goodsFingerprint 生成货品明细指纹，用于识别两次提交是否为同一笔订单。
+func goodsFingerprint(goodsList []*model.BatchOrderGoods) string {
+	parts := make([]string, 0, len(goodsList))
+	for _, goods := range goodsList {
+		parts = append(parts, fmt.Sprintf("%s|%d|%.2f|%d|%.2f",
+			goods.GoodsUUID, goods.GoodType, goods.Price, goods.Mount, goods.Weight))
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ";")
+}
+
+// orderDedupKey 生成 Redis 幂等键：同一用户、同一客户、相同货品时键相同。
+func (logic *OrderLogic) orderDedupKey() string {
+	sum := sha256.Sum256([]byte(logic.UserUUID + "|" + goodsFingerprint(logic.GoodsListRelated)))
+	return fmt.Sprintf("order:dedup:%s:%x", logic.OwnerUser, sum)
+}
+
+// acquireOrderDedup 用 Redis SETNX 抢占本次下单的幂等键。
+// 键已存在说明 2 秒内已提交过相同订单，直接返回 false。
+// Redis 异常时不阻断正常下单，退化为不做防重。
+func (logic *OrderLogic) acquireOrderDedup() bool {
+	if global.Global.Redis == nil {
+		return true
+	}
+	ok, err := global.Global.Redis.SetNX(context.Background(), logic.orderDedupKey(), 1, orderDedupTTL).Result()
+	if err != nil {
+		global.Global.Logger.Warn("[OrderCreate] Redis 防重失败，跳过防重", zap.Error(err))
+		return true
+	}
+	return ok
+}
+
+// 码单
+func (logic *OrderLogic) TempCreate() (err error) {
+	logic.BatchOrder.DefaultSet()
+
+	// 前端未传下单时间时用当前时间
+	if logic.OrderTime == 0 {
+		logic.OrderTime = int(time.Now().Unix())
+	}
+
+	if logic.BatchUUID == "" {
+		return common.BatchUUIDRequireErr
+	}
+	if len(logic.GoodsListRelated) == 0 {
+		return common.BatchOrderGoodsRequireErr
+	}
+
+	// 在创建前加这一行
+	if err = logic.FillGoodsWeightWithTotal(logic.runtime.DB); err != nil {
+		return
+	}
+
+	// 现金客户不能记账单（付款金额必须 >= 订单金额，暂存单不接受付款故直接拦截）
+	isCash, err := logic.isCashCustomer()
+	if err != nil {
+		return
+	}
+	if isCash {
+		return common.CashCustomerPayLessErr
+	}
+
+	// 同一客户 2 秒内重复提交相同货品时直接拦截
+	if !logic.acquireOrderDedup() {
+		return common.OrderDuplicateSubmitErr
+	}
+
+	// 创建订单 + 更新客户统计（使用事务保证一致性）
+	tx := logic.runtime.DB.Begin()
+
+	// 1. 先创建订单（不包含货品）
+	goodsList := logic.GoodsListRelated
+	logic.GoodsListRelated = nil // 暂时清空，避免GORM通过外键创建
+
+	if err = dao.OrderDao.Create(tx, &logic.BatchOrder); err != nil {
+		logic.GoodsListRelated = goodsList // 恢复
+		tx.Rollback()
+		global.Global.Logger.Error("OrderLogic TempCreate CreateObj", zap.Any("logic.BatchOrder", logic.BatchOrder), zap.Error(err))
+		return
+	}
+
+	// 2. 再创建订单货品
+	logic.GoodsListRelated = goodsList // 恢复
+	for _, goods := range logic.GoodsListRelated {
+		goods.BatchOrderUID = logic.UID
+		goods.OwnerUser = logic.OwnerUser
+		goods.UserUUID = logic.UserUUID
+		goods.BatchUUID = logic.BatchUUID
+	}
+
+	if err = dao.OrderDao.CreateGoodsBatch(tx, logic.OwnerUser, logic.GoodsListRelated); err != nil {
+		tx.Rollback()
+		global.Global.Logger.Error("OrderLogic TempCreate CreateGoodsBatch", zap.Error(err))
+		return
+	}
+
+	if err = dao.CustomerDao.IncrOrderStats(tx, logic.UserUUID, logic.TotalAmount+logic.TricycleFee, logic.CreditAmount); err != nil {
+		tx.Rollback()
+		return
+	}
+
+	tx.Commit()
+	// logic.SetFeilds()
+	return
+}
+
+func (logic *OrderLogic) FillGoodsWeightWithTotal(db *gorm.DB) (err error) {
+	list := logic.GoodsListRelated
+
+	if len(list) == 0 {
+		return nil
+	}
+
+	// 1. Collect valid goods UUIDs and filter out empty ones
+	var goodsUUIDs []string
+	validItems := make([]*model.BatchOrderGoods, 0, len(list))
+
+	for _, item := range list {
+		if item.GoodsUUID != "" {
+			goodsUUIDs = append(goodsUUIDs, item.GoodsUUID)
+			validItems = append(validItems, item)
+		}
+	}
+
+	logic.GoodsListRelated = validItems
+
+	if len(goodsUUIDs) == 0 {
+		return nil
+	}
+
+	// 2. Use cache or database to get goods fields
+	var goodsFieldMap map[string]model.GoodsFeild
+
+	// Try cache first
+	if goodsFieldMap, err = cache.GoodsCache.BatchGoodsFeildSet(goodsUUIDs, logic.OwnerUser); err != nil {
+		return
+	}
+	// 3. Calculate and set fields for valid items only
+	finalItems := make([]*model.BatchOrderGoods, 0, len(validItems))
+	var totalAmount float64
+
+	for _, item := range validItems {
+		goodsField, ok := goodsFieldMap[item.GoodsUUID]
+		if !ok {
+			// Goods UUID doesn't exist, skip this item
+			continue
+		}
+
+		// Set common fields
+		item.BatchUUID = logic.BatchUUID
+		item.OwnerUser = logic.OwnerUser
+		item.UserUUID = logic.UserUUID
+		item.GoodType = goodsField.GoodsTyp
+		// item.GoodsTyp = goodsField.GoodsTyp
+
+		var subTotal float64
+
+		if goodsField.GoodsTyp == common.GoodsTypeFix {
+			item.Weight = utils.FloatReserve(float64(item.Mount)*goodsField.GoodsWeight, 1)
+			subTotal = utils.FloatReserve(float64(item.Mount)*item.Price, 0)
+		}
+
+		if goodsField.GoodsTyp == common.GoodsTypeBulk {
+			item.Mount = 0
+			subTotal = utils.FloatReserve(item.Price*item.Weight, 0)
+		}
+
+		item.GoodsFeild = goodsField
+		item.Total = subTotal
+		totalAmount += subTotal
+
+		finalItems = append(finalItems, item)
+	}
+
+	logic.GoodsListRelated = finalItems
+	logic.TotalAmount = totalAmount + logic.TricycleFee
+	logic.CreditAmount = logic.TotalAmount - logic.Discount
+
+	return nil
+}
+
+// 下单
+func (logic *OrderLogic) Create(orderReq request.OrderReq) (err error) {
+	// 假如是现金客户
+
+	logic.BatchOrder = orderReq.BatchOrder
+
+	// 前端未传下单时间时用当前时间
+	if logic.OrderTime == 0 {
+		logic.OrderTime = int(time.Now().Unix())
+	}
+
+	// 计算total
+	if err = logic.FillGoodsWeightWithTotal(global.Global.DB); err != nil {
+		return
+	}
+
+	logic.CreditAmount = logic.TotalAmount - logic.Discount - orderReq.FPayAmount
+	payableAmount := logic.TotalAmount - logic.Discount
+	if utils.FloatEqual(payableAmount, orderReq.FPayAmount) || utils.FloatGreat(orderReq.FPayAmount, payableAmount) {
+		logic.Status = common.BatchOrderFinish
+	} else {
+		logic.Status = common.BatchOrderTemp
+	}
+
+	// 现金客户付款金额不能小于订单金额（赊欠单说明没付够）
+	isCash, err := logic.isCashCustomer()
+	if err != nil {
+		return
+	}
+	if isCash && logic.Status == common.BatchOrderTemp {
+		return common.CashCustomerPayLessErr
+	}
+
+	if logic.BatchUUID == "" {
+		return common.BatchUUIDRequireErr
+	}
+	if len(logic.GoodsListRelated) == 0 {
+		return common.BatchOrderGoodsRequireErr
+	}
+
+	for _, goods := range logic.GoodsListRelated {
+		goods.OwnerUser = logic.OwnerUser
+		goods.BatchUUID = logic.BatchUUID
+		goods.UserUUID = logic.UserUUID
+	}
+
+	// 用 Redis 幂等键防止网络抖动导致同一笔下单重复创建
+	if !logic.acquireOrderDedup() {
+		return common.OrderDuplicateSubmitErr
+	}
+
+	tx := logic.runtime.DB.Begin()
+
+	// 1. 先创建订单（不包含货品）
+	goodsList := logic.GoodsListRelated
+	logic.GoodsListRelated = nil // 暂时清空
+
+	if err = dao.OrderDao.Create(tx, &logic.BatchOrder); err != nil {
+		logic.GoodsListRelated = goodsList // 恢复
+		tx.Rollback()
+		return
+	}
+
+	// 2. 再创建订单货品
+	logic.GoodsListRelated = goodsList // 恢复
+	for _, goods := range logic.GoodsListRelated {
+		goods.BatchOrderUID = logic.UID
+	}
+
+	if err = dao.OrderDao.CreateGoodsBatch(tx, logic.OwnerUser, logic.GoodsListRelated); err != nil {
+		tx.Rollback()
+		return
+	}
+
+	// orderPay := NewOrderPayLogic(logic.context)
+	// orderPay.BatchOrderUUID = logic.UID
+	// // orderPay.Amount = order.TotalAmount - order.CreditAmount
+	// orderPay.Amount = orderReq.FPayAmount
+	// if err = orderPay.Create(tx, false); err != nil {
+	// 	tx.Rollback()
+	// 	return
+	// }
+
+	// 更新客户订单统计
+	if err = dao.CustomerDao.IncrOrderStats(tx, logic.UserUUID, logic.TotalAmount+logic.TricycleFee, logic.CreditAmount); err != nil {
+		tx.Rollback()
+		return
+	}
+
+	tx.Commit()
+	// if utils.FloatGreat(0.0, logic.CreditAmount) {
+	// 	go logic.Record(false, model.HistoryStepCash, model.PayFeild{
+	// 		PayFee:  utils.Violent2String(orderReq.TotalAmount),
+	// 		PayType: orderReq.PayType,
+	// 		PaidFee: utils.Violent2String(orderReq.FPayAmount),
+	// 	})
+	// } else {
+	// 	go logic.Record(false, model.HistoryStepCredit, model.PayFeild{
+	// 		PayFee:  utils.Violent2String(orderReq.TotalAmount),
+	// 		PayType: orderReq.PayType,
+	// 		PaidFee: utils.Violent2String(orderReq.FPayAmount),
+	// 	})
+	// }
+	// logic.SetFeilds()
+	return
+}
+
+func (logic *OrderLogic) Shared() (err error) {
+	// 分享以客户为维度：同一客户当天分享多个订单只记录一条，更新最近一次分享时间
+	if logic.UserUUID != "" {
+		if err = dao.ShareDao.UpsertShare(logic.runtime.DB, &model.ShareRecord{
+			OwnerUser:    logic.OwnerUser,
+			CustomerUUID: logic.UserUUID,
+			ShareTime:    time.Now().Unix(),
+		}); err != nil {
+			return
+		}
+	}
+	// logic.Record(true, model.HistoryStepOrderShare, model.PayFeild{})
+	return
+}
+
+// ShareDailyOrder builds the share data for today's orders of a customer.
+// If orderUUID is provided, queries that order's date data.
+// Otherwise, queries today's data.
+func (logic *OrderLogic) ShareOrder(req request.ShareDailyOrderReq) (rsp *response.ShareDailyOrderRsp, err error) {
+	// Get customer info for name
+	customer, err := dao.CustomerDao.FromUUID(logic.runtime.DB, req.CustomerUUID)
+	if err != nil {
+		return nil, fmt.Errorf("customer not found: %w", err)
+	}
+
+	// 经营户（当前登录用户）的菜市场信息，用于分享单抬头与底部联系方式
+	owner, err := dao.UserDao.FromUUID(logic.runtime.DB, logic.OwnerUser)
+	if err != nil {
+		return nil, fmt.Errorf("owner user not found: %w", err)
+	}
+
+	order, _, err := dao.OrderDao.GetShareOrdersWithGoods(logic.runtime.DB, logic.OwnerUser, req.CustomerUUID, req.OrderUUID)
+	if err != nil {
+		return
+	}
+
+	// Build goods name map via cache
+	goodsUUIDs := make([]string, 0, len(order.GoodsListRelated))
+	for _, g := range order.GoodsListRelated {
+		goodsUUIDs = append(goodsUUIDs, g.GoodsUUID)
+	}
+	goodsMap, _ := cache.GoodsCache.BatchGoodsFeildSet(goodsUUIDs, logic.OwnerUser)
+
+	// 只取最近的一单（同批次、不同批次都只展示最新的那个）
+	var latestCredit float64
+	var previousCreditAmount float64
+	pendingDebt := customer.Debt - customer.PaidDebt
+	if pendingDebt < 0 {
+		pendingDebt = 0
+	}
+
+	// 表示查到了
+	if order.UID != "" {
+		latestCredit = order.CreditAmount
+
+		preTime := order.CreatedAt
+		if order.OrderTime > 0 {
+			preTime = time.Unix(int64(order.OrderTime), 0)
+		}
+
+		// 历史单：精确回溯到该订单下单之前（只含订单赊欠，不含原始债务）
+		previousCreditAmount, err = dao.OrderDao.CustomerCreditAmountBeforeOrder(
+			logic.runtime.DB, logic.OwnerUser, req.CustomerUUID, preTime.Unix())
+		if err != nil {
+			global.Global.Logger.Error("[ShareOrder] 查询订单前欠失败，回退为客户总赊欠减本单赊欠", zap.Error(err))
+			previousCreditAmount = customer.Credit - latestCredit
+		} else {
+			previousCreditAmount += pendingDebt
+		}
+	} else {
+		previousCreditAmount += customer.Credit
+	}
+
+	rsp = &response.ShareDailyOrderRsp{
+		PreviousCreditAmount: previousCreditAmount,
+		TodayCreditAmount:    latestCredit,
+	}
+
+	// 渲染这一单的货品明细
+	if order.UID != "" {
+		ot := time.Unix(int64(order.OrderTime), 0)
+		group := response.ShareDailyOrderGroup{
+			OrderUUID:   order.UID,
+			SerialNo:    utils.UUIDToSerial(order.UID),
+			DateStr:     ot.Format("2006-01-02 15:04"),
+			TricycleFee: order.TricycleFee,
+			TotalAmount: order.CreditAmount,
+		}
+		for _, g := range order.GoodsListRelated {
+			item := &response.ShareDailyOrderItem{
+				GoodsUUID: g.GoodsUUID,
+				GoodsName: goodsMap[g.GoodsUUID].GoodsName,
+				Price:     g.Price,
+				Weight:    g.Weight,
+				Mount:     g.Mount,
+				Total:     g.Total,
+				GoodType:  g.GoodType,
+			}
+			group.GoodsList = append(group.GoodsList, item)
+			group.TotalMount += g.Mount
+			if g.GoodType == common.GoodsTypeBulk {
+				group.TotalWeight += g.Weight
+			}
+		}
+		// 先散装后定装（GoodType 降序：散装=2 在前，定装=1 在后），
+		// 同类型内按货品名升序，保证不同时段分享次序稳定
+		sort.SliceStable(group.GoodsList, func(i, j int) bool {
+			if group.GoodsList[i].GoodType != group.GoodsList[j].GoodType {
+				return group.GoodsList[i].GoodType > group.GoodsList[j].GoodType
+			}
+			return group.GoodsList[i].GoodsName < group.GoodsList[j].GoodsName
+		})
+		rsp.OrderGroups = append(rsp.OrderGroups, group)
+
+		rsp.Date = ot.Format("2006-01-02 15:04")
+	} else {
+		rsp.Date = time.Now().Format("2006-01-02 15:04")
+	}
+
+	// 计算总赊欠 = 前欠 + 今日赊欠
+	rsp.TotalCreditAmount = rsp.PreviousCreditAmount + rsp.TodayCreditAmount
+
+	// 抬头：<省份>食用农产品批发市场销售票据 / 市场名称 / 用户名 / 档口名称
+	province := strings.TrimSpace(owner.Province)
+	rsp.Title = province + "食用农产品批发市场销售票据"
+	rsp.MarketName = owner.MarketName
+	rsp.UserName = owner.Name
+	rsp.StallName = owner.StallName
+	// 底部联系方式：优先用户自定义的分享联系方式（前端逗号分隔，展示用空格分隔），
+	// 未设置时回退到登录手机号，最后回退到配置文件
+	rsp.Contact = joinContactPhones(owner.ContactPhones)
+	if rsp.Contact == "" {
+		rsp.Contact = owner.Phone
+	}
+	if rsp.Contact == "" {
+		rsp.Contact = logic.runtime.Viper.GetString("share.contact")
+	}
+	rsp.CustomerName = customer.Name
+	return
+}
+
+// joinContactPhones 将前端用逗号分隔的多个联系方式转成展示用的空格分隔
+func joinContactPhones(raw string) string {
+	parts := strings.Split(raw, ",")
+	phones := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
+			phones = append(phones, part)
+		}
+	}
+	return strings.Join(phones, " ")
+}
+
+// buildReceiptData 从 ShareDailyOrderRsp 构建模板渲染数据，按订单分组。
+func (logic *OrderLogic) buildReceiptData(rsp *response.ShareDailyOrderRsp) utils.ReceiptData {
+	var orders []utils.ReceiptOrder
+	for _, og := range rsp.OrderGroups {
+		var goodsItems []utils.ReceiptGoodsItem
+		for _, g := range og.GoodsList {
+			goodsItems = append(goodsItems, utils.ReceiptGoodsItem{
+				GoodsName: g.GoodsName,
+				MountStr:  utils.FormatMount(g.Mount),
+				WeightStr: utils.FormatWeight(g.Weight),
+				PriceStr:  utils.FormatFloat(g.Price),
+				TotalStr:  utils.FormatFloat(g.Total),
+				GoodType:  g.GoodType,
+			})
+		}
+		orders = append(orders, utils.ReceiptOrder{
+			SerialNo:       og.SerialNo,
+			Date:           og.DateStr,
+			GoodsList:      goodsItems,
+			TotalMount:     fmt.Sprintf("%d", og.TotalMount),
+			TotalWeight:    utils.FormatTotalWeight(og.TotalWeight),
+			TotalAmountStr: utils.FormatFloat(og.TotalAmount),
+			TricycleFeeStr: utils.FormatFloat(og.TricycleFee),
+		})
+	}
+	return utils.ReceiptData{
+		Title:                  rsp.Title,
+		CustomerName:           rsp.CustomerName,
+		SerialNo:               fmt.Sprintf("%d", time.Now().Unix()%100000),
+		Date:                   rsp.Date,
+		Contact:                rsp.Contact,
+		MarketName:             rsp.MarketName,
+		UserName:               rsp.UserName,
+		StallName:              rsp.StallName,
+		Orders:                 orders,
+		CreditAmountStr:        utils.FormatFloat(rsp.TodayCreditAmount),
+		TotalPreviousCreditStr: utils.FormatFloat(rsp.PreviousCreditAmount),
+		TotalDebtStr:           utils.FormatFloat(rsp.TotalCreditAmount),
+	}
+}
+
+// GenerateShareHTML builds the receipt HTML for a customer's daily order and returns the HTML string.
+func (logic *OrderLogic) GenerateShareHTML(req request.ShareDailyOrderReq) (html string, err error) {
+	rsp, err := logic.ShareOrder(req)
+	if err != nil {
+		return
+	}
+
+	receiptData := logic.buildReceiptData(rsp)
+	html, err = utils.GenerateHTML(receiptData)
+	if err != nil {
+		logic.runtime.Logger.Error("GenerateShareHTML failed", zap.Error(err))
+	}
+	return
+}
+
+func (logic *OrderLogic) UpdateStatus() (err error) {
+	// 先加载当前订单数据，用于调整客户统计
+	var oldOrder model.BatchOrder
+	if oldOrder, err = logic.LoadSingle(logic.UID); err != nil {
+		return
+	}
+
+	// 订单状态更新 + 客户统计回退放在同一个事务内
+	tx := logic.runtime.DB.Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err = dao.OrderDao.UpdateStatus(tx, logic.OwnerUser, logic.UID, logic.Status); err != nil {
+		return
+	}
+
+	// 作废/退款/退货：减少客户统计
+	if logic.Status == common.BatchOrderCancel || logic.Status == common.BatchOrderRefund || logic.Status == common.BatchOrderReTurn {
+		if err = dao.CustomerDao.DecrOrderStats(tx, oldOrder.UserUUID, oldOrder.TotalAmount, oldOrder.CreditAmount); err != nil {
+			return
+		}
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		return
+	}
+	return
+}
+
+// 更新单次
+func (logic *OrderLogic) Update(orderReq request.OrderReq) (err error) {
+	var old model.BatchOrder
+	if old, err = logic.LoadSingle(orderReq.UID); err != nil {
+		return
+	}
+	logic.BatchOrder = orderReq.BatchOrder // owner_user重置成了空字符串
+	logic.BatchUUID = old.BatchUUID
+
+	if logic.BatchOrder.OrderTime == 0 {
+		logic.BatchOrder.OrderTime = old.OrderTime
+	}
+
+	if logic.BatchOrder.UserUUID == "" {
+		logic.BatchOrder.UserUUID = old.UserUUID
+	}
+
+	// 计算total
+	if err = logic.FillGoodsWeightWithTotal(global.Global.DB); err != nil {
+		return
+	}
+
+	logic.CreditAmount = logic.TotalAmount - logic.Discount - orderReq.FPayAmount
+	payableAmount := logic.TotalAmount - logic.Discount
+	if utils.FloatEqual(payableAmount, orderReq.FPayAmount) || utils.FloatGreat(orderReq.FPayAmount, payableAmount) {
+		logic.Status = common.BatchOrderFinish
+	} else {
+		logic.Status = common.BatchOrderTemp
+	}
+
+	// 现金客户付款金额不能小于订单金额（赊欠单说明没付够）
+	isCash, err := logic.isCashCustomer()
+	if err != nil {
+		return
+	}
+	if isCash && logic.Status == common.BatchOrderTemp {
+		return common.CashCustomerPayLessErr
+	}
+
+	tx := logic.runtime.DB.Begin()
+	// 分表删除：删除原货品记录（走分表，避免外键约束）
+	if err = dao.OrderDao.DeleteGoodsByOrderUUID(tx, logic.OwnerUser, logic.UID); err != nil {
+		tx.Rollback()
+		return err
+	}
+	// 分表删除：删除原还款记录
+	if err = dao.OrderDao.DeletePayByOrderUUID(tx, logic.OwnerUser, logic.UID); err != nil {
+		tx.Rollback()
+		return err
+	}
+	for _, goods := range logic.GoodsListRelated {
+		goods.OwnerUser = logic.OwnerUser
+		goods.BatchUUID = logic.BatchUUID
+		goods.UserUUID = logic.UserUUID
+		goods.BatchOrderUID = logic.UID
+	}
+	// 分表更新订单（使用 Updates 而非 Save，避免 GORM 处理 GoodsListRelated 关联触犯主表外键约束）
+	// 注意：OrderLogic 同时定义了 Shared() 方法和嵌入的 BatchOrder.Shared 字段，
+	// 直接用 logic.Shared 会被解析成方法值 func() error，必须显式访问字段。
+	updateFields := map[string]interface{}{
+		"updated_at": time.Now(),
+		// "share_time":    logic.BatchOrder.SharedTime,
+		"status":        logic.BatchOrder.Status,
+		"amount":        logic.BatchOrder.TotalAmount,
+		"credit_amount": logic.BatchOrder.CreditAmount,
+		"tricycle_fee":  logic.BatchOrder.TricycleFee,
+		"order_time":    logic.BatchOrder.OrderTime,
+		"user_uuid":     logic.BatchOrder.UserUUID,
+	}
+	if err = dao.OrderDao.UpdateOrderFields(tx, logic.OwnerUser, logic.UID, updateFields); err != nil {
+		tx.Rollback()
+		return
+	}
+
+	// 分表批量创建新货品记录
+	if err = dao.OrderDao.CreateGoodsBatch(tx, logic.OwnerUser, logic.GoodsListRelated); err != nil {
+		tx.Rollback()
+		return
+	}
+
+	orderPay := NewOrderPayLogic(logic.context)
+	orderPay.BatchOrderUUID = logic.UID
+	// orderPay.Amount = order.TotalAmount - order.CreditAmount
+	orderPay.Amount = orderReq.FPayAmount
+	if err = orderPay.Create(tx, false); err != nil {
+		return
+	}
+
+	// 更新客户订单统计
+	if logic.UserUUID == old.UserUUID {
+		// 同客户：按差额调整（新金额 - 旧金额）
+		deltaTotal := logic.TotalAmount - old.TotalAmount
+		deltaDebt := logic.CreditAmount - old.CreditAmount
+		if deltaTotal != 0 || deltaDebt != 0 {
+			if err = dao.CustomerDao.UpdateOrderStatsDiff(tx, logic.UserUUID, deltaTotal, deltaDebt); err != nil {
+				tx.Rollback()
+				return
+			}
+		}
+	} else {
+		// 换客户：旧客户回退统计（订单数-1、总金额-旧、credit-旧赊欠），新客户累加统计
+		if err = dao.CustomerDao.DecrOrderStats(tx, old.UserUUID, old.TotalAmount, old.CreditAmount); err != nil {
+			tx.Rollback()
+			return
+		}
+		if err = dao.CustomerDao.IncrOrderStats(tx, logic.UserUUID, logic.TotalAmount, logic.CreditAmount); err != nil {
+			tx.Rollback()
+			return
+		}
+	}
+
+	tx.Commit()
+	// if utils.FloatGreat(0.0, logic.CreditAmount) {
+	// 	go logic.Record(false, model.HistoryStepCash, model.PayFeild{
+	// 		PayFee:  utils.Violent2String(orderReq.TotalAmount),
+	// 		PayType: orderReq.PayType,
+	// 		PaidFee: utils.Violent2String(orderReq.FPayAmount),
+	// 	})
+	// } else {
+	// 	go logic.Record(false, model.HistoryStepCredit, model.PayFeild{
+	// 		PayFee:  utils.Violent2String(orderReq.TotalAmount),
+	// 		PayType: orderReq.PayType,
+	// 		PaidFee: utils.Violent2String(orderReq.FPayAmount),
+	// 	})
+	// }
+
+	// logic.SetFeilds()
+	// logic.Record(false, model.HistoryStepOrderFix, model.PayFeild{})
+	return
+}
+
+func (logic *OrderLogic) FromUUID(uuid string) (err error) {
+	if logic.BatchOrder, err = dao.OrderDao.FindByUID(logic.runtime.DB, logic.OwnerUser, uuid, "GoodsListRelated"); err != nil {
+		return
+	}
+	logic.LoadHistory()
+	logic.SetFeilds()
+	// logic.SetTotal()
+	return
+}
+
+func (logic *OrderLogic) LoadSingle(uuid string) (batchOrder model.BatchOrder, err error) {
+	batchOrder, err = dao.OrderDao.FindByUID(logic.runtime.DB, logic.OwnerUser, uuid)
+	return
+}
+
+func (logic *OrderLogic) FindLatestGoods(goodsUUIDList []string) (goodsOrderList []response.BatchOrderGoodsOrderRsp, err error) {
+	for _, goodsUUID := range goodsUUIDList {
+		conds := []utils.Cond{
+			utils.NewWhereCond("goods_uuid", goodsUUID),
+			utils.CreatedOrderAscCond(),
+		}
+		// todo BatchOrderGoods需要加索引
+		var goodsOrder model.BatchOrderGoods
+		var _price float64
+		if err = utils.First(logic.runtime.DB.Table(dao.ShardOrderGoodsTable(logic.OwnerUser)), &goodsOrder, conds...); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				var goods model.Goods
+				if err = utils.First(logic.runtime.DB, &goods, utils.NewWhereCond("uid", goodsUUID)); err != nil {
+					return
+				}
+				_price = goods.Price
+			} else {
+				return
+			}
+		} else {
+			_price = goodsOrder.Price
+		}
+		goodsOrderList = append(goodsOrderList, response.BatchOrderGoodsOrderRsp{
+			GoodsUUID: goodsUUID,
+			Price:     _price,
+		})
+	}
+
+	return
+}
+
+func (logic *OrderLogic) SetGoodsFeild() (err error) {
+	var goodsUUIDList []string
+	for _, goods := range logic.GoodsListRelated {
+		goodsUUIDList = append(goodsUUIDList, goods.GoodsUUID)
+	}
+
+	goodsM := make(map[string]model.GoodsFeild, 0)
+	if goodsM, err = cache.GoodsCache.BatchGoodsFeildSet(goodsUUIDList, logic.OwnerUser); err != nil {
+		return
+	}
+	for _, goods := range logic.GoodsListRelated {
+		goods.GoodsFeild = goodsM[goods.GoodsUUID]
+	}
+
+	return
+}
+
+func (logic *OrderLogic) SetCustomerFeild() (err error) {
+	logic.CustomerFeild, err = cache.CustomerCache.CustomerFeildSet(logic.UserUUID, logic.OwnerUser)
+	return
+}
+
+func (logic *OrderLogic) List(req request.BatchOrderListReq) (orderList []*model.BatchOrder, err error) {
+	// 使用分表 DAO 查询
+	var startT, endT time.Time
+	if req.StartTime != 0 {
+		startT = time.Unix(req.StartTime, 0)
+	}
+	if req.EndTime != 0 {
+		endT = time.Unix(req.EndTime, 0)
+	}
+
+	limitCond := utils.DefaultSetLimitCond(req.LimitCond)
+	offset := 0
+	if limitCond.Page > 0 && limitCond.PageCount > 0 {
+		offset = (limitCond.Page - 1) * limitCond.PageCount
+	}
+
+	// 收集需要查询的客户 UUID 列表
+	var userUUIDs []string
+	if req.UserNameSearch != "" {
+		// 先根据用户名模糊查询客户 UUID 列表
+		userUUIDs, err = dao.CustomerDao.FindUserUUIDsByName(logic.runtime.DB, logic.OwnerUser, req.UserNameSearch)
+		if err != nil {
+			return
+		}
+		if len(userUUIDs) == 0 {
+			// 没有匹配的客户，直接返回空列表
+			return
+		}
+	} else if req.UserUUID != "" {
+		userUUIDs = []string{req.UserUUID}
+	}
+
+	orderList, err = dao.OrderDao.List(
+		logic.runtime.DB,
+		logic.OwnerUser,
+		userUUIDs,
+		startT,
+		endT,
+		req.Status,
+		offset,
+		limitCond.PageCount,
+		true, // 预加载货品
+	)
+
+	if err != nil {
+		return
+	}
+
+	logic.BatchFeilds(orderList)
+
+	return
+}
+
+func (logic *OrderLogic) BatchFeilds(orderList []*model.BatchOrder) {
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		var _cl []string
+		for _, o := range orderList {
+			_cl = append(_cl, o.UserUUID)
+		}
+		_cm, _ := cache.CustomerCache.BatchCustomerFeildSet(_cl, logic.OwnerUser)
+
+		for _, o := range orderList {
+			o.CustomerFeild = _cm[o.UserUUID]
+		}
+		wg.Done()
+	}()
+	go func() {
+		var _gl []string
+		for _, o := range orderList {
+			for _, g := range o.GoodsListRelated {
+				_gl = append(_gl, g.GoodsUUID)
+			}
+		}
+		_gm, _ := cache.GoodsCache.BatchGoodsFeildSet(_gl, logic.OwnerUser)
+		for _, o := range orderList {
+			for _, g := range o.GoodsListRelated {
+				g.GoodsFeild = _gm[g.GoodsUUID]
+				g.SetTotal()
+			}
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+}
+
+// func (logic *OrderLogic) SetTotal() {
+// 	for _, g := range logic.GoodsListRelated {
+// 		logic.TotalAmount += g.SetTotal()
+// 	}
+// }
+
+func (logic *OrderLogic) BatchSetFeilds(orders []model.BatchOrder) {
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		logic.SetCustomerFeild()
+		wg.Done()
+	}()
+	go func() {
+		logic.SetGoodsFeild()
+		wg.Done()
+	}()
+	wg.Wait()
+}
+
+// func (logic *OrderLogic) BatchSetFeilds(orders []model.BatchOrder) {
+// 	wg := sync.WaitGroup{}
+// 	wg.Add(2)
+// 	go func() {
+// 		logic.SetCustomerFeild()
+// 		wg.Done()
+// 	}()
+// 	go func() {
+// 		logic.SetGoodsFeild()
+// 		wg.Done()
+// 	}()
+// 	wg.Wait()
+// }
+
+func (logic *OrderLogic) SetFeilds() {
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		logic.SetCustomerFeild()
+		wg.Done()
+	}()
+	go func() {
+		logic.SetGoodsFeild()
+		wg.Done()
+	}()
+	wg.Wait()
+}
+
+func (logic *OrderLogic) Record(loadself bool, stepType int32, pay model.PayFeild) {
+	go func() {
+		if loadself {
+			if err := utils.Find(logic.runtime.DB.Preload("GoodsListRelated"), &logic.BatchOrder); err != nil {
+				logic.runtime.Logger.Error(fmt.Sprintf("OrderLogic Record: %s", err))
+				return
+			}
+			logic.SetFeilds()
+		}
+		logic.BatchOrder.Record(logic.runtime.DB, stepType, pay)
+	}()
+}
+
+func (logic *OrderLogic) LoadHistory() (err error) {
+	var history model.BatchOrderHistory
+	if err = utils.First(logic.runtime.DB, &history, utils.NewWhereCond("batch_order_uuid", logic.UID)); err != nil {
+		logic.runtime.Logger.Error("OrderLogic LoadHistory", zap.Error(err))
+		return
+	}
+	if history.UID != "" {
+		logic.History = history
+	}
+	return
+}
+
+// func (logic *OrderLogic) GoodsList(req request.BatchGoodsListReq) (rsp response.BatchGoodsGroupRsp, err error) {
+// 	rspItems := make([]*response.BatchGoodsGroupItem, 0)
+// 	var storages []model.BatchOrderGoods
+// 	db := logic.runtime.DB
+
+// 	conds := []model.Cond{
+// 		model.NewWhereCond("batch_uuid", req.BatchUUID),
+// 		model.NewWhereCond("goods_uuid", req.GoodsUUID),
+// 	}
+
+// 	conds = append(conds, model.CreatedOrderDescCond())
+// 	if err = model.Find(db, &storages, conds...); err != nil {
+// 		logic.runtime.Logger.Error("BatchLogic List FindBatch", zap.Any("req", req), zap.Error(err))
+// 		return
+// 	}
+
+// 	var customerUUIDList []string
+// 	for _, storage := range storages {
+// 		customerUUIDList = append(customerUUIDList, storage.UserUUID)
+// 	}
+
+// 	_cm, _ := model.BatchCustomerFeildSet(logic.runtime.DB, customerUUIDList, logic.OwnerUser)
+
+//		for _, storage := range storages {
+//			rspItems = append(rspItems, &response.BatchGoodsGroupItem{
+//				SellTime:     storage.CreatedAt.Format("2006-01-02 15:04:05"),
+//				SellPrice:    utils.FloatReserveStr(storage.Price, 1), //
+//				SellAmount:   utils.FloatReserveStr(storage.Amount(), 1),
+//				CustomerName: _cm[storage.UserUUID].CustomerName,
+//				SellTotall:   utils.FloatReserveStr(float64(storage.Price)*storage.Amount(), 1),
+//				GoodType:     storage.GoodType,
+//			})
+//		}
+//		rsp.Items = rspItems
+//		return
+//	}
+func (logic *OrderLogic) GoodsList(req request.BatchGoodsListReq) (rsp response.BatchGoodsGroupRsp, err error) {
+	rspItems := make([]*response.BatchGoodsGroupItem, 0)
+
+	storages, err := dao.OrderDao.FindGoodsByBatchAndGoodsUUID(logic.runtime.DB, logic.OwnerUser, req.BatchUUID, req.GoodsUUID, common.ValidOrder)
+	if err != nil {
+		logic.runtime.Logger.Error("GoodsList FindGoodsByBatchAndGoodsUUID", zap.Any("req", req), zap.Error(err))
+		return
+	}
+
+	if len(storages) == 0 {
+		return
+	}
+
+	// 1. 收集客户UUID并获取客户信息
+	var customerUUIDList []string
+	for _, storage := range storages {
+		customerUUIDList = append(customerUUIDList, storage.UserUUID)
+	}
+	_cm, _ := cache.CustomerCache.BatchCustomerFeildSet(customerUUIDList, logic.OwnerUser)
+
+	// 2. 查询对应的BatchGoods获取成本信息
+	batchGoods, err := dao.BatchGoodsDao.FromUUID(logic.runtime.DB, logic.OwnerUser, req.BatchUUID, req.GoodsUUID)
+	if err != nil {
+		logic.runtime.Logger.Error("getBatchGoods failed", zap.Error(err))
+		return
+	}
+
+	// 3. 计算总销售额、总成本、总销售数量/重量
+	var totalSellAmount float64   // 总销售额
+	var totalCostAmount float64   // 总成本
+	var totalSellQuantity float64 // 总销售数量/重量
+	var totalSellMount int        // 定装总件数
+
+	for _, storage := range storages {
+		// 获取客户名称
+		customerName := ""
+		if customer, ok := _cm[storage.UserUUID]; ok {
+			customerName = customer.CustomerName
+		}
+
+		// 计算单项销售额
+		sellAmount := storage.Sell()
+		sellTotal := utils.FloatReserve(float64(storage.Price)*sellAmount, 1)
+
+		// 累加总销售额
+		totalSellAmount += sellTotal
+
+		// 根据类型累加销售数量和成本
+		if storage.GoodType == common.GoodsTypeFix {
+			// 定装：按件数计算
+			totalSellMount += storage.Mount
+			totalCostAmount += float64(storage.Mount) * batchGoods.Price
+		} else if storage.GoodType == common.GoodsTypeBulk {
+			totalSellQuantity += storage.Weight
+			totalCostAmount += storage.Weight * batchGoods.Price
+		}
+
+		rspItems = append(rspItems, &response.BatchGoodsGroupItem{
+			SellTime:     storage.CreatedAt.Format("2006-01-02 15:04:05"),
+			SellPrice:    utils.FloatReserveStr(storage.Price, 1),
+			SellAmount:   utils.FloatReserveStr(sellAmount, 1),
+			CustomerName: customerName,
+			SellTotall:   utils.FloatReserveStr(sellTotal, 1),
+			GoodType:     storage.GoodType,
+		})
+	}
+
+	// 4. 计算利润
+	profit := totalSellAmount - totalCostAmount
+	rsp.Profit = utils.FloatReserveStr(profit, 1)
+
+	// 5. 计算剩余库存
+	var surplus float64
+	if batchGoods != nil {
+		if batchGoods.GoodType == common.GoodsTypeFix {
+			// 定装：原始件数 - 已卖件数
+			surplus = float64(batchGoods.Mount - totalSellMount)
+		} else if batchGoods.GoodType == common.GoodsTypeBulk {
+			// 散装：原始重量 - 已卖重量
+			surplus = batchGoods.Weight - totalSellQuantity
+		}
+	}
+	if batchGoods.GoodType == common.GoodsTypeFix {
+		rsp.Surplus = utils.FloatReserveStr(surplus, 1) + "件"
+	} else if batchGoods.GoodType == common.GoodsTypeBulk {
+		rsp.Surplus = utils.FloatReserveStr(surplus, 1) + "斤"
+	}
+
+	rsp.Items = rspItems
+	return
+}
+
+// CreditListLogic 赊欠列表业务逻辑
+func (logic *OrderLogic) CreditList(listReq request.CreditListReq) (rsp *response.CreditListResponse, err error) {
+	if rsp, err = dao.OrderDao.GetCreditList(logic.runtime.DB, logic.OwnerUser, listReq); err != nil {
+		return
+	}
+
+	if len(rsp.List) == 0 {
+		return
+	}
+
+	var userUUIDList []string
+
+	for _, item := range rsp.List {
+		userUUIDList = append(userUUIDList, item.UserUUID)
+	}
+
+	userMapper, _ := cache.CustomerCache.BatchCustomerFeildSet(userUUIDList, logic.OwnerUser)
+
+	for _, item := range rsp.List {
+		item.UserName = userMapper[item.UserUUID].CustomerName
+	}
+
+	return
+}

@@ -29,6 +29,7 @@ type (
 	}
 	BatchOrderGoods struct {
 		BaseModel
+		SortNo        int     `gorm:"column:sort_no;not null;default:0;comment:订单货品顺序" json:"sortNo"`
 		BatchOrderUID string  `gorm:"column:batch_order_uuid;type:varchar(64);comment:批次uuid" json:"batchOrderUUID"`
 		BatchUUID     string  `gorm:"column:batch_uuid;type:varchar(64);comment:批次uuid" json:"batchUUID"`
 		GoodsUUID     string  `gorm:"column:goods_uuid;type:varchar(64);comment:货品uuid" json:"goodsUUID"`

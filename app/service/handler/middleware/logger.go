@@ -41,6 +41,7 @@ func LoggerMiddleware() gin.HandlerFunc {
 			zap.String("uri", c.Request.RequestURI),
 			zap.String("client_ip", c.ClientIP()),
 			zap.String("content", string(b)),
+			zap.String("version", c.Request.Header.Get("version")),
 			zap.String("token", c.Request.Header.Get("Authorization")),
 		)
 

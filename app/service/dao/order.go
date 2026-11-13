@@ -12,6 +12,7 @@ import (
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // orderDao 分表订单DAO
@@ -37,13 +38,13 @@ func (dao *orderDao) FindByUID(db *gorm.DB, ownerUser, uid string, preload ...st
 	for _, p := range preload {
 		if p == "GoodsListRelated" {
 			db = db.Preload("GoodsListRelated", func(_db *gorm.DB) *gorm.DB {
-				return _db.Table(ShardOrderGoodsTable(ownerUser))
+				return OrderGoodsInSequence(_db.Table(ShardOrderGoodsTable(ownerUser)))
 			})
 		}
 	}
 
 	err = utils.First(db.Table(ShardOrderTable(ownerUser)), &order, utils.WhereUIDCond(uid))
-	return order, nil
+	return order, err
 }
 
 // List 查询订单列表（分表）
@@ -71,7 +72,7 @@ func (dao *orderDao) List(db *gorm.DB, ownerUser string, userUUIDs []string, sta
 	// 预加载货品
 	if preloadGoods {
 		query = query.Preload("GoodsListRelated", func(db *gorm.DB) *gorm.DB {
-			return db.Table(ShardOrderGoodsTable(ownerUser))
+			return OrderGoodsInSequence(db.Table(ShardOrderGoodsTable(ownerUser)))
 		})
 	}
 
@@ -91,6 +92,7 @@ func (dao *orderDao) CreateGoodsBatch(db *gorm.DB, ownerUser string, goodsList [
 	if len(goodsList) == 0 {
 		return nil
 	}
+	assignOrderGoodsSequence(goodsList)
 	return db.Table(ShardOrderGoodsTable(ownerUser)).CreateInBatches(goodsList, 100).Error
 }
 
@@ -146,6 +148,33 @@ func (dao *orderDao) CustomerCreditAmountBeforeOrder(db *gorm.DB, ownerUser, use
 		Where("order_time > 0 AND order_time < ?", orderTimeCutoff).
 		Select("COALESCE(SUM(credit_amount), 0)").
 		Scan(&creditAmount).Error
+	return
+}
+
+const effectiveOrderTime = "COALESCE(NULLIF(order_time, 0), FLOOR(UNIX_TIMESTAMP(created_at)))"
+
+// repaymentOrdersThrough 限定为本单及之前的未结清订单。同一秒按分表自增 ID 排序。
+func (dao *orderDao) repaymentOrdersThrough(db *gorm.DB, order model.BatchOrder) *gorm.DB {
+	cutoff := int64(order.OrderTime)
+	if cutoff == 0 {
+		cutoff = order.CreatedAt.Unix()
+	}
+	return db.Table(ShardOrderTable(order.OwnerUser)).
+		Where("owner_user = ? AND user_uuid = ?", order.OwnerUser, order.UserUUID).
+		Where("status IN (?) AND credit_amount > 0 AND deleted_at IS NULL", common.UnFinalStatusOrder).
+		Where("(uid = ? OR "+effectiveOrderTime+" < ? OR ("+effectiveOrderTime+" = ? AND id < ?))",
+			order.UID, cutoff, cutoff, order.AutoID)
+}
+
+func (dao *orderDao) HistoricalRepaymentCredit(db *gorm.DB, order model.BatchOrder) (amount float64, err error) {
+	err = dao.repaymentOrdersThrough(db, order).Where("uid <> ?", order.UID).
+		Select("COALESCE(SUM(credit_amount), 0)").Scan(&amount).Error
+	return
+}
+
+func (dao *orderDao) LockRepaymentOrdersThrough(db *gorm.DB, order model.BatchOrder) (orders []model.BatchOrder, err error) {
+	err = dao.repaymentOrdersThrough(db, order).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Order(effectiveOrderTime + " ASC, id ASC").Find(&orders).Error
 	return
 }
 
@@ -294,7 +323,7 @@ func (dao *orderDao) GetShareOrdersWithGoods(db *gorm.DB, ownerUser, customerUUI
 	if orderUUID != "" {
 		err = db.Table(orderTable).
 			Preload("GoodsListRelated", func(db *gorm.DB) *gorm.DB {
-				return db.Table(goodsTable)
+				return OrderGoodsInSequence(db.Table(goodsTable))
 			}).
 			Where("uid = ? AND owner_user = ? AND user_uuid = ?",
 				orderUUID, ownerUser, customerUUID).
@@ -308,7 +337,7 @@ func (dao *orderDao) GetShareOrdersWithGoods(db *gorm.DB, ownerUser, customerUUI
 	} else {
 		err = db.Table(orderTable).
 			Preload("GoodsListRelated", func(db *gorm.DB) *gorm.DB {
-				return db.Table(goodsTable)
+				return OrderGoodsInSequence(db.Table(goodsTable))
 			}).
 			Where("owner_user = ? AND user_uuid = ? AND status IN (?)",
 				ownerUser, customerUUID, common.UnFinalStatusOrder).
@@ -475,4 +504,16 @@ func (dao *orderDao) GetCreditList(db *gorm.DB, ownerUser string, conditions req
 		List:    list,
 		Summary: summary,
 	}, nil
+}
+
+// OrderGoodsInSequence preserves submitted order, with a deterministic fallback
+// for historical rows written before sort_no existed.
+func OrderGoodsInSequence(db *gorm.DB) *gorm.DB {
+	return db.Order("sort_no ASC, created_at ASC, uid ASC")
+}
+
+func assignOrderGoodsSequence(goods []*model.BatchOrderGoods) {
+	for index, good := range goods {
+		good.SortNo = index + 1
+	}
 }

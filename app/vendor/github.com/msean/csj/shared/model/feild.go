@@ -60,7 +60,7 @@ func (s *BatchGoodsStatFeild) Set() {
 	}
 	s.Surplus = fmt.Sprintf("%.2f", s.SurplusWeight)
 	s.SellAmount = fmt.Sprintf("%.2f", s.SellWeight)
-	if s.SurplusWeight != 0 {
-		s.SellAvgPrice = utils.FloatReserveStr(s.SellTotal/float64(s.SurplusWeight), 1)
+	if s.SellWeight != 0 {
+		s.SellAvgPrice = utils.FloatReserveStr(s.SellTotal/s.SellWeight, 1)
 	}
 }

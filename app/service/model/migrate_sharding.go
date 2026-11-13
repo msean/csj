@@ -50,6 +50,9 @@ func MigrateShardingTables() error {
 	if err := fixPayTableStructure(); err != nil {
 		return fmt.Errorf("自动迁移分表字段失败: %w", err)
 	}
+	if err := fixOrderGoodsSortNo(); err != nil {
+		return fmt.Errorf("补充订单货品排序字段失败: %w", err)
+	}
 	// 创建 batch_goods 分表
 	return nil
 }
@@ -438,6 +441,7 @@ func createGoodsTable(tableName string) error {
 			goods_uuid VARCHAR(64) NOT NULL,
 			owner_user VARCHAR(64) NOT NULL,
 			user_uuid VARCHAR(64) NOT NULL,
+            sort_no INT NOT NULL DEFAULT 0,
 			good_type INT DEFAULT 0,
 			price DECIMAL(10,2) DEFAULT 0.00,
 			weight DECIMAL(10,2) DEFAULT 0.00,
@@ -522,5 +526,23 @@ func dropForeignKeyConstraints() error {
 		}
 	}
 
+	return nil
+}
+
+// fixOrderGoodsSortNo adds only the new field to existing shards. Run via
+// --shard-migrate before serving requests with the updated order model.
+func fixOrderGoodsSortNo() error {
+	db := global.Global.DB
+	for _, table := range utils.GetAllShardTableNames("batch_order_goods") {
+		if !db.Migrator().HasTable(table) {
+			continue
+		}
+		if db.Table(table).Migrator().HasColumn(&BatchOrderGoods{}, "sort_no") {
+			continue
+		}
+		if err := db.Table(table).Migrator().AddColumn(&BatchOrderGoods{}, "SortNo"); err != nil {
+			return fmt.Errorf("添加 %s.sort_no 失败: %w", table, err)
+		}
+	}
 	return nil
 }

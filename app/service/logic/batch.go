@@ -148,6 +148,7 @@ func (logic *BatchLogic) Update(withBatchGoods bool) (err error) {
 		return
 	}
 	logic.SerialID = storage.SerialID
+	logic.SerialNo = storage.SerialNo
 	switch withBatchGoods {
 	case true:
 		var oldGoodsList []model.BatchGoods
@@ -254,7 +255,7 @@ func (logic *BatchLogic) Update(withBatchGoods bool) (err error) {
 }
 
 // SetGoodsFeild 设置批次下货品的名称、类型、剩余信息以及统计批次总体数据
-func (logic *BatchLogic) SetGoodsFeild() (err error) {
+func (logic *BatchLogic) SetGoodsFeild(skipStats ...bool) (err error) {
 	// 1. 收集货品UUID列表
 	var goodsUUIDList []string
 	for _, goods := range logic.GoodsListRelated {
@@ -270,6 +271,13 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 	// 3. 为每个货品设置名称和类型
 	for _, goods := range logic.GoodsListRelated {
 		goods.GoodsFeild = goodsM[goods.GoodsUUID]
+		if goods.SerialNo == "" {
+			goods.SerialNo = logic.SerialNo
+		}
+	}
+
+	if len(skipStats) > 0 && skipStats[0] {
+		return logic.setInventoryOnly()
 	}
 
 	// 4. 获取批次剩余库存和销售数据
@@ -370,17 +378,17 @@ func (logic *BatchLogic) SetGoodsFeild() (err error) {
 // 	return logic.SetGoodsFeild()
 // }
 
-func (logic *BatchLogic) FromUUID(uuid string) (err error) {
+func (logic *BatchLogic) FromUUID(uuid string, skipStats ...bool) (err error) {
 	var batch model.Batch
 	if batch, err = dao.BatchDao.FromUUID(logic.runtime.DB, uuid, true); err != nil {
 		logic.runtime.Logger.Error("BatchLogic FromUUID", zap.Any("uuid", uuid), zap.Error(err))
 		return
 	}
 	logic.Batch = batch
-	return logic.SetGoodsFeild()
+	return logic.SetGoodsFeild(skipStats...)
 }
 
-func (logic *BatchLogic) FromLatest() (err error) {
+func (logic *BatchLogic) FromLatest(skipStats ...bool) (err error) {
 	var batch model.Batch
 	if batch, err = dao.BatchDao.FromLatest(logic.runtime.DB, logic.OwnerUser, true); err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -392,7 +400,7 @@ func (logic *BatchLogic) FromLatest() (err error) {
 	}
 
 	logic.Batch = batch
-	return logic.SetGoodsFeild()
+	return logic.SetGoodsFeild(skipStats...)
 }
 
 func (logic *BatchGoodsLogic) FromUUID(uuid string) (err error) {

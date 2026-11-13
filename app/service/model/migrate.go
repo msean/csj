@@ -8,6 +8,7 @@ func Migrate() (err error) {
 	return global.Global.DB.AutoMigrate(
 		&User{},
 		&QuickPayAudit{},
+		&OrderTicketSettlement{},
 		&Customer{},
 		&GoodsCategory{},
 		&Goods{},

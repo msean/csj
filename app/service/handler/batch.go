@@ -4,7 +4,6 @@ import (
 	"app/service/common"
 	"app/service/handler/middleware"
 	"app/service/logic"
-	"app/service/model"
 	"app/service/model/request"
 	"app/service/model/response"
 
@@ -108,40 +107,27 @@ func BatchUpdateStatus(c *gin.Context) {
 }
 
 func BatchDetail(c *gin.Context) {
-	var payLoad request.BatchDetailReq
-	if err := c.ShouldBind(&payLoad); err != nil {
+	var req request.BatchDetailReq
+	if err := c.ShouldBind(&req); err != nil {
 		common.Response(c, err, nil)
 		return
 	}
-
-	batchLogic := logic.NewBatchLogic(c)
+	batch := logic.NewBatchLogic(c)
 	var err error
-	if payLoad.UUID != "" {
-		err = batchLogic.FromUUID(payLoad.UUID)
-		if err != nil {
-			common.Response(c, err, nil)
-			return
-		}
-		common.Response(c, nil, batchLogic)
-		return
+	if req.UUID != "" {
+		err = batch.FromUUID(req.UUID, req.SkipStats)
+	} else {
+		err = batch.FromLatest(req.SkipStats)
 	}
-
-	// if payLoad.Date != "" {
-	// 	err = batchLogic.FromDate(payLoad.Date)
-	// 	if err != nil {
-	// 		common.Response(c, err, nil)
-	// 		return
-	// 	}
-	// 	common.Response(c, nil, batchLogic)
-	// 	return
-	// }
-
-	err = batchLogic.FromLatest()
 	if err != nil {
-		common.Response(c, nil, model.Batch{})
+		common.Response(c, err, nil)
 		return
 	}
-	common.Response(c, nil, batchLogic)
+	if req.SkipStats {
+		common.Response(c, nil, response.NewBatchBasicDetail(batch.Batch))
+	} else {
+		common.Response(c, nil, batch)
+	}
 }
 
 func BatchGoodsDetail(c *gin.Context) {

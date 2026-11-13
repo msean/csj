@@ -16,9 +16,10 @@ type (
 		EndDate   string `json:"endDate"`
 	}
 	BatchDetailReq struct {
-		UUID     string `json:"uuid"`
-		Date     string `json:"date"`
-		ShowType int    `json:"showType"` // 0 批次列表 1 结算管理
+		SkipStats bool   `json:"skipStats"` // 开单只计算库存，省略销售额、利润等统计及字段
+		UUID      string `json:"uuid"`
+		Date      string `json:"date"`
+		ShowType  int    `json:"showType"` // 0 批次列表 1 结算管理
 	}
 	BatchGoodsListReq struct {
 		BatchUUID string `json:"batchUUID"`
