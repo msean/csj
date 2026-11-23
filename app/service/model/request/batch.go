@@ -39,6 +39,7 @@ type (
 	}
 	OrderReq struct {
 		model.BatchOrder
+		Printed    bool    `json:"printed"`
 		FPayAmount float64 `json:"payAmount"` // 付款金额
 		// FCreditAmount float64 `json:"creditAmount"`
 		PayType int32 `json:"payType"` // 支付方式

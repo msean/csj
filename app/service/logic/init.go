@@ -47,7 +47,7 @@ func (logic *CommonLogic) Init() (result any, err error) {
 	}
 
 	// 3. 比较版本号
-	needUpdate := false
+	needUpdate := false 
 	compareResult := utils.CompareVersion(currentVersion, latestVersion.Version)
 	if compareResult < 0 {
 		needUpdate = true

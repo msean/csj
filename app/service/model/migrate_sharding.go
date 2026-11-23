@@ -5,6 +5,8 @@ import (
 	"app/pkg/utils"
 	"fmt"
 	"log"
+
+	"gorm.io/gorm"
 )
 
 // MigrateShardingTables 创建50张分表
@@ -38,10 +40,9 @@ func MigrateShardingTables() error {
 	// }
 
 	log.Println(">>>>>>>>>>>>111")
-	// 为已存在的订单分表补充自增 id 字段（新建表已在 createOrderTable 中包含）
-	// if err := fixOrderTableAutoID(); err != nil {
-	// 	return fmt.Errorf("补充订单分表自增 id 失败: %w", err)
-	// }
+	if err := migrateOrderTicketNumbers(); err != nil {
+		return fmt.Errorf("迁移订单票号失败: %w", err)
+	}
 
 	// 自动同步分表结构（补齐 GORM 模型中新增的字段，无需手写 ALTER TABLE）
 	// if err := AutoMigrateShardTables(); err != nil {
@@ -200,55 +201,42 @@ func shardTableHasColumn(tableName, columnName string) bool {
 	return count > 0
 }
 
-// fixOrderTableAutoID 为已存在的 batch_orders 分表补充自增 id 字段。
-// MySQL 要求 AUTO_INCREMENT 列必须建立索引，这里用 UNIQUE 内联创建索引，
-// uid 仍保持主键不变，避免影响现有查询和 GORM 主键约定。
-func fixOrderTableAutoID() error {
-	log.Println("[FixOrderAutoID] 开始检查订单分表自增 id...")
-
-	orderTables := utils.GetAllShardTableNames("batch_orders")
-	fixedCount := 0
-
-	for _, tableName := range orderTables {
-		// 表不存在则跳过（新建表已在 createOrderTable 中包含 id）
-		var tableCount int64
-		if err := global.Global.DB.Raw(
-			"SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
-			tableName).Scan(&tableCount).Error; err != nil {
-			log.Printf("[FixOrderAutoID] 检查表 %s 是否存在失败: %v", tableName, err)
+// migrateOrderTicketNumbers 为已有订单补录票号，再移除旧的自增列。
+func migrateOrderTicketNumbers() error {
+	db := global.Global.DB
+	migrator := db.Migrator()
+	tables := append(utils.GetAllShardTableNames("batch_orders"), "batch_orders")
+	for _, table := range tables {
+		if !migrator.HasTable(table) {
 			continue
 		}
-		if tableCount == 0 {
-			continue
+		if !migrator.HasColumn(table, "ticket_no") {
+			if err := db.Exec(fmt.Sprintf(
+				"ALTER TABLE %s ADD COLUMN ticket_no VARCHAR(8) NOT NULL DEFAULT ''", table)).Error; err != nil {
+				return err
+			}
 		}
-
-		// id 列已存在则跳过
-		var colCount int64
-		if err := global.Global.DB.Raw(
-			"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'id'",
-			tableName).Scan(&colCount).Error; err != nil {
-			log.Printf("[FixOrderAutoID] 检查表 %s 字段失败: %v", tableName, err)
-			continue
+		var orders []BatchOrder
+		err := db.Table(table).Select("uid").Where("ticket_no = ?", "").
+			FindInBatches(&orders, 500, func(_ *gorm.DB, _ int) error {
+				return db.Transaction(func(write *gorm.DB) error {
+					for _, order := range orders {
+						if err := write.Table(table).Where("uid = ? AND ticket_no = ?", order.UID, "").
+							UpdateColumn("ticket_no", utils.UUIDToSerial(order.UID)).Error; err != nil {
+							return err
+						}
+					}
+					return nil
+				})
+			}).Error
+		if err != nil {
+			return err
 		}
-		if colCount > 0 {
-			continue
+		if table != "batch_orders" && migrator.HasColumn(table, "id") {
+			if err := migrator.DropColumn(table, "id"); err != nil {
+				return err
+			}
 		}
-
-		sql := fmt.Sprintf(
-			"ALTER TABLE %s ADD COLUMN id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE COMMENT '自增ID'",
-			tableName)
-		if err := global.Global.DB.Exec(sql).Error; err != nil {
-			return fmt.Errorf("为分表 %s 添加自增 id 失败: %w", tableName, err)
-		}
-
-		fixedCount++
-		log.Printf("[FixOrderAutoID] 为表 %s 添加自增 id 成功", tableName)
-	}
-
-	if fixedCount > 0 {
-		log.Printf("[FixOrderAutoID] 共修复了 %d 张 batch_orders 分表", fixedCount)
-	} else {
-		log.Println("[FixOrderAutoID] 所有 batch_orders 分表均已有 id 字段")
 	}
 	return nil
 }
@@ -404,7 +392,7 @@ func migrateOrderPayData() error {
 func createOrderTable(tableName string) error {
 	sql := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
-			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '自增ID',
+			ticket_no VARCHAR(8) NOT NULL DEFAULT '',
 			uid VARCHAR(64) NOT NULL,
 			batch_uuid VARCHAR(64) NOT NULL,
 			owner_user VARCHAR(64) NOT NULL,
@@ -420,7 +408,6 @@ func createOrderTable(tableName string) error {
 			updated_at DATETIME NOT NULL,
 			deleted_at DATETIME,
 			PRIMARY KEY (uid),
-			UNIQUE KEY uk_id (id),
 			INDEX idx_owner_user (owner_user),
 			INDEX idx_user_uuid (user_uuid),
 			INDEX idx_batch_uuid (batch_uuid),

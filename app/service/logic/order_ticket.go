@@ -23,12 +23,10 @@ import (
 )
 
 func saveOrderTicketSettlement(tx *gorm.DB, order model.BatchOrder, received float64, payType int32) error {
-	if order.AutoID == 0 {
-		var err error
-		order, err = dao.OrderDao.FindByUID(tx, order.OwnerUser, order.UID)
-		if err != nil {
-			return err
-		}
+	// 使用数据库中实际保存的创建时间（分表可能只保留秒）。
+	order, err := dao.OrderDao.FindByUID(tx, order.OwnerUser, order.UID)
+	if err != nil {
+		return err
 	}
 	previous, err := ticketPreviousCredit(tx, order)
 	if err != nil {
@@ -129,7 +127,7 @@ func (logic *OrderLogic) ticketData(db *gorm.DB, orderUUID string) (ticket.Recei
 		}
 	}
 
-	receipt.Serial = utils.UUIDToSerial(order.UID)
+	receipt.Serial = orderTicketNo(order)
 	orderTime := order.CreatedAt
 	if order.OrderTime > 0 {
 		orderTime = time.Unix(int64(order.OrderTime), 0)

@@ -405,8 +405,19 @@ func (logic *PaymentLogic) PayHistory(req request.PayHistoryReq) (items []respon
 	// 获取客户名称
 	customer, _ := dao.CustomerDao.FromUUID(logic.runtime.DB, req.CustomerUUID)
 
-	for _, pay := range pays {
+	groups := make([][]response.RepaymentAllocation, len(pays))
+	for i, pay := range pays {
+		groups[i] = paymentAllocationRows(&pay)
+	}
+	orders, err := loadAllocationOrders(logic.runtime.DB, logic.OwnerUser, req.CustomerUUID, groups...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	for i, pay := range pays {
+		enrichRepaymentAllocations(groups[i], orders)
 		items = append(items, response.PayHistoryItem{
+			Allocations:   groups[i],
 			PayUUID:       pay.UID,
 			CustomerUUID:  pay.CustomerUUID,
 			CustomerName:  customer.Name,

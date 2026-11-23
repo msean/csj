@@ -193,7 +193,7 @@ func (logic *OrderLogic) FillGoodsWeightWithTotal(db *gorm.DB) (err error) {
 	validItems := make([]*model.BatchOrderGoods, 0, len(list))
 
 	for _, item := range list {
-		if item.GoodsUUID != "" {
+		if item != nil && item.GoodsUUID != "" {
 			goodsUUIDs = append(goodsUUIDs, item.GoodsUUID)
 			validItems = append(validItems, item)
 		}
@@ -302,6 +302,14 @@ func (logic *OrderLogic) Create(orderReq request.OrderReq) (err error) {
 		goods.UserUUID = logic.UserUUID
 	}
 
+	var preparedTicket string
+	if orderReq.Printed {
+		preparedTicket, err = logic.loadPreparedTicket()
+		if err != nil {
+			return err
+		}
+	}
+
 	// 用 Redis 幂等键防止网络抖动导致同一笔下单重复创建
 	if !logic.acquireOrderDedup() {
 		return common.OrderDuplicateSubmitErr
@@ -354,6 +362,9 @@ func (logic *OrderLogic) Create(orderReq request.OrderReq) (err error) {
 	}
 	if err = tx.Commit().Error; err != nil {
 		return
+	}
+	if preparedTicket != "" {
+		logic.consumePreparedTicket(preparedTicket)
 	}
 	// if utils.FloatGreat(0.0, logic.CreditAmount) {
 	// 	go logic.Record(false, model.HistoryStepCash, model.PayFeild{
@@ -455,7 +466,7 @@ func (logic *OrderLogic) ShareOrder(req request.ShareDailyOrderReq) (rsp *respon
 		ot := time.Unix(int64(order.OrderTime), 0)
 		group := response.ShareDailyOrderGroup{
 			OrderUUID:   order.UID,
-			SerialNo:    utils.UUIDToSerial(order.UID),
+			SerialNo:    orderTicketNo(order),
 			DateStr:     ot.Format("2006-01-02 15:04"),
 			TricycleFee: order.TricycleFee,
 			TotalAmount: order.CreditAmount,
@@ -621,7 +632,7 @@ func (logic *OrderLogic) Update(orderReq request.OrderReq) (err error) {
 	}
 	logic.BatchOrder = orderReq.BatchOrder // owner_user重置成了空字符串
 	logic.BatchUUID = old.BatchUUID
-	logic.AutoID = old.AutoID
+	logic.TicketNo = old.TicketNo
 	logic.CreatedAt = old.CreatedAt
 
 	if logic.BatchOrder.OrderTime == 0 {

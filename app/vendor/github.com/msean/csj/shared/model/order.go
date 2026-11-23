@@ -1,22 +1,20 @@
 package model
 
 import (
+	"time"
+
 	common "github.com/msean/csj/shared/constants"
 	utils "github.com/msean/csj/shared/internal/modelutil"
-	"time"
 )
 
 type (
 	// 一个订单对应多个订单货品
 	BatchOrder struct {
 		BaseModel
-		// AutoID 分表内自增ID（临时用于排序/排查，非全局唯一；uid 仍是主键）
-		// -:migration 表示该列由建表/迁移 SQL 显式维护，避免 AutoMigrate 误删 id 的唯一索引
-		AutoID           uint64             `gorm:"column:id;autoIncrement;-:migration" json:"id"`
+		TicketNo         string             `gorm:"column:ticket_no;type:varchar(8);not null;default:''" json:"ticketNo"`
 		BatchUUID        string             `gorm:"column:batch_uuid;type:varchar(64);comment:批次uuid" json:"batchUUID"`
 		OwnerUser        string             `gorm:"column:owner_user;type:varchar(64);comment:所属用户;index" json:"ownerUser"`
 		UserUUID         string             `gorm:"column:user_uuid;type:varchar(64);comment:开单uuid;index:idx_owner_user" json:"customerUUID"`
-		SharedTime       int                `gorm:"column:share_time;comment:分享时间" json:"sharedTime"`
 		Status           int                `gorm:"column:status;comment:状态" json:"status"`
 		TotalAmount      float64            `gorm:"column:amount;comment:金额" json:"totalAmount"`
 		CreditAmount     float64            `gorm:"column:credit_amount;comment:赊欠金额" json:"creditAmount"`
@@ -25,7 +23,8 @@ type (
 		GoodsListRelated []*BatchOrderGoods `gorm:"foreignKey:BatchOrderUID;references:UID" json:"goodsList"`
 		OrderTime        int                `gorm:"column:order_time;comment:下单时间" json:"orderTime"`
 		CustomerFeild
-		Shared int `gorm:"column:shared;comment:是否分享单" json:"shared"`
+		// Shared     int `gorm:"column:shared;comment:是否分享单" json:"shared"`
+		// SharedTime int `gorm:"column:share_time;comment:分享时间" json:"sharedTime"`
 	}
 	BatchOrderGoods struct {
 		BaseModel

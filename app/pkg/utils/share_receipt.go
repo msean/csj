@@ -72,19 +72,19 @@ func DartStringHashCode(s string) int32 {
 	return int32(h & 0x3fffffff)
 }
 
-// UUIDToSerial 生成移动端展示的 6 位票号，与 Flutter 端保持一致：
-// uuid.hashCode.abs().toString().padLeft(6, '0').substring(0, 6)
+// UUIDToSerial 将 UUID 哈希转成十进制，左补零后取前 8 位作为展示票号。
 func UUIDToSerial(uuid string) string {
+	const serialLength = 8
 	n := int64(DartStringHashCode(uuid))
 	// Dart hashCode 已做 30 位掩码，恒为非负，这里保留 .abs() 的语义
 	if n < 0 {
 		n = -n
 	}
 	s := strconv.FormatInt(n, 10)
-	if len(s) > 6 {
-		s = s[:6]
+	if len(s) > serialLength {
+		s = s[:serialLength]
 	}
-	for len(s) < 6 {
+	for len(s) < serialLength {
 		s = "0" + s
 	}
 	return s

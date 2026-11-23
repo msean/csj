@@ -33,18 +33,19 @@ type (
 
 	// PayHistoryItem 还款历史项
 	PayHistoryItem struct {
-		PayUUID       string     `json:"payUUID"`
-		CustomerUUID  string     `json:"customerUUID"`
-		CustomerName  string     `json:"customerName"`
-		Amount        float64    `json:"amount"`
-		BeforeCredit  float64    `json:"beforeCredit"` // 还款前欠款
-		AfterCredit   float64    `json:"afterCredit"`  // 还款后剩余欠款
-		PayType       int32      `json:"payType"`
-		Remark        string     `json:"remark"`
-		IsRevoked     int        `json:"isRevoked"`
-		RevokedAt     *time.Time `json:"revokedAt"`
-		RevokedReason string     `json:"revokedReason"`
-		CreatedAt     time.Time  `json:"createdAt"`
+		Allocations   []RepaymentAllocation `json:"allocations"`
+		PayUUID       string                `json:"payUUID"`
+		CustomerUUID  string                `json:"customerUUID"`
+		CustomerName  string                `json:"customerName"`
+		Amount        float64               `json:"amount"`
+		BeforeCredit  float64               `json:"beforeCredit"` // 还款前欠款
+		AfterCredit   float64               `json:"afterCredit"`  // 还款后剩余欠款
+		PayType       int32                 `json:"payType"`
+		Remark        string                `json:"remark"`
+		IsRevoked     int                   `json:"isRevoked"`
+		RevokedAt     *time.Time            `json:"revokedAt"`
+		RevokedReason string                `json:"revokedReason"`
+		CreatedAt     time.Time             `json:"createdAt"`
 	}
 
 	// PayDetailRsp 还款详情响应
@@ -91,8 +92,9 @@ type (
 )
 
 // RepaymentAllocation combines the stored payment allocation with current order data.
-// Order metadata is absent for historical debt, deleted orders, or unavailable links.
+// Deleted orders retain their ticket number but cannot be opened.
 type RepaymentAllocation struct {
+	TicketNo         string     `json:"ticketNo,omitempty"`
 	Type             int        `json:"type"`
 	OrderUUID        string     `json:"orderUUID"`
 	Amount           float64    `json:"amount"`

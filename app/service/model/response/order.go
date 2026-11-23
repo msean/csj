@@ -13,7 +13,7 @@ type (
 	// ShareDailyOrderGroup 单个订单的货品分组（用于分享时按订单分开渲染）
 	ShareDailyOrderGroup struct {
 		OrderUUID   string                 `json:"orderUUID"`
-		SerialNo    string                 `json:"serialNo"` // 6 位票号（uuid.hashCode().abs() 取前 6 位补零）
+		SerialNo    string                 `json:"serialNo"` // 订单票号
 		DateStr     string                 `json:"dateStr"`  // 开单时间
 		GoodsList   []*ShareDailyOrderItem `json:"goodsList"`
 		TricycleFee float64                `json:"tricycleFee"`

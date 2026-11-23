@@ -201,7 +201,7 @@ func (dao *customerDao) FindDebtCustomers(db *gorm.DB, ownerUser, search string,
 	// 分页列表
 	query := baseQuery.Session(&gorm.Session{}).
 		Select("uid, name, credit").
-		Order("credit desc")
+		Order("credit DESC, uid ASC")
 	if limit > 0 {
 		query = query.Offset(offset).Limit(limit)
 	}

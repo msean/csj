@@ -19,6 +19,7 @@ func orderRouter(g *gin.RouterGroup) {
 		OrderGroup.POST("/update_status", OrderUpdateStatus) // 更新状态
 		OrderGroup.POST("/detail", OrderDetail)              // 详情
 		OrderGroup.POST("/print/ticket", OrderPrintTicket)
+		OrderGroup.POST("/print/prepare", OrderPrepareTicket)
 		OrderGroup.POST("/list", OrderList) // 列表
 		OrderGroup.POST("/customer_purchases", CustomerPurchases)
 		OrderGroup.POST("/customer_memory", CustomerMemory)   // 快捷下单
@@ -109,6 +110,16 @@ func OrderDetail(c *gin.Context) {
 	order := logic.NewOrderLogic(c)
 	err = order.FromUUID(payLoad.UUID)
 	common.Response(c, err, order)
+}
+
+func OrderPrepareTicket(c *gin.Context) {
+	var req request.OrderReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.Response(c, err, nil)
+		return
+	}
+	rsp, err := logic.NewOrderLogic(c).PrepareTicket(req)
+	common.Response(c, err, rsp)
 }
 
 func OrderPrintTicket(c *gin.Context) {

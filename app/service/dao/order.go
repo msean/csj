@@ -24,6 +24,10 @@ func newOrderDao() *orderDao {
 
 // Create 创建订单（自动路由到分表）
 func (dao *orderDao) Create(db *gorm.DB, order *model.BatchOrder) error {
+	if err := order.BaseModel.BeforeCreate(db); err != nil {
+		return err
+	}
+	order.TicketNo = utils.UUIDToSerial(order.UID)
 	return db.Table(ShardOrderTable(order.OwnerUser)).Create(order).Error
 }
 
@@ -153,7 +157,7 @@ func (dao *orderDao) CustomerCreditAmountBeforeOrder(db *gorm.DB, ownerUser, use
 
 const effectiveOrderTime = "COALESCE(NULLIF(order_time, 0), FLOOR(UNIX_TIMESTAMP(created_at)))"
 
-// repaymentOrdersThrough 限定为本单及之前的未结清订单。同一秒按分表自增 ID 排序。
+// repaymentOrdersThrough 限定为本单及之前的未结清订单。同一秒按创建时间和 UUID 排序。
 func (dao *orderDao) repaymentOrdersThrough(db *gorm.DB, order model.BatchOrder) *gorm.DB {
 	cutoff := int64(order.OrderTime)
 	if cutoff == 0 {
@@ -162,8 +166,8 @@ func (dao *orderDao) repaymentOrdersThrough(db *gorm.DB, order model.BatchOrder)
 	return db.Table(ShardOrderTable(order.OwnerUser)).
 		Where("owner_user = ? AND user_uuid = ?", order.OwnerUser, order.UserUUID).
 		Where("status IN (?) AND credit_amount > 0 AND deleted_at IS NULL", common.UnFinalStatusOrder).
-		Where("(uid = ? OR "+effectiveOrderTime+" < ? OR ("+effectiveOrderTime+" = ? AND id < ?))",
-			order.UID, cutoff, cutoff, order.AutoID)
+		Where("(uid = ? OR "+effectiveOrderTime+" < ? OR ("+effectiveOrderTime+" = ? AND (created_at < ? OR (created_at = ? AND uid < ?))))",
+			order.UID, cutoff, cutoff, order.CreatedAt, order.CreatedAt, order.UID)
 }
 
 func (dao *orderDao) HistoricalRepaymentCredit(db *gorm.DB, order model.BatchOrder) (amount float64, err error) {
@@ -174,7 +178,7 @@ func (dao *orderDao) HistoricalRepaymentCredit(db *gorm.DB, order model.BatchOrd
 
 func (dao *orderDao) LockRepaymentOrdersThrough(db *gorm.DB, order model.BatchOrder) (orders []model.BatchOrder, err error) {
 	err = dao.repaymentOrdersThrough(db, order).Clauses(clause.Locking{Strength: "UPDATE"}).
-		Order(effectiveOrderTime + " ASC, id ASC").Find(&orders).Error
+		Order(effectiveOrderTime + " ASC, created_at ASC, uid ASC").Find(&orders).Error
 	return
 }
 
@@ -415,7 +419,8 @@ func (dao *orderDao) GetCreditList(db *gorm.DB, ownerUser string, conditions req
 		customerQuery = customerQuery.Where("name LIKE ? OR phone LIKE ?", like, like)
 	}
 
-	customerQuery = customerQuery.Order("credit DESC")
+	// 欠款金额相同时按唯一客户 ID 排序，保证分页边界稳定。
+	customerQuery = customerQuery.Order("credit DESC, uid ASC")
 
 	if !conditions.LoadAll && conditions.PageCount > 0 {
 		offset := (conditions.Page - 1) * conditions.PageCount
